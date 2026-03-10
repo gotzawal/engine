@@ -179,40 +179,4 @@ class ShaderUtils {
     }
 }
 
-function createShader(device, vsName, fsName, useTransformFeedback = false, shaderDefinitionOptions = {}) {
-    Debug.removed('pc.createShader has been removed deprecated. Use ShaderUtils.createShader instead.');
-}
-
-function createShaderFromCode(device, vsCode, fsCode, uniqueName, attributes, useTransformFeedback = false, shaderDefinitionOptions = {}) {
-
-    Debug.deprecated('pc.createShaderFromCode has been deprecated. Use ShaderUtils.createShader instead.');
-
-    // the function signature has changed, fail if called incorrectly
-    Debug.assert(typeof attributes !== 'boolean');
-
-    // Normalize arguments to allow passing shaderDefinitionOptions as the 6th argument
-    if (typeof useTransformFeedback === 'boolean') {
-        shaderDefinitionOptions.useTransformFeedback = useTransformFeedback;
-    } else if (typeof useTransformFeedback === 'object') {
-        shaderDefinitionOptions = {
-            ...shaderDefinitionOptions,
-            ...useTransformFeedback
-        };
-    }
-
-    const programLibrary = getProgramLibrary(device);
-    let shader = programLibrary.getCachedShader(uniqueName);
-    if (!shader) {
-        shader = new Shader(device, ShaderDefinitionUtils.createDefinition(device, {
-            ...shaderDefinitionOptions,
-            name: uniqueName,
-            vertexCode: vsCode,
-            fragmentCode: fsCode,
-            attributes: attributes
-        }));
-        programLibrary.setCachedShader(uniqueName, shader);
-    }
-    return shader;
-}
-
-export { ShaderUtils, createShader, createShaderFromCode };
+export { ShaderUtils };

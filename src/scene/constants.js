@@ -144,13 +144,7 @@ export const fresnelNames = {
     [FRESNEL_SCHLICK]: 'SCHLICK'
 };
 
-// Legacy
-export const LAYER_HUD = 0;
-export const LAYER_GIZMO = 1;
-// 3 - 14 are custom user layers
-export const LAYER_WORLD = 15;
-
-// New layers
+// Layers
 /**
  * The world layer.
  *

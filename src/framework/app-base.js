@@ -749,17 +749,6 @@ class AppBase extends EventHandler {
             this.loader.enableRetry(props.maxAssetRetries);
         }
 
-        // TODO: remove this temporary block after migrating properties
-        if (!props.useDevicePixelRatio) {
-            props.useDevicePixelRatio = props.use_device_pixel_ratio;
-        }
-        if (!props.resolutionMode) {
-            props.resolutionMode = props.resolution_mode;
-        }
-        if (!props.fillMode) {
-            props.fillMode = props.fill_mode;
-        }
-
         this._width = props.width;
         this._height = props.height;
         if (props.useDevicePixelRatio) {

@@ -212,7 +212,6 @@ class Renderer {
         // stats
         this._shadowDrawCalls = 0;
         this._skinDrawCalls = 0;
-        this._instancedDrawCalls = 0;
         this._shadowMapUpdates = 0;
         this._numDrawCallsCulled = 0;
         this._camerasRendered = 0;
@@ -1266,7 +1265,6 @@ class Renderer {
             // #if _PROFILER
             layer._skipRenderCounter = 0;
             layer._forwardDrawCalls = 0;
-            layer._shadowDrawCalls = 0;
             layer._renderTime = 0;
             // #endif
         }

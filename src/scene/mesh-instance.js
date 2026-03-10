@@ -7,7 +7,6 @@ import { VertexBuffer } from '../platform/graphics/vertex-buffer.js';
 import { DrawCommands } from '../platform/graphics/draw-commands.js';
 import { indexFormatByteSize } from '../platform/graphics/constants.js';
 import {
-    LAYER_WORLD,
     MASK_AFFECT_DYNAMIC, MASK_BAKE, MASK_AFFECT_LIGHTMAPPED,
     RENDERSTYLE_SOLID,
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
@@ -440,7 +439,7 @@ class MeshInstance {
     _sortKeyDynamic = 0;
 
     /** @private */
-    _layer = LAYER_WORLD;
+    _layer = 15;
 
     /**
      * @type {Material|null}

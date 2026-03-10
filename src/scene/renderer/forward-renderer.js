@@ -86,7 +86,6 @@ class ForwardRenderer extends Renderer {
 
         this._forwardDrawCalls = 0;
         this._materialSwitches = 0;
-        this._depthMapTime = 0;
         this._forwardTime = 0;
         this._sortTime = 0;
 
@@ -680,17 +679,11 @@ class ForwardRenderer extends Renderer {
                     device.draw(mesh.primitive[style], indexBuffer, instancingData?.count, indirectData, first, last);
 
                     this._forwardDrawCalls++;
-                    if (drawCall.instancingData) {
-                        this._instancedDrawCalls++;
-                    }
                 }
             } else {
                 device.draw(mesh.primitive[style], indexBuffer, instancingData?.count, indirectData);
 
                 this._forwardDrawCalls++;
-                if (drawCall.instancingData) {
-                    this._instancedDrawCalls++;
-                }
             }
 
             // Unset meshInstance overrides back to material values if next draw call will use the same material

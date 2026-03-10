@@ -1,4 +1,3 @@
-import { Debug } from '../../core/debug.js';
 import { BoundingBox } from '../../core/shape/bounding-box.js';
 
 /**
@@ -100,15 +99,6 @@ class Batch {
         this.meshInstance._aabbVer = 0;
     }
 
-    /**
-     * @deprecated
-     * @ignore
-     * @type {undefined}
-     */
-    get model() {
-        Debug.removed('pc.Batch#model was removed. Use pc.Batch#meshInstance to access batched mesh instead.');
-        return undefined;
-    }
 }
 
 export { Batch };
