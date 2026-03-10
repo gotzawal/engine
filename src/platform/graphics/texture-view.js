@@ -11,8 +11,7 @@ const stringIds = new StringIds();
  * when binding textures to compute shaders to specify which portion of the texture should be
  * accessed. Create a TextureView using {@link Texture#getView}.
  *
- * Note: TextureView is only supported on WebGPU. On WebGL, the full texture is always bound and
- * this class has no effect.
+ * Note: TextureView is only supported on WebGPU.
  *
  * @category Graphics
  */

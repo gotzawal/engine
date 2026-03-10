@@ -4,7 +4,7 @@ import { Mat4 } from '../../core/math/mat4.js';
 import { Vec2 } from '../../core/math/vec2.js';
 import {
     PIXELFORMAT_R32U, PIXELFORMAT_RGBA16U, PIXELFORMAT_RGBA32F,
-    BUFFERUSAGE_COPY_DST, SEMANTIC_POSITION, getGlslShaderType
+    BUFFERUSAGE_COPY_DST, SEMANTIC_POSITION, getWgslShaderType
 } from '../../platform/graphics/constants.js';
 import { RenderTarget } from '../../platform/graphics/render-target.js';
 import { StorageBuffer } from '../../platform/graphics/storage-buffer.js';
@@ -91,7 +91,7 @@ class WorkBufferRenderInfo {
         // Build fragmentOutputTypes from streams
         const fragmentOutputTypes = [];
         for (const stream of outputStreams) {
-            const info = getGlslShaderType(stream.format);
+            const info = getWgslShaderType(stream.format);
             fragmentOutputTypes.push(info.returnType);
         }
 

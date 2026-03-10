@@ -3,8 +3,7 @@ import {
     SEMANTIC_POSITION, SEMANTIC_NORMAL, SEMANTIC_TANGENT, SEMANTIC_TEXCOORD0, SEMANTIC_TEXCOORD1, SEMANTIC_TEXCOORD2,
     SEMANTIC_TEXCOORD3, SEMANTIC_TEXCOORD4, SEMANTIC_TEXCOORD5, SEMANTIC_TEXCOORD6, SEMANTIC_TEXCOORD7,
     SEMANTIC_COLOR, SEMANTIC_BLENDINDICES, SEMANTIC_BLENDWEIGHT,
-    SHADERLANGUAGE_WGSL,
-    primitiveGlslToWgslTypeMap
+    SHADERLANGUAGE_WGSL
 } from './constants.js';
 import wgslFS from './shader-chunks/frag/webgpu-wgsl.js';
 import wgslVS from './shader-chunks/vert/webgpu-wgsl.js';
@@ -61,7 +60,7 @@ class ShaderDefinitionUtils {
      * define names and their values. These are used for resolving #ifdef style of directives in the
      * fragment code.
      * @param {string | string[]} [options.fragmentOutputTypes] - Fragment shader output types,
-     * which default to vec4. Passing a string will set the output type for all color attachments.
+     * which default to vec4f. Passing a string will set the output type for all color attachments.
      * Passing an array will set the output type for each color attachment.
      * @returns {object} Returns the created shader definition.
      */
@@ -74,7 +73,7 @@ class ShaderDefinitionUtils {
 
         // Normalize fragmentOutputTypes to an array
         const normalizedOutputTypes = (options) => {
-            let fragmentOutputTypes = options.fragmentOutputTypes ?? 'vec4';
+            let fragmentOutputTypes = options.fragmentOutputTypes ?? 'vec4f';
             if (!Array.isArray(fragmentOutputTypes)) {
                 fragmentOutputTypes = [fragmentOutputTypes];
             }
@@ -86,16 +85,14 @@ class ShaderDefinitionUtils {
             // Enable directives must come before all global declarations
             let code = ShaderDefinitionUtils.getWGSLEnables(device, isVertex ? 'vertex' : 'fragment');
 
-            // Define the fragment shader output type, vec4 by default
+            // Define the fragment shader output type, vec4f by default
             if (!isVertex) {
                 const fragmentOutputTypes = normalizedOutputTypes(options);
 
                 // create alias for each output type
                 for (let i = 0; i < device.maxColorAttachments; i++) {
-                    const glslOutType = fragmentOutputTypes[i] ?? 'vec4';
-                    const wgslOutType = primitiveGlslToWgslTypeMap.get(glslOutType);
-                    Debug.assert(wgslOutType, `Unknown output type translation: ${glslOutType} -> ${wgslOutType}`);
-                    code += `alias pcOutType${i} = ${wgslOutType};\n`;
+                    const outType = fragmentOutputTypes[i] ?? 'vec4f';
+                    code += `alias pcOutType${i} = ${outType};\n`;
                 }
             }
 

@@ -103,7 +103,7 @@ class RenderPassRadixSortReorder extends RenderPassShaderQuad {
             vertexChunk: 'quadVS',
             fragmentChunk: 'radixSortReorderPS',
             fragmentDefines: defines,
-            fragmentOutputTypes: ['uvec4', 'uvec4']  // MRT: keys (uint) and indices (uint)
+            fragmentOutputTypes: ['vec4u', 'vec4u']  // MRT: keys (uint) and indices (uint)
         });
 
         // Resolve uniform locations

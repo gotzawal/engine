@@ -118,7 +118,7 @@ class RenderTarget {
      * @param {boolean} [options.depth] - If set to true, depth buffer will be created. Defaults to
      * true. Ignored if depthBuffer is defined.
      * @param {Texture} [options.depthBuffer] - The texture that this render target will treat as a
-     * depth/stencil surface (WebGL2 only). If set, the 'depth' and 'stencil' properties are
+     * depth/stencil surface. If set, the 'depth' and 'stencil' properties are
      * ignored. Texture must have {@link PIXELFORMAT_DEPTH} or {@link PIXELFORMAT_DEPTHSTENCIL}
      * format.
      * @param {number} [options.mipLevel] - If set to a number greater than 0, the render target
@@ -420,7 +420,7 @@ class RenderTarget {
     }
 
     /**
-     * If samples > 1, resolves the anti-aliased render target (WebGL2 only). When you're rendering
+     * If samples > 1, resolves the anti-aliased render target. When you're rendering
      * to an anti-aliased render target, pixels aren't written directly to the readable texture.
      * Instead, they're first written to a MSAA buffer, where each sample for each pixel is stored
      * independently. In order to read the results, you first need to 'resolve' the buffer - to
@@ -446,7 +446,7 @@ class RenderTarget {
 
     /**
      * Copies color and/or depth contents of source render target to this one. Formats, sizes and
-     * anti-aliasing samples must match. Depth buffer can only be copied on WebGL 2.0.
+     * anti-aliasing samples must match.
      *
      * @param {RenderTarget} source - Source render target to copy from.
      * @param {boolean} [color] - If true, will copy the color buffer. Defaults to false.

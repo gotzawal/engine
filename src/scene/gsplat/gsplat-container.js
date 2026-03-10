@@ -40,14 +40,7 @@ import { GSplatResourceBase } from './gsplat-resource-base.js';
  * const format = new pc.GSplatFormat(device, [
  *     { name: 'data', format: pc.PIXELFORMAT_RGBA32F }
  * ], {
- *     // Shader code to read splat attributes from the texture
- *     readGLSL: `
- *         vec4 d = loadData();
- *         splatCenter = d.xyz;
- *         splatColor = vec4(1.0);
- *         splatScale = vec3(d.w);
- *         splatRotation = vec4(0, 0, 0, 1);
- *     `,
+ *     // WGSL shader code to read splat attributes from the texture
  *     readWGSL: `
  *         let d = loadData();
  *         splatCenter = d.xyz;

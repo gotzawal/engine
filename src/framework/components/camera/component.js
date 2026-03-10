@@ -3,7 +3,6 @@ import { ASPECT_AUTO, LAYERID_UI, LAYERID_DEPTH } from '../../../scene/constants
 import { Camera } from '../../../scene/camera.js';
 import { ShaderPass } from '../../../scene/shader-pass.js';
 import { Component } from '../component.js';
-import { PostEffectQueue } from './post-effect-queue.js';
 
 /**
  * @import { CameraComponentSystem } from './system.js'
@@ -65,14 +64,6 @@ import { PostEffectQueue } from './post-effect-queue.js';
  */
 class CameraComponent extends Component {
     /**
-     * Custom function that is called when postprocessing should execute.
-     *
-     * @type {Function|null}
-     * @ignore
-     */
-    onPostprocessing = null;
-
-    /**
      * A counter of requests of depth map rendering.
      *
      * @type {number}
@@ -97,13 +88,6 @@ class CameraComponent extends Component {
     /** @private */
     _priority = 0;
 
-    /**
-     * Layer id at which the postprocessing stops for the camera.
-     *
-     * @type {number}
-     * @private
-     */
-    _disablePostEffectsLayer = LAYERID_UI;
 
     /** @private */
     _camera = new Camera();
@@ -136,9 +120,6 @@ class CameraComponent extends Component {
         super(system, entity);
 
         this._camera.node = entity;
-
-        // postprocessing management
-        this._postEffects = new PostEffectQueue(system.app, this);
     }
 
     /**
@@ -545,29 +526,6 @@ class CameraComponent extends Component {
     }
 
     /**
-     * Sets the layer id of the layer on which the post-processing of the camera stops being applied
-     * to. Defaults to {@link LAYERID_UI}, which causes post-processing to not be applied to UI
-     * layer and any following layers for the camera. Set to `undefined` for post-processing to be
-     * applied to all layers of the camera.
-     *
-     * @type {number}
-     */
-    set disablePostEffectsLayer(layer) {
-        this._disablePostEffectsLayer = layer;
-        this.dirtyLayerCompositionCameras();
-    }
-
-    /**
-     * Gets the layer id of the layer on which the post-processing of the camera stops being applied
-     * to.
-     *
-     * @type {number}
-     */
-    get disablePostEffectsLayer() {
-        return this._disablePostEffectsLayer;
-    }
-
-    /**
      * Sets the distance from the camera after which no rendering will take place. Defaults to 1000.
      *
      * @type {number}
@@ -774,20 +732,6 @@ class CameraComponent extends Component {
      */
     get orthoHeight() {
         return this._camera.orthoHeight;
-    }
-
-    /**
-     * Gets the post effects queue for this camera. Use this to add or remove post effects from the
-     * camera.
-     *
-     * @type {PostEffectQueue}
-     */
-    get postEffects() {
-        return this._postEffects;
-    }
-
-    get postEffectsEnabled() {
-        return this._postEffects.enabled;
     }
 
     /**
@@ -1182,14 +1126,11 @@ class CameraComponent extends Component {
             this.addCameraToLayers();
         }
 
-        this.postEffects.enable();
     }
 
     onDisable() {
         const scene = this.system.app.scene;
         const layers = scene.layers;
-
-        this.postEffects.disable();
 
         this.removeCameraFromLayers();
 
@@ -1325,8 +1266,8 @@ class CameraComponent extends Component {
     }
 
     /**
-     * Function to copy properties from the source CameraComponent. Properties not copied:
-     * postEffects. Inherited properties not copied (all): system, entity, enabled.
+     * Function to copy properties from the source CameraComponent.
+     * Inherited properties not copied (all): system, entity, enabled.
      *
      * @param {CameraComponent} source - The source component.
      * @ignore
@@ -1342,7 +1283,6 @@ class CameraComponent extends Component {
         this.clearDepthBuffer = source.clearDepthBuffer;
         this.clearStencilBuffer = source.clearStencilBuffer;
         this.cullFaces = source.cullFaces;
-        this.disablePostEffectsLayer = source.disablePostEffectsLayer;
         this.farClip = source.farClip;
         this.flipFaces = source.flipFaces;
         this.fov = source.fov;

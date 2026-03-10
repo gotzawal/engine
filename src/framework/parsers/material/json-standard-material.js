@@ -45,7 +45,7 @@ class JsonStandardMaterialParser {
 
         if (data.chunks) {
             if (data.chunks && Object.keys(data.chunks).length > 0) {
-                const dstMap = material.shaderChunks.glsl;
+                const dstMap = material.shaderChunks.wgsl;
                 Object.entries(data.chunks).forEach(([key, value]) => dstMap.set(key, value));
             }
         }

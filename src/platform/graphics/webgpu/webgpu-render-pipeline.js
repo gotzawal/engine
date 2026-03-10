@@ -364,14 +364,14 @@ class WebgpuRenderPipeline extends WebgpuPipeline {
         const colorAttachments = renderTarget.impl.colorAttachments;
         if (colorAttachments.length > 0) {
 
-            // the same write mask is used by all color buffers, to match the WebGL behavior
+            // the same write mask is used by all color buffers
             let writeMask = 0;
             if (blendState.redWrite) writeMask |= GPUColorWrite.RED;
             if (blendState.greenWrite) writeMask |= GPUColorWrite.GREEN;
             if (blendState.blueWrite) writeMask |= GPUColorWrite.BLUE;
             if (blendState.alphaWrite) writeMask |= GPUColorWrite.ALPHA;
 
-            // the same blend state is used by all color buffers, to match the WebGL behavior
+            // the same blend state is used by all color buffers
             const blend = this.getBlend(blendState);
 
             colorAttachments.forEach((attachment) => {

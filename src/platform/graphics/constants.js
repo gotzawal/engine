@@ -1092,27 +1092,9 @@ export const isIntegerPixelFormat = (format) => {
 };
 
 // Cached shader type objects
-const GLSL_FLOAT = { sampler: 'sampler2D', returnType: 'vec4' };
-const GLSL_UINT = { sampler: 'usampler2D', returnType: 'uvec4' };
-const GLSL_INT = { sampler: 'isampler2D', returnType: 'ivec4' };
-
 const WGSL_FLOAT = { textureType: 'texture_2d<f32>', returnType: 'vec4f' };
 const WGSL_UINT = { textureType: 'texture_2d<u32>', returnType: 'vec4u' };
 const WGSL_INT = { textureType: 'texture_2d<i32>', returnType: 'vec4i' };
-
-/**
- * Returns GLSL shader type info for the given pixel format.
- *
- * @param {number} format - The pixel format constant.
- * @returns {{ sampler: string, returnType: string }} GLSL sampler and return type.
- * @ignore
- */
-export const getGlslShaderType = (format) => {
-    const info = pixelFormatInfo.get(format);
-    if (info?.isUint) return GLSL_UINT;
-    if (info?.isInt) return GLSL_INT;
-    return GLSL_FLOAT;
-};
 
 /**
  * Returns WGSL shader type info for the given pixel format.
@@ -1949,7 +1931,7 @@ export const UNIFORMTYPE_UTEXTURE2D_ARRAY = 49;
 
 // ----------
 
-// Uniform types in GLSL
+// Uniform types
 export const uniformTypeToName = [
     // Uniforms
     'bool',
@@ -2234,27 +2216,6 @@ export const typedArrayToType = {
 // map of engine INDEXFORMAT_*** to their corresponding typed array constructors and byte sizes
 export const typedArrayIndexFormats = [Uint8Array, Uint16Array, Uint32Array];
 export const typedArrayIndexFormatsByteSize = [1, 2, 4];
-
-// map of primitive GLSL types to their corresponding WGSL types
-export const primitiveGlslToWgslTypeMap = new Map([
-    // floating-point
-    ['float',  'f32'],
-    ['vec2',   'vec2f'],
-    ['vec3',   'vec3f'],
-    ['vec4',   'vec4f'],
-
-    // signed integer
-    ['int',    'i32'],
-    ['ivec2',  'vec2i'],
-    ['ivec3',  'vec3i'],
-    ['ivec4',  'vec4i'],
-
-    // unsigned integer
-    ['uint',   'u32'],
-    ['uvec2',  'vec2u'],
-    ['uvec3',  'vec3u'],
-    ['uvec4',  'vec4u']
-]);
 
 /**
  * Map of engine semantics into location on device in range 0..15 (note - semantics mapping to the

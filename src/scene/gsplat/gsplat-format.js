@@ -85,7 +85,7 @@ class GSplatFormat {
     streams;
 
     /**
-     * User-provided code for reading splat data (GLSL or WGSL based on device).
+     * User-provided WGSL code for reading splat data.
      * Must define getCenter(), getColor(), getRotation(), getScale() functions.
      *
      * @type {string}
@@ -382,8 +382,7 @@ class GSplatFormat {
     /**
      * Generates output declarations (write functions) for MRT output streams.
      * Used by GSplatProcessor to generate output functions for dstStreams.
-     * Each stream maps to an MRT slot (pcFragColor0, pcFragColor1, etc. in GLSL or
-     * processOutput.color, processOutput.color1, etc. in WGSL).
+     * Each stream maps to an MRT slot (processOutput.color, processOutput.color1, etc. in WGSL).
      *
      * @param {GSplatStreamDescriptor[]} outputStreams - Stream descriptors for output.
      * @returns {string} Shader code for output write functions.

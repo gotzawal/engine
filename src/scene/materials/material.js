@@ -135,7 +135,7 @@ class Material {
     alphaTest = 0;
 
     /**
-     * Enables or disables alpha to coverage (WebGL2 only). When enabled, and if hardware
+     * Enables or disables alpha to coverage. When enabled, and if hardware
      * anti-aliasing is on, limited order-independent transparency can be achieved. Quality depends
      * on the number of MSAA samples of the current render target. It can nicely soften edges of
      * otherwise sharp alpha cutouts, but isn't recommended for large area semi-transparent
@@ -237,21 +237,10 @@ class Material {
     }
 
     /**
-     * Returns an object containing shader chunks for a specific shader language for the material.
-     * These chunks define custom GLSL or WGSL code used to construct the final shader for the
+     * Returns an object containing shader chunks for WGSL for the material.
+     * These chunks define custom WGSL code used to construct the final shader for the
      * material. The chunks can be also be included in shaders using the `#include "ChunkName"`
      * directive.
-     *
-     * On the WebGL platform:
-     *  - If GLSL chunks are provided, they are used directly.
-     *
-     * On the WebGPU platform:
-     * - If WGSL chunks are provided, they are used directly.
-     * - If only GLSL chunks are provided, a GLSL shader is generated and then transpiled to WGSL,
-     * which is less efficient.
-     *
-     * To ensure faster shader compilation, it is recommended to provide shader chunks for all
-     * supported platforms.
      *
      * A simple example on how to override a shader chunk providing emissive color in WGSL
      * to simply return a red color:
@@ -723,7 +712,7 @@ class Material {
         // handle deprecated chunks for backwards compatibility
         if (Object.keys(this._oldChunks).length > 0) {
             for (const [key, value] of Object.entries(this._oldChunks)) {
-                this.shaderChunks.glsl.set(key, value);
+                this.shaderChunks.wgsl.set(key, value);
                 delete this._oldChunks[key];
             }
         }

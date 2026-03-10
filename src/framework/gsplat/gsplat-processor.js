@@ -1,6 +1,6 @@
 import { Debug } from '../../core/debug.js';
 import { hashCode } from '../../core/hash.js';
-import { SEMANTIC_POSITION, getGlslShaderType } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, getWgslShaderType } from '../../platform/graphics/constants.js';
 import { BlendState } from '../../platform/graphics/blend-state.js';
 import { RenderTarget } from '../../platform/graphics/render-target.js';
 import { QuadRender } from '../../scene/graphics/quad-render.js';
@@ -62,20 +62,6 @@ import wgslGsplatProcess from '../../scene/shader-lib/wgsl/chunks/gsplat/frag/gs
  *     { component: entity.gsplat },  // source: all streams auto-bound
  *     { component: entity.gsplat, streams: ['customColor'] }, // destination: customColor stream only
  *     {
- *         processGLSL: `
- *             uniform vec4 uPaintSphere;
- *             uniform vec4 uPaintColor;
- *
- *             void process() {
- *                 vec3 center = getCenter();
- *                 float dist = distance(center, uPaintSphere.xyz);
- *                 if (dist < uPaintSphere.w) {
- *                     writeCustomColor(uPaintColor);
- *                 } else {
- *                     writeCustomColor(vec4(0.0));
- *                 }
- *             }
- *         `,
  *         processWGSL: `
  *             uniform uPaintSphere: vec4f;
  *             uniform uPaintColor: vec4f;
@@ -212,8 +198,6 @@ class GSplatProcessor {
      * @param {GSplatProcessorBinding} destination - Destination configuration specifying where to write.
      * Can specify resource directly or component (for instance textures).
      * @param {object} options - Shader options for the processing logic.
-     * @param {string} [options.processGLSL] - GLSL code at module scope. Must define a `void process()`
-     * function that implements the processing logic. Can include uniform declarations and helper functions.
      * @param {string} [options.processWGSL] - WGSL code at module scope. Must define a `fn process()`
      * function that implements the processing logic. Can include uniform declarations and helper functions.
      */
@@ -354,7 +338,7 @@ class GSplatProcessor {
      * @private
      */
     _createShader(options) {
-        const { processGLSL = '', processWGSL = '' } = options;
+        const { processWGSL = '' } = options;
         const device = this._device;
         const srcFormat = this._srcResource.format;
         const dstFormat = this._dstResource.format;
@@ -388,7 +372,7 @@ class GSplatProcessor {
 
         // Build fragment output types for MRT
         const fragmentOutputTypes = this._dstStreamDescriptors.map((stream) => {
-            const info = getGlslShaderType(stream.format);
+            const info = getWgslShaderType(stream.format);
             return info.returnType;
         });
 

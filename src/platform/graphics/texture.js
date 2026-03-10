@@ -40,29 +40,22 @@ let id = 0;
  * Note on **HDR texture format** support:
  * 1. **As textures**:
  *     - float (i.e. {@link PIXELFORMAT_RGBA32F}), half-float (i.e. {@link PIXELFORMAT_RGBA16F}) and
- * small-float ({@link PIXELFORMAT_111110F}) formats are always supported on both WebGL2 and WebGPU
- * with point sampling.
- *     - half-float and small-float formats are always supported on WebGL2 and WebGPU with linear
- * sampling.
- *     - float formats are supported on WebGL2 and WebGPU with linear sampling only if
+ * small-float ({@link PIXELFORMAT_111110F}) formats are always supported with point sampling.
+ *     - half-float and small-float formats are always supported with linear sampling.
+ *     - float formats are supported with linear sampling only if
  * {@link GraphicsDevice#textureFloatFilterable} is true.
  *     - {@link PIXELFORMAT_RGB9E5} is a compact HDR format with shared exponent, supported for
- * sampling on both WebGL2 and WebGPU, but cannot be used as a render target.
+ * sampling but cannot be used as a render target.
  *
  * 2. **As renderable textures** that can be used as color buffers in a {@link RenderTarget}:
- *     - on WebGPU, rendering to float and half-float formats is always supported.
- *     - on WebGPU, rendering to small-float format is supported only if
+ *     - rendering to float and half-float formats is always supported.
+ *     - rendering to small-float format is supported only if
  * {@link GraphicsDevice#textureRG11B10Renderable} is true.
- *     - on WebGL2, rendering to these 3 formats formats is supported only if
- * {@link GraphicsDevice#textureFloatRenderable} is true.
- *     - on WebGL2, if {@link GraphicsDevice#textureFloatRenderable} is false, but
- * {@link GraphicsDevice#textureHalfFloatRenderable} is true, rendering to half-float formats only
- * is supported. This is the case of many mobile iOS devices.
  *     - you can determine available renderable HDR format using
  * {@link GraphicsDevice#getRenderableHdrFormat}.
  *     - {@link PIXELFORMAT_RGB10A2} provides 10 bits per RGB channel with 2-bit alpha, offering
- * higher precision than {@link PIXELFORMAT_RGBA8} at the same memory cost. It is renderable on
- * both WebGL2 and WebGPU. {@link PIXELFORMAT_RGB10A2U} is the unsigned integer variant.
+ * higher precision than {@link PIXELFORMAT_RGBA8} at the same memory cost.
+ * {@link PIXELFORMAT_RGB10A2U} is the unsigned integer variant.
  * @category Graphics
  */
 class Texture {
@@ -1216,8 +1209,7 @@ class Texture {
      * @param {object} [options] - Object for passing optional arguments.
      * @param {RenderTarget} [options.renderTarget] - The render target using the texture as a color
      * buffer. Provide as an optimization to avoid creating a new render target. Important especially
-     * when this function is called with high frequency (per frame). Note that this is only utilized
-     * on the WebGL platform, and ignored on WebGPU.
+     * when this function is called with high frequency (per frame).
      * @param {number} [options.mipLevel] - The mip level to download. Defaults to 0.
      * @param {number} [options.face] - The face to download. Defaults to 0.
      * @param {Uint8Array|Uint16Array|Uint32Array|Float32Array} [options.data] - The data buffer to
@@ -1253,7 +1245,7 @@ class Texture {
      * Creates a TextureView for this texture, specifying a subset of mip levels and array layers.
      * TextureViews can be used with compute shaders to access specific portions of a texture.
      *
-     * Note: TextureView is only supported on WebGPU. On WebGL, the full texture is always bound.
+     * Note: TextureView is only supported on WebGPU.
      *
      * @param {number} [baseMipLevel] - The first mip level accessible to the view. Defaults to 0.
      * @param {number} [mipLevelCount] - The number of mip levels accessible to the view. Defaults

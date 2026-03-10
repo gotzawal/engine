@@ -1284,7 +1284,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     }
 
     /**
-     * Copies source render target into destination render target. Mostly used by post-effects.
+     * Copies source render target into destination render target.
      *
      * @param {RenderTarget} [source] - The source render target. Defaults to frame buffer.
      * @param {RenderTarget} [dest] - The destination render target. Defaults to frame buffer.

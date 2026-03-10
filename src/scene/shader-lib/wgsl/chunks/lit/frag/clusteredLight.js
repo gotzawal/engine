@@ -17,7 +17,7 @@ var clusterWorldTexture: texture_2d<u32>;
 var lightsTexture: texture_2d<uff>;
 
 #ifdef CLUSTER_SHADOWS
-    // TODO: when VSM shadow is supported, it needs to use sampler2D in webgl2
+    // TODO: when VSM shadow is supported, this may need a different sampler type
     var shadowAtlasTexture: texture_depth_2d;
     var shadowAtlasTextureSampler: sampler_comparison;
 #endif

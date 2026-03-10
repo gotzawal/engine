@@ -88,7 +88,7 @@ class GeometryVertexStream {
         this.componentCount = componentCount;       // number of components
         this.dataType = dataType;                   // format of elements (pc.TYPE_FLOAT32 ..)
         this.dataTypeNormalize = dataTypeNormalize; // normalize element (divide by 255)
-        this.asInt = asInt;                         // treat data as integer (WebGL2 and WebGPU only)
+        this.asInt = asInt;                         // treat data as integer
     }
 }
 
@@ -201,7 +201,7 @@ class Mesh extends RefCountedObject {
      *   - {@link PRIMITIVE_TRIFAN}
      *
      * - `base` is the offset of the first index or vertex to dispatch in the draw call.
-     * - `baseVertex` is the number added to each index value before indexing into the vertex buffers. (supported only in WebGPU, ignored in WebGL2)
+     * - `baseVertex` is the number added to each index value before indexing into the vertex buffers.
      * - `count` is the number of indices or vertices to dispatch in the draw call.
      * - `indexed` specifies whether to interpret the primitive as indexed, thereby using the
      * currently set index buffer.

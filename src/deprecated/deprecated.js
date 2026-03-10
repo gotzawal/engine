@@ -15,7 +15,6 @@ import {
 import { drawQuadWithShader } from '../scene/graphics/quad-render-utils.js';
 import { GraphicsDevice } from '../platform/graphics/graphics-device.js';
 import { LayerComposition } from '../scene/composition/layer-composition.js';
-import { RenderTarget } from '../platform/graphics/render-target.js';
 import { Texture } from '../platform/graphics/texture.js';
 import { VertexFormat } from '../platform/graphics/vertex-format.js';
 import { BlendState } from '../platform/graphics/blend-state.js';
@@ -159,7 +158,7 @@ export function createMesh(device, positions, opts = {}) {
 
 export function drawFullscreenQuad(device, target, vertexBuffer, shader, rect) {
 
-    Debug.deprecated('pc.drawFullscreenQuad is deprecated. When used as part of PostEffect, use PostEffect#drawQuad instead.');
+    Debug.deprecated('pc.drawFullscreenQuad is deprecated. Use drawQuadWithShader instead.');
 
     // convert rect in normalized space to viewport in pixel space
     let viewport;
@@ -171,19 +170,6 @@ export function drawFullscreenQuad(device, target, vertexBuffer, shader, rect) {
 
     drawQuadWithShader(device, target, shader, viewport);
 }
-
-// Note: This was never public interface, but has been used in external scripts
-Object.defineProperties(RenderTarget.prototype, {
-    _glFrameBuffer: {
-        get: function () {
-            Debug.deprecated('pc.RenderTarget#_glFrameBuffer is deprecated. Use pc.RenderTarget.impl#_glFrameBuffer instead.');
-            return this.impl._glFrameBuffer;
-        },
-        set: function (rgbm) {
-            Debug.deprecated('pc.RenderTarget#_glFrameBuffer is deprecated. Use pc.RenderTarget.impl#_glFrameBuffer instead.');
-        }
-    }
-});
 
 Object.defineProperty(VertexFormat, 'defaultInstancingFormat', {
     get: function () {
@@ -215,12 +201,6 @@ Object.defineProperties(Texture.prototype, {
         }
     },
 
-    _glTexture: {
-        get: function () {
-            Debug.deprecated('pc.Texture#_glTexture is no longer available, use Use pc.Texture.impl._glTexture instead.');
-            return this.impl._glTexture;
-        }
-    }
 });
 
 Object.defineProperty(GraphicsDevice.prototype, 'boneLimit', {

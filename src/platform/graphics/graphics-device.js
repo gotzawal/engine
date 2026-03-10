@@ -61,7 +61,7 @@ class GraphicsDevice extends EventHandler {
      */
 
     /**
-     * The canvas DOM element that provides the underlying WebGL context used by the graphics device.
+     * The canvas DOM element that provides the underlying WebGPU context used by the graphics device.
      *
      * @type {HTMLCanvasElement}
      * @readonly
@@ -221,8 +221,7 @@ class GraphicsDevice extends EventHandler {
     supportsStencil;
 
     /**
-     * True if the device supports multi-draw. This is always supported on WebGPU, and support on
-     * WebGL2 is optional, but pretty common.
+     * True if the device supports multi-draw.
      *
      * @type {boolean}
      */
@@ -410,7 +409,7 @@ class GraphicsDevice extends EventHandler {
 
     /**
      * True if small-float textures with format {@link PIXELFORMAT_111110F} can be used as a frame
-     * buffer. This is always true on WebGL2, but optional on WebGPU device.
+     * buffer. This is optional on WebGPU device.
      *
      * @type {boolean}
      * @readonly

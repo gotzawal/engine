@@ -354,7 +354,7 @@ class TextElement {
             this._symbols = results.symbols;
             // NOTE: if results.tags is null, we assign [] to increase
             // probability of batching. So, if a user want to use as less
-            // WebGL buffers memory as possible they can just disable markups.
+            // GPU buffer memory as possible they can just disable markups.
             tags = results.tags || [];
         }
 

@@ -32,7 +32,6 @@ class GSplatSogResource extends GSplatResourceBase {
         // Create format with streams and shader chunk include
         // Note: We don't call streams.init() as textures are externally managed by gsplatData
         this._format = new GSplatFormat(device, streams, {
-            readGLSL: '#include "gsplatSogVS"',
             readWGSL: '#include "gsplatSogVS"'
         });
 

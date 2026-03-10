@@ -22,8 +22,6 @@ const options = new LitMaterialOptions();
 class LitMaterial extends Material {
     usedUvs = [true];
 
-    shaderChunkGLSL = null;
-
     shaderChunkWGSL = null;
 
     useLighting = true;
@@ -90,7 +88,6 @@ class LitMaterial extends Material {
     getShaderVariant(params) {
 
         options.usedUvs = this.usedUvs.slice();
-        options.shaderChunkGLSL = this.shaderChunkGLSL;
         options.shaderChunkWGSL = this.shaderChunkWGSL;
         options.defines = ShaderUtils.getCoreDefines(this, params);
 
