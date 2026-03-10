@@ -4,12 +4,17 @@ import { restore, stub } from 'sinon';
 import { Quat } from '../../../../src/core/math/quat.js';
 import { Vec3 } from '../../../../src/core/math/vec3.js';
 import { platform } from '../../../../src/core/platform.js';
-import { Application } from '../../../../src/framework/application.js';
+import { AppBase } from '../../../../src/framework/app-base.js';
+import { AppOptions } from '../../../../src/framework/app-options.js';
 import { ElementDragHelper } from '../../../../src/framework/components/element/element-drag-helper.js';
 import { Entity } from '../../../../src/framework/entity.js';
 import { NullGraphicsDevice } from '../../../../src/platform/graphics/null/null-graphics-device.js';
 import { Mouse } from '../../../../src/platform/input/mouse.js';
 import { TouchDevice } from '../../../../src/platform/input/touch-device.js';
+import { ElementComponentSystem } from '../../../../src/framework/components/element/system.js';
+import { CameraComponentSystem } from '../../../../src/framework/components/camera/system.js';
+import { ScreenComponentSystem } from '../../../../src/framework/components/screen/system.js';
+import { ScriptComponentSystem } from '../../../../src/framework/components/script/system.js';
 import { jsdomSetup, jsdomTeardown } from '../../../jsdom.mjs';
 
 describe('ElementDragHelper', function () {
@@ -63,11 +68,21 @@ describe('ElementDragHelper', function () {
         const graphicsDevice = new NullGraphicsDevice(canvas);
         graphicsDevice.updateClientRect();
 
-        app = new Application(canvas, {
-            graphicsDevice,
-            mouse: new Mouse(canvas),
-            touch: new TouchDevice(canvas)
-        });
+        app = new AppBase(canvas);
+        const appOptions = new AppOptions();
+        appOptions.graphicsDevice = graphicsDevice;
+        appOptions.elementInput = null;
+        appOptions.keyboard = null;
+        appOptions.mouse = new Mouse(canvas);
+        appOptions.touch = new TouchDevice(canvas);
+        appOptions.componentSystems = [
+            ElementComponentSystem,
+            CameraComponentSystem,
+            ScreenComponentSystem,
+            ScriptComponentSystem
+        ];
+        appOptions.resourceHandlers = [];
+        app.init(appOptions);
 
         entity = new Entity('entity', app);
         element = entity.addComponent('element', {

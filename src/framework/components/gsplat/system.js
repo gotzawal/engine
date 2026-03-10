@@ -6,9 +6,8 @@ import { Component } from '../component.js';
 import { ComponentSystem } from '../system.js';
 import { GSplatComponent } from './component.js';
 import { GSplatComponentData } from './data.js';
-import { gsplatChunksGLSL } from '../../../scene/shader-lib/glsl/collections/gsplat-chunks-glsl.js';
 import { gsplatChunksWGSL } from '../../../scene/shader-lib/wgsl/collections/gsplat-chunks-wgsl.js';
-import { SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../../platform/graphics/constants.js';
+import { SHADERLANGUAGE_WGSL } from '../../../platform/graphics/constants.js';
 import { ShaderChunks } from '../../../scene/shader-lib/shader-chunks.js';
 
 // Register warning for removed customization chunk
@@ -121,7 +120,6 @@ class GSplatComponentSystem extends ComponentSystem {
         app.renderer.gsplatDirector = new GSplatDirector(app.graphicsDevice, app.renderer, app.scene, this);
 
         // register gsplat shader chunks
-        ShaderChunks.get(app.graphicsDevice, SHADERLANGUAGE_GLSL).add(gsplatChunksGLSL);
         ShaderChunks.get(app.graphicsDevice, SHADERLANGUAGE_WGSL).add(gsplatChunksWGSL);
 
         this.on('beforeremove', this.onRemove, this);

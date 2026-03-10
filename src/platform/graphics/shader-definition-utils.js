@@ -4,16 +4,10 @@ import {
     SEMANTIC_TEXCOORD3, SEMANTIC_TEXCOORD4, SEMANTIC_TEXCOORD5, SEMANTIC_TEXCOORD6, SEMANTIC_TEXCOORD7,
     SEMANTIC_COLOR, SEMANTIC_BLENDINDICES, SEMANTIC_BLENDWEIGHT,
     SHADERLANGUAGE_WGSL,
-    SHADERLANGUAGE_GLSL,
     primitiveGlslToWgslTypeMap
 } from './constants.js';
-import gles3FS from './shader-chunks/frag/gles3.js';
-import gles3VS from './shader-chunks/vert/gles3.js';
-import webgpuFS from './shader-chunks/frag/webgpu.js';
-import webgpuVS from './shader-chunks/vert/webgpu.js';
 import wgslFS from './shader-chunks/frag/webgpu-wgsl.js';
 import wgslVS from './shader-chunks/vert/webgpu-wgsl.js';
-import sharedGLSL from './shader-chunks/frag/shared.js';
 import sharedWGSL from './shader-chunks/frag/shared-wgsl.js';
 import halfTypes from './shader-chunks/frag/half-types.js';
 
@@ -54,12 +48,6 @@ class ShaderDefinitionUtils {
      * not provided.
      * @param {string} options.vertexCode - The vertex shader code.
      * @param {string} [options.fragmentCode] - The fragment shader code.
-     * @param {string} [options.fragmentPreamble] - The preamble string for the fragment shader.
-     * @param {string[]} [options.feedbackVaryings] - A list of shader output variable
-     * names that will be captured when using transform feedback. This setting is only effective
-     * if the useTransformFeedback property is enabled.
-     * @param {boolean} [options.useTransformFeedback] - Whether to use transform feedback. Defaults
-     * to false.
      * @param {Map<string, string>} [options.vertexIncludes] - A map containing key-value pairs of
      * include names and their content. These are used for resolving #include directives in the
      * vertex shader source.
@@ -93,27 +81,6 @@ class ShaderDefinitionUtils {
             return fragmentOutputTypes;
         };
 
-        const getDefines = (gpu, gl2, isVertex, options) => {
-
-            const deviceIntro = device.isWebGPU ? gpu : gl2;
-
-            // a define per supported color attachment, which strips out unsupported output definitions in the deviceIntro
-            let attachmentsDefine = '';
-
-            // Define the fragment shader output type, vec4 by default
-            if (!isVertex) {
-                const fragmentOutputTypes = normalizedOutputTypes(options);
-
-                for (let i = 0; i < device.maxColorAttachments; i++) {
-                    attachmentsDefine += `#define COLOR_ATTACHMENT_${i}\n`;
-                    const outType = fragmentOutputTypes[i] ?? 'vec4';
-                    attachmentsDefine += `#define outType_${i} ${outType}\n`;
-                }
-            }
-
-            return attachmentsDefine + deviceIntro;
-        };
-
         const getDefinesWgsl = (isVertex, options) => {
 
             // Enable directives must come before all global declarations
@@ -136,69 +103,36 @@ class ShaderDefinitionUtils {
         };
 
         const name = options.name ?? 'Untitled';
-        let vertCode;
-        let fragCode;
 
         const vertexDefinesCode = ShaderDefinitionUtils.getDefinesCode(device, options.vertexDefines);
         const fragmentDefinesCode = ShaderDefinitionUtils.getDefinesCode(device, options.fragmentDefines);
-        const wgsl = options.shaderLanguage === SHADERLANGUAGE_WGSL;
 
-        if (wgsl) {
+        const vertCode = `
+            ${getDefinesWgsl(true, options)}
+            ${vertexDefinesCode}
+            ${halfTypes}
+            ${wgslVS}
+            ${sharedWGSL}
+            ${options.vertexCode}
+        `;
 
-            vertCode = `
-                ${getDefinesWgsl(true, options)}
-                ${vertexDefinesCode}
-                ${halfTypes}
-                ${wgslVS}
-                ${sharedWGSL}
-                ${options.vertexCode}
-            `;
-
-            fragCode = `
-                ${getDefinesWgsl(false, options)}
-                ${fragmentDefinesCode}
-                ${halfTypes}
-                ${wgslFS}
-                ${sharedWGSL}
-                ${options.fragmentCode}
-            `;
-
-        } else {
-
-            Debug.assert(options.vertexCode);
-
-            // vertex code
-            vertCode = `${ShaderDefinitionUtils.versionCode(device) +
-                getDefines(webgpuVS, gles3VS, true, options) +
-                vertexDefinesCode +
-                ShaderDefinitionUtils.precisionCode(device)}
-                ${sharedGLSL}
-                ${ShaderDefinitionUtils.getShaderNameCode(name)}
-                ${options.vertexCode}`;
-
-            Debug.assert(options.fragmentCode);
-
-            // fragment code
-            fragCode = `${(options.fragmentPreamble || '') +
-                ShaderDefinitionUtils.versionCode(device) +
-                getDefines(webgpuFS, gles3FS, false, options) +
-                fragmentDefinesCode +
-                ShaderDefinitionUtils.precisionCode(device)}
-                ${sharedGLSL}
-                ${ShaderDefinitionUtils.getShaderNameCode(name)}
-                ${options.fragmentCode}`;
-        }
+        const fragCode = `
+            ${getDefinesWgsl(false, options)}
+            ${fragmentDefinesCode}
+            ${halfTypes}
+            ${wgslFS}
+            ${sharedWGSL}
+            ${options.fragmentCode}
+        `;
 
         return {
             name: name,
-            shaderLanguage: options.shaderLanguage ?? SHADERLANGUAGE_GLSL,
+            shaderLanguage: SHADERLANGUAGE_WGSL,
             attributes: options.attributes,
             vshader: vertCode,
             vincludes: options.vertexIncludes,
             fincludes: options.fragmentIncludes,
             fshader: fragCode,
-            feedbackVaryings: options.feedbackVaryings,
-            useTransformFeedback: options.useTransformFeedback,
             meshUniformBufferFormat: options.meshUniformBufferFormat,
             meshBindGroupFormat: options.meshBindGroupFormat
         };
@@ -249,91 +183,6 @@ class ShaderDefinitionUtils {
     // SpectorJS integration
     static getShaderNameCode(name) {
         return `#define SHADER_NAME ${name}\n`;
-    }
-
-    static versionCode(device) {
-        return device.isWebGPU ? '#version 450\n' : '#version 300 es\n';
-    }
-
-    static precisionCode(device, forcePrecision) {
-
-        if (forcePrecision && forcePrecision !== 'highp' && forcePrecision !== 'mediump' && forcePrecision !== 'lowp') {
-            forcePrecision = null;
-        }
-
-        if (forcePrecision) {
-            if (forcePrecision === 'highp' && device.maxPrecision !== 'highp') {
-                forcePrecision = 'mediump';
-            }
-            if (forcePrecision === 'mediump' && device.maxPrecision === 'lowp') {
-                forcePrecision = 'lowp';
-            }
-        }
-
-        const precision = forcePrecision ? forcePrecision : device.precision;
-
-        const code = `
-            precision ${precision} float;
-            precision ${precision} int;
-            precision ${precision} usampler2D;
-            precision ${precision} isampler2D;
-            precision ${precision} sampler2DShadow;
-            precision ${precision} samplerCubeShadow;
-            precision ${precision} sampler2DArray;
-        `;
-
-        return code;
-    }
-
-    /**
-     * Extract the attributes specified in a vertex shader.
-     *
-     * @param {string} vsCode - The vertex shader code.
-     * @returns {Object<string, string>} The attribute name to semantic map.
-     * @ignore
-     */
-    static collectAttributes(vsCode) {
-        const attribs = {};
-        let attrs = 0;
-
-        let found = vsCode.indexOf('attribute');
-        while (found >= 0) {
-            if (found > 0 && vsCode[found - 1] === '/') break;
-
-            // skip the 'attribute' word inside the #define which we add to the shader
-            let ignore = false;
-            if (found > 0) {
-                let startOfLine = vsCode.lastIndexOf('\n', found);
-                startOfLine = startOfLine !== -1 ? startOfLine + 1 : 0;
-                const lineStartString = vsCode.substring(startOfLine, found);
-                if (lineStartString.includes('#')) {
-                    ignore = true;
-                }
-            }
-
-            if (!ignore) {
-                const endOfLine = vsCode.indexOf(';', found);
-                const startOfAttribName = vsCode.lastIndexOf(' ', endOfLine);
-                const attribName = vsCode.substring(startOfAttribName + 1, endOfLine);
-
-                // if the attribute already exists in the semantic map
-                if (attribs[attribName]) {
-                    Debug.warn(`Attribute [${attribName}] already exists when extracting the attributes from the vertex shader, ignoring.`, { vsCode });
-                } else {
-                    const semantic = _attrib2Semantic[attribName];
-                    if (semantic !== undefined) {
-                        attribs[attribName] = semantic;
-                    } else {
-                        attribs[attribName] = `ATTR${attrs}`;
-                        attrs++;
-                    }
-                }
-            }
-
-            found = vsCode.indexOf('attribute', found + 1);
-        }
-
-        return attribs;
     }
 }
 

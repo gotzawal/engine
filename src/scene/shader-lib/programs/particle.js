@@ -1,6 +1,6 @@
 import {
     SEMANTIC_ATTR1, SEMANTIC_ATTR2, SEMANTIC_ATTR3, SEMANTIC_ATTR4, SEMANTIC_POSITION,
-    SEMANTIC_TEXCOORD0, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL
+    SEMANTIC_TEXCOORD0, SHADERLANGUAGE_WGSL
 } from '../../../platform/graphics/constants.js';
 import { ShaderDefinitionUtils } from '../../../platform/graphics/shader-definition-utils.js';
 import { blendNames } from '../../constants.js';
@@ -75,7 +75,7 @@ class ShaderGeneratorParticle extends ShaderGenerator {
     createShaderDefinition(device, options) {
 
         // TODO: considering adding support for material shader chunk overrides
-        const shaderLanguage = device.isWebGPU ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL;
+        const shaderLanguage = SHADERLANGUAGE_WGSL;
         const engineChunks = ShaderChunks.get(device, shaderLanguage);
 
         const attributes = {};

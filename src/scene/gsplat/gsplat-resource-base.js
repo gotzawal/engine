@@ -248,7 +248,7 @@ class GSplatResourceBase {
             this.configureMaterial(material, workBufferModifier, formatDeclarations);
 
             // Inject work buffer output declarations
-            const chunks = this.device.isWebGPU ? material.shaderChunks.wgsl : material.shaderChunks.glsl;
+            const chunks = material.shaderChunks.wgsl;
             // For color-only mode, only output color stream; otherwise output all streams
             const outputStreams = colorOnly ?
                 [workBufferFormat.getStream('dataColor')] :
@@ -363,7 +363,7 @@ class GSplatResourceBase {
         this.streams.syncWithFormat(this.format);
 
         // Inject format's shader chunks
-        const chunks = this.device.isWebGPU ? material.shaderChunks.wgsl : material.shaderChunks.glsl;
+        const chunks = material.shaderChunks.wgsl;
         chunks.set('gsplatDeclarationsVS', formatDeclarations);
         chunks.set('gsplatReadVS', this.format.getReadCode());
 

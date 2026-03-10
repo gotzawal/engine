@@ -453,11 +453,7 @@ class XrManager extends EventHandler {
         };
 
         const device = this.app.graphicsDevice;
-        if (device?.isWebGPU) {
-            opts.requiredFeatures.push('webgpu');
-        }
-
-        const webgl = device?.isWebGL2;
+        opts.requiredFeatures.push('webgpu');
 
         if (type === XRTYPE_AR) {
             opts.optionalFeatures.push('light-estimation');
@@ -513,9 +509,6 @@ class XrManager extends EventHandler {
                 };
             }
 
-            if (webgl && options && options.cameraColor && this.views.supportedColor) {
-                opts.optionalFeatures.push('camera-access');
-            }
         }
 
         opts.optionalFeatures.push('hand-tracking');
@@ -823,13 +816,6 @@ class XrManager extends EventHandler {
             antialias: false
         });
 
-        if (device?.isWebGL2 && window.XRWebGLBinding) {
-            try {
-                this.webglBinding = new XRWebGLBinding(this._session, device.gl);
-            } catch (ex) {
-                this.fire('error', ex);
-            }
-        }
 
         this._session.updateRenderState({
             baseLayer: this._baseLayer,

@@ -181,11 +181,6 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
      */
     limits;
 
-    /** GLSL to SPIR-V transpiler */
-    glslang = null;
-
-    /** SPIR-V to WGSL transpiler */
-    twgsl = null;
 
     constructor(canvas, options = {}) {
         super(canvas, options);
@@ -255,7 +250,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         this.initCapsDefines();
     }
 
-    async initWebGpu(glslangUrl, twgslUrl) {
+    async initWebGpu() {
 
         if (!window.navigator.gpu) {
             throw new Error('Unable to retrieve GPU. Ensure you are using a browser that supports WebGPU rendering.');
@@ -263,23 +258,6 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
 
         // temporary message to confirm Webgpu is being used
         Debug.log('WebgpuGraphicsDevice initialization ..');
-
-        // Import shader transpilers only if both URLs are provided
-        if (glslangUrl && twgslUrl) {
-
-            // build a full URL from a relative or absolute path
-            const buildUrl = (srcPath) => {
-                return new URL(srcPath, window.location.href).toString();
-            };
-
-            const results = await Promise.all([
-                import(`${buildUrl(twgslUrl)}`).then(module => twgsl(twgslUrl.replace('.js', '.wasm'))),
-                import(`${buildUrl(glslangUrl)}`).then(module => module.default())
-            ]);
-
-            this.twgsl = results[0];
-            this.glslang = results[1];
-        }
 
         // create the device
         return this.createDevice();
@@ -1389,7 +1367,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     }
 
     get hasTranspilers() {
-        return this.glslang && this.twgsl;
+        return false;
     }
 
     // #if _DEBUG

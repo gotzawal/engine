@@ -238,7 +238,7 @@ class VertexFormat {
 
     static isElementValid(graphicsDevice, elementDesc) {
         const elementSize = elementDesc.components * typedArrayTypesByteSize[elementDesc.type];
-        if (graphicsDevice.isWebGPU && !webgpuValidElementSizes.includes(elementSize)) {
+        if (!webgpuValidElementSizes.includes(elementSize)) {
             return false;
         }
         return true;
@@ -250,8 +250,6 @@ class VertexFormat {
      * @private
      */
     update() {
-        // Note that this is used only by vertex attribute morphing on the WebGL.
-        Debug.assert(!this.device.isWebGPU, 'VertexFormat#update is not supported on WebGPU and VertexFormat cannot be modified.');
         this._evaluateHash();
     }
 

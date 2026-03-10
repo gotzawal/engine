@@ -105,14 +105,10 @@ export { StorageBuffer } from './platform/graphics/storage-buffer.js';
 export { Texture } from './platform/graphics/texture.js';
 export { TextureUtils } from './platform/graphics/texture-utils.js';
 export { TextureView } from './platform/graphics/texture-view.js';
-export { TransformFeedback } from './platform/graphics/transform-feedback.js';
 export { UniformBufferFormat, UniformFormat } from './platform/graphics/uniform-buffer-format.js';
 export { VertexBuffer } from './platform/graphics/vertex-buffer.js';
 export { VertexFormat } from './platform/graphics/vertex-format.js';
 export { VertexIterator } from './platform/graphics/vertex-iterator.js';
-
-// PLATFORM / GRAPHICS / webgl
-export { WebglGraphicsDevice } from './platform/graphics/webgl/webgl-graphics-device.js';
 
 // PLATFORM / GRAPHICS / webgpu
 export { WebgpuGraphicsDevice } from './platform/graphics/webgpu/webgpu-graphics-device.js';
@@ -234,7 +230,6 @@ export * from './framework/constants.js';
 export { script } from './framework/script.js';
 export { AppBase, app } from './framework/app-base.js';
 export { AppOptions } from './framework/app-options.js';
-export { Application } from './framework/application.js';
 export { AnimationComponent } from './framework/components/animation/component.js';
 export { AnimationComponentSystem } from './framework/components/animation/system.js';
 export { AnimComponent } from './framework/components/anim/component.js';

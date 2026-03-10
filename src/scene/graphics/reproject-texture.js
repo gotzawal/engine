@@ -5,8 +5,7 @@ import {
     FILTER_NEAREST,
     TEXTUREPROJECTION_OCTAHEDRAL, TEXTUREPROJECTION_CUBE,
     SEMANTIC_POSITION,
-    SHADERLANGUAGE_WGSL,
-    SHADERLANGUAGE_GLSL
+    SHADERLANGUAGE_WGSL
 } from '../../platform/graphics/constants.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { DeviceCache } from '../../platform/graphics/device-cache.js';
@@ -441,8 +440,7 @@ function reprojectTexture(source, target, options = {}) {
         defines.set('{NUM_SAMPLES}', numSamples);
         defines.set('{NUM_SAMPLES_SQRT}', Math.round(Math.sqrt(numSamples)).toFixed(1));
 
-        const wgsl = device.isWebGPU;
-        const chunks = ShaderChunks.get(device, wgsl ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL);
+        const chunks = ShaderChunks.get(device, SHADERLANGUAGE_WGSL);
         const includes = new Map();
         includes.set('decodePS', chunks.get('decodePS'));
         includes.set('encodePS', chunks.get('encodePS'));
@@ -504,7 +502,7 @@ function reprojectTexture(source, target, options = {}) {
                 colorBuffer: target,
                 face: f,
                 depth: false,
-                flipY: device.isWebGPU
+                flipY: true
             });
             params[0] = f;
             constantParams.setValue(params);
@@ -516,6 +514,7 @@ function reprojectTexture(source, target, options = {}) {
     }
 
     DebugGraphics.popGpuMarker(device);
+
 
     return true;
 }

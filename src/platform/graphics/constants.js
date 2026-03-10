@@ -1709,13 +1709,6 @@ export const TEXTUREPROJECTION_EQUIRECT = 'equirect';
 export const TEXTUREPROJECTION_OCTAHEDRAL = 'octahedral';
 
 /**
- * Shader source code uses GLSL language.
- *
- * @category Graphics
- */
-export const SHADERLANGUAGE_GLSL = 'glsl';
-
-/**
  * Shader source code uses WGSL language.
  *
  * @category Graphics
@@ -2131,13 +2124,6 @@ export const uniformTypeToStorage = new Uint8Array([
     TYPE_INT32,     // UNIFORMTYPE_ITEXTURE2D_ARRAY
     TYPE_UINT32     // UNIFORMTYPE_UTEXTURE2D_ARRAY
 ]);
-
-/**
- * A WebGL 2 device type.
- *
- * @category Graphics
- */
-export const DEVICETYPE_WEBGL2 = 'webgl2';
 
 /**
  * A WebGPU device type.

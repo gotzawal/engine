@@ -173,10 +173,8 @@ class RenderTarget {
         // samples
         const { maxSamples } = this._device;
         this._samples = Math.min(options.samples ?? 1, maxSamples);
-        if (device.isWebGPU) {
-            // WebGPU only supports values of 1 or 4 for samples
-            this._samples = this._samples > 1 ? maxSamples : 1;
-        }
+        // WebGPU only supports values of 1 or 4 for samples
+        this._samples = this._samples > 1 ? maxSamples : 1;
 
         // Use the single colorBuffer in the colorBuffers array. This allows us to always just use the array internally.
         this._colorBuffer = options.colorBuffer;
@@ -196,8 +194,8 @@ class RenderTarget {
             } else if (format === PIXELFORMAT_DEPTHSTENCIL) {
                 this._depth = true;
                 this._stencil = true;
-            } else if (format === PIXELFORMAT_R32F && this._depthBuffer.device.isWebGPU && this._samples > 1) {
-                // on WebGPU, when multisampling is enabled, we use R32F format for the specified buffer,
+            } else if (format === PIXELFORMAT_R32F && this._samples > 1) {
+                // when multisampling is enabled, we use R32F format for the specified buffer,
                 // which we can resolve depth to using a shader
                 this._depth = true;
                 this._stencil = false;

@@ -37,8 +37,8 @@ const _dynamicBindGroup = new DynamicBindGroup();
  * const shader = pc.ShaderUtils.createShader(app.graphicsDevice, {
  *     uniqueName: 'MyShader',
  *     attributes: { aPosition: SEMANTIC_POSITION },
- *     vertexGLSL: '// vertex shader code',
- *     fragmentGLSL: '// fragment shader code'
+ *     vertexWGSL: '// vertex shader code',
+ *     fragmentWGSL: '// fragment shader code'
  * });
  * const quad = new QuadRender(shader);
  *

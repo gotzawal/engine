@@ -696,7 +696,7 @@ class Texture {
     set mipmaps(v) {
         if (this._mipmaps !== v) {
 
-            if (this.device.isWebGPU) {
+            if (true) {
                 Debug.warn('Texture#mipmaps: mipmap property is currently not allowed to be changed on WebGPU, create the texture appropriately.', this);
             } else if (isIntegerPixelFormat(this._format)) {
                 Debug.warn('Texture#mipmaps: mipmap property cannot be changed on an integer texture, will remain false', this);

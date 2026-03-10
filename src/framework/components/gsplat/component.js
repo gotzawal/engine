@@ -616,8 +616,7 @@ class GSplatComponent extends Component {
      */
     setWorkBufferModifier(value) {
         if (value) {
-            const device = this.system.app.graphicsDevice;
-            const code = (device.isWebGPU ? value.wgsl : value.glsl) ?? null;
+            const code = value.wgsl ?? null;
             // create new object with pre-computed hash (object is not mutated, always replaced)
             this._workBufferModifier = code ? { code, hash: hashCode(code) } : null;
         } else {

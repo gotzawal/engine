@@ -94,15 +94,13 @@ class RenderPassDepthGrab extends RenderPass {
 
         let useDepthBuffer = true;
         let format = destinationRt.stencil ? PIXELFORMAT_DEPTHSTENCIL : PIXELFORMAT_DEPTH;
-        if (device.isWebGPU) {
-            const numSamples = destinationRt.samples;
+        const numSamples = destinationRt.samples;
 
-            // when depth buffer is multi-sampled, instead of copying it out, we use custom shader to resolve it
-            // to a R32F texture, used as a color attachment of the render target
-            if (numSamples > 1) {
-                format = PIXELFORMAT_R32F;
-                useDepthBuffer = false;
-            }
+        // when depth buffer is multi-sampled, instead of copying it out, we use custom shader to resolve it
+        // to a R32F texture, used as a color attachment of the render target
+        if (numSamples > 1) {
+            format = PIXELFORMAT_R32F;
+            useDepthBuffer = false;
         }
 
         const sourceTexture = camera.renderTarget?.depthBuffer ?? camera.renderTarget?.colorBuffer;
@@ -123,25 +121,8 @@ class RenderPassDepthGrab extends RenderPass {
         const device = this.device;
         DebugGraphics.pushGpuMarker(device, 'GRAB-DEPTH');
 
-        // WebGL2 multisampling depth handling: we resolve multi-sampled depth buffer to a single-sampled destination buffer.
-        // We could use existing API and resolve depth first and then blit it to destination, but this avoids the extra copy.
-        if (device.isWebGL2 && device.renderTarget.samples > 1) {
-
-            // multi-sampled buffer
-            const src = device.renderTarget.impl._glFrameBuffer;
-
-            // single sampled destination buffer
-            const dest = this.depthRenderTarget;
-            device.renderTarget = dest;
-            device.updateBegin();
-
-            this.depthRenderTarget.impl.internalResolve(device, src, dest.impl._glFrameBuffer, this.depthRenderTarget, device.gl.DEPTH_BUFFER_BIT);
-
-        } else {
-
-            // copy depth
-            device.copyRenderTarget(device.renderTarget, this.depthRenderTarget, false, true);
-        }
+        // copy depth
+        device.copyRenderTarget(device.renderTarget, this.depthRenderTarget, false, true);
 
         DebugGraphics.popGpuMarker(device);
     }

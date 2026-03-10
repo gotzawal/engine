@@ -342,10 +342,8 @@ class Renderer {
             }
 
             // update depth range of projection matrices (-1..1 to 0..1)
-            if (this.device.isWebGPU) {
-                projMat = _tempProjMat2.mul2(_fixProjRangeMat, projMat);
-                projMatSkybox = _tempProjMat3.mul2(_fixProjRangeMat, projMatSkybox);
-            }
+            projMat = _tempProjMat2.mul2(_fixProjRangeMat, projMat);
+            projMatSkybox = _tempProjMat3.mul2(_fixProjRangeMat, projMatSkybox);
 
             // camera jitter
             const { jitter } = camera;

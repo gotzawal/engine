@@ -1,5 +1,5 @@
 import { Debug } from '../../core/debug.js';
-import { SHADERLANGUAGE_GLSL } from '../../platform/graphics/constants.js';
+import { SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { DeviceCache } from '../../platform/graphics/device-cache.js';
 import { ShaderChunkMap } from './shader-chunk-map.js';
 
@@ -11,7 +11,7 @@ import { ShaderChunkMap } from './shader-chunk-map.js';
 const _chunksCache = new DeviceCache();
 
 /**
- * A collection of GLSL and WGSL shader chunks, used to generate shaders.
+ * A collection of WGSL shader chunks, used to generate shaders.
  *
  * @category Graphics
  */
@@ -25,14 +25,6 @@ class ShaderChunks {
     static _validations = new Map();
 
     /**
-     * A map of shader chunks for GLSL.
-     *
-     * @type {ShaderChunkMap}
-     * @ignore
-     */
-    glsl = new ShaderChunkMap(ShaderChunks._validations);
-
-    /**
      * A map of shader chunks for WGSL.
      *
      * @type {ShaderChunkMap}
@@ -44,14 +36,14 @@ class ShaderChunks {
      * Returns a shader chunks map for the given device and shader language.
      *
      * @param {GraphicsDevice} device - The graphics device.
-     * @param {string} shaderLanguage - The shader language to use (GLSL or WGSL).
+     * @param {string} shaderLanguage - The shader language (WGSL).
      * @returns {ShaderChunkMap} The shader chunks for the specified language.
      */
-    static get(device, shaderLanguage = SHADERLANGUAGE_GLSL) {
+    static get(device, shaderLanguage = SHADERLANGUAGE_WGSL) {
         const cache = _chunksCache.get(device, () => {
             return new ShaderChunks();
         });
-        return shaderLanguage === SHADERLANGUAGE_GLSL ? cache.glsl : cache.wgsl;
+        return cache.wgsl;
     }
 
     /**
@@ -60,30 +52,6 @@ class ShaderChunks {
      *
      * @param {string} name - The name of the shader chunk.
      * @param {ChunkValidation} options - Validation options.
-     * @example
-     * // Deprecate an existing chunk - only warn when overridden with non-default code
-     * import { myChunksGLSL } from './glsl/collections/my-chunks-glsl.js';
-     * import { myChunksWGSL } from './wgsl/collections/my-chunks-wgsl.js';
-     *
-     * ShaderChunks.registerValidation('myChunkVS', {
-     *     message: 'myChunkVS is deprecated. Use newChunkVS instead.',
-     *     defaultCodeGLSL: myChunksGLSL.myChunkVS,
-     *     defaultCodeWGSL: myChunksWGSL.myChunkVS
-     * });
-     * @example
-     * // Warn for a removed chunk - any attempt to use it triggers warning
-     * ShaderChunks.registerValidation('removedChunkVS', {
-     *     message: 'removedChunkVS has been removed. Use replacementChunkVS instead.'
-     * });
-     * @example
-     * // Use callback for custom validation logic
-     * ShaderChunks.registerValidation('myChunkVS', {
-     *     callback: (name, code) => {
-     *         if (code.includes('gl_FragColor')) {
-     *             Debug.error(`Chunk ${name} uses deprecated gl_FragColor. Use pcFragColor instead.`);
-     *         }
-     *     }
-     * });
      * @ignore
      */
     static registerValidation(name, options) {
@@ -106,20 +74,18 @@ class ShaderChunks {
     version = '';
 
     get useWGSL() {
-        // if we have no glsl overrides, or have wgsl overrides, wgsl is used on WebGPU
-        return this.glsl.size === 0 || this.wgsl.size > 0;
+        return true;
     }
 
     get key() {
-        return `GLSL:${this.glsl.key}|WGSL:${this.wgsl.key}|API:${this.version}`;
+        return `WGSL:${this.wgsl.key}|API:${this.version}`;
     }
 
     isDirty() {
-        return this.glsl.isDirty() || this.wgsl.isDirty();
+        return this.wgsl.isDirty();
     }
 
     resetDirty() {
-        this.glsl.resetDirty();
         this.wgsl.resetDirty();
     }
 
@@ -132,7 +98,6 @@ class ShaderChunks {
      */
     copy(source) {
         this.version = source.version;
-        this.glsl.copy(source.glsl);
         this.wgsl.copy(source.wgsl);
 
         return this;

@@ -6,7 +6,7 @@ import {
     BLENDEQUATION_ADD, BLENDEQUATION_REVERSE_SUBTRACT,
     BLENDEQUATION_MIN, BLENDEQUATION_MAX,
     CULLFACE_BACK,
-    SHADERLANGUAGE_GLSL,
+    SHADERLANGUAGE_WGSL,
     FRONTFACE_CCW
 } from '../../platform/graphics/constants.js';
 import { BlendState } from '../../platform/graphics/blend-state.js';
@@ -253,16 +253,10 @@ class Material {
      * To ensure faster shader compilation, it is recommended to provide shader chunks for all
      * supported platforms.
      *
-     * A simple example on how to override a shader chunk providing emissive color for both GLSL and
-     * WGSL to simply return a red color:
+     * A simple example on how to override a shader chunk providing emissive color in WGSL
+     * to simply return a red color:
      *
      * ```javascript
-     * material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set('emissivePS', `
-     *     void getEmission() {
-     *         dEmission = vec3(1.0, 0.0, 1.0);
-     *     }
-     * `);
-     *
      * material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set('emissivePS', `
      *     fn getEmission() {
      *         dEmission = vec3f(1.0, 0.0, 1.0);
@@ -274,12 +268,11 @@ class Material {
      * ```
      *
      * @param {string} [shaderLanguage] - Specifies the shader language of shaders. Defaults to
-     * {@link SHADERLANGUAGE_GLSL}.
+     * {@link SHADERLANGUAGE_WGSL}.
      * @returns {ShaderChunkMap} - The shader chunks for the specified shader language.
      */
-    getShaderChunks(shaderLanguage = SHADERLANGUAGE_GLSL) {
-        const chunks = this.shaderChunks;
-        return shaderLanguage === SHADERLANGUAGE_GLSL ? chunks.glsl : chunks.wgsl;
+    getShaderChunks(shaderLanguage = SHADERLANGUAGE_WGSL) {
+        return this.shaderChunks.wgsl;
     }
 
     /**
@@ -307,13 +300,13 @@ class Material {
     }
 
     set chunks(value) {
-        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set("chunkName", "chunkCode")');
+        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set("chunkName", "chunkCode")');
         this._oldChunks = value;
     }
 
     get chunks() {
-        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set("chunkName", "chunkCode")');
-        Object.assign(this._oldChunks, Object.fromEntries(this.shaderChunks.glsl));
+        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set("chunkName", "chunkCode")');
+        Object.assign(this._oldChunks, Object.fromEntries(this.shaderChunks.wgsl));
         return this._oldChunks;
     }
 

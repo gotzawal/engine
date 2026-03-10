@@ -9,7 +9,7 @@ import { GraphNode } from '../../scene/graph-node.js';
 import { Asset } from '../asset/asset.js';
 
 /**
- * @import { Application } from '../../framework/application.js'
+ * @import { AppBase as Application } from '../../framework/app-base.js'
  * @import { ScriptType } from './script-type.js'
  * @import { Script } from '../../framework/script/script.js'
  */

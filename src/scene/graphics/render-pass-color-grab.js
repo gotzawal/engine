@@ -118,22 +118,10 @@ class RenderPassColorGrab extends RenderPass {
         const sourceRt = this.source;
         const colorBuffer = this.colorRenderTarget.colorBuffer;
 
-        if (device.isWebGPU) {
+        device.copyRenderTarget(sourceRt, this.colorRenderTarget, true, false);
 
-            device.copyRenderTarget(sourceRt, this.colorRenderTarget, true, false);
-
-            // generate mipmaps
-            device.mipmapRenderer.generate(this.colorRenderTarget.colorBuffer.impl);
-
-        } else {
-
-            device.copyRenderTarget(sourceRt, this.colorRenderTarget, true, false);
-
-            // generate mipmaps
-            device.activeTexture(device.maxCombinedTextures - 1);
-            device.bindTexture(colorBuffer);
-            device.gl.generateMipmap(colorBuffer.impl._glTarget);
-        }
+        // generate mipmaps
+        device.mipmapRenderer.generate(this.colorRenderTarget.colorBuffer.impl);
 
         DebugGraphics.popGpuMarker(device);
     }

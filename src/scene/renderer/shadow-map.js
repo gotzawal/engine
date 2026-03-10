@@ -130,9 +130,7 @@ class ShadowMap {
         }
 
         // TODO: this is temporary, and will be handled on generic level for all render targets for WebGPU
-        if (device.isWebGPU) {
-            target.flipY = true;
-        }
+        target.flipY = true;
 
         return new ShadowMap(texture, [target]);
     }

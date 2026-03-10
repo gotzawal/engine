@@ -74,16 +74,8 @@ class GSplatInstance {
 
         const numSplats = dims.x * dims.y;
 
-        // create order target: StorageBuffer on WebGPU, Texture on WebGL
-        if (device.isWebGPU) {
-            this.orderBuffer = new StorageBuffer(device, numSplats * 4, BUFFERUSAGE_COPY_DST);
-        } else {
-            this.orderTexture = resource.streams.createTexture(
-                'splatOrder',
-                PIXELFORMAT_R32U,
-                dims
-            );
-        }
+        // create order target: StorageBuffer on WebGPU
+        this.orderBuffer = new StorageBuffer(device, numSplats * 4, BUFFERUSAGE_COPY_DST);
 
         if (options.material) {
             this._material = options.material;
@@ -92,8 +84,6 @@ class GSplatInstance {
         } else {
             this._material = new ShaderMaterial({
                 uniqueName: 'SplatMaterial',
-                vertexGLSL: '#include "gsplatVS"',
-                fragmentGLSL: '#include "gsplatPS"',
                 vertexWGSL: '#include "gsplatVS"',
                 fragmentWGSL: '#include "gsplatPS"',
                 attributes: {

@@ -1,8 +1,7 @@
-import { SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { RenderPassShaderQuad } from './render-pass-shader-quad.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
 import { ShaderChunks } from '../shader-lib/shader-chunks.js';
-import glslRadixSortReorderPS from '../shader-lib/glsl/chunks/radix-sort/radix-sort-reorder.js';
 import wgslRadixSortReorderPS from '../shader-lib/wgsl/chunks/radix-sort/radix-sort-reorder.js';
 
 /**
@@ -84,7 +83,6 @@ class RenderPassRadixSortReorder extends RenderPassShaderQuad {
         this.currentBit = currentBit;
 
         // Register shader chunks
-        ShaderChunks.get(device, SHADERLANGUAGE_GLSL).set('radixSortReorderPS', glslRadixSortReorderPS);
         ShaderChunks.get(device, SHADERLANGUAGE_WGSL).set('radixSortReorderPS', wgslRadixSortReorderPS);
 
         const defines = new Map();

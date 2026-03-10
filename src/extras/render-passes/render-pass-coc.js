@@ -1,7 +1,6 @@
-import { SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-quad.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
-import glslCocPS from '../../scene/shader-lib/glsl/chunks/render-pass/frag/coc.js';
 import wgslCocPS from '../../scene/shader-lib/wgsl/chunks/render-pass/frag/coc.js';
 import { ShaderChunks } from '../../scene/shader-lib/shader-chunks.js';
 
@@ -23,7 +22,6 @@ class RenderPassCoC extends RenderPassShaderQuad {
         this.cameraComponent = cameraComponent;
 
         // register shader chunks
-        ShaderChunks.get(device, SHADERLANGUAGE_GLSL).set('cocPS', glslCocPS);
         ShaderChunks.get(device, SHADERLANGUAGE_WGSL).set('cocPS', wgslCocPS);
 
         const defines = new Map();

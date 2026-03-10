@@ -4,7 +4,7 @@ import { getProgramLibrary } from './get-program-library.js';
 import { Debug } from '../../core/debug.js';
 import { ShaderGenerator } from './programs/shader-generator.js';
 import { ShaderPass } from '../shader-pass.js';
-import { SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { ShaderChunks } from './shader-chunks.js';
 import { MapUtils } from '../../core/map-utils.js';
 
@@ -50,16 +50,10 @@ class ShaderUtils {
      * @param {Object<string, string>} options.attributes - Object detailing the mapping of vertex
      * shader attribute names to semantics SEMANTIC_*. This enables the engine to match vertex
      * buffer data to the shader attributes.
-     * @param {boolean} [options.useTransformFeedback] - Whether to use transform feedback. Defaults
-     * to false. Only supported by WebGL.
      * @param {string} [options.vertexChunk] - The name of the vertex shader chunk to use.
-     * @param {string} [options.vertexGLSL] - The vertex shader code in GLSL. Ignored if vertexChunk
-     * is provided.
      * @param {string} [options.vertexWGSL] - The vertex shader code in WGSL. Ignored if vertexChunk
      * is provided.
      * @param {string} [options.fragmentChunk] - The name of the fragment shader chunk to use.
-     * @param {string} [options.fragmentGLSL] - The fragment shader code in GLSL. Ignored if
-     * fragmentChunk is provided.
      * @param {string} [options.fragmentWGSL] - The fragment shader code in WGSL. Ignored if
      * fragmentChunk is provided.
      * @param {Map<string, string>} [options.vertexIncludes] - A map containing key-value pairs of
@@ -85,17 +79,12 @@ class ShaderUtils {
         let shader = programLibrary.getCachedShader(options.uniqueName);
         if (!shader) {
 
-            // use WGSL language on WebGPU: if user provided WGSL code, or if named chunks are used
-            const wgsl = device.isWebGPU &&
-                (!!options.vertexWGSL || !!options.vertexChunk) &&
-                (!!options.fragmentWGSL || !!options.fragmentChunk);
-
             // chunks map
-            const chunksMap = ShaderChunks.get(device, wgsl ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL);
+            const chunksMap = ShaderChunks.get(device, SHADERLANGUAGE_WGSL);
 
             // source code
-            const vertexCode = options.vertexChunk ? chunksMap.get(options.vertexChunk) : (wgsl ? options.vertexWGSL : options.vertexGLSL);
-            const fragmentCode = options.fragmentChunk ? chunksMap.get(options.fragmentChunk) : (wgsl ? options.fragmentWGSL : options.fragmentGLSL);
+            const vertexCode = options.vertexChunk ? chunksMap.get(options.vertexChunk) : options.vertexWGSL;
+            const fragmentCode = options.fragmentChunk ? chunksMap.get(options.fragmentChunk) : options.fragmentWGSL;
             Debug.assert(vertexCode, 'ShaderUtils.createShader: vertex shader code not provided', options);
             Debug.assert(fragmentCode, 'ShaderUtils.createShader: fragment shader code not provided', options);
 
@@ -105,11 +94,10 @@ class ShaderUtils {
 
             shader = new Shader(device, ShaderDefinitionUtils.createDefinition(device, {
                 name: options.uniqueName,
-                shaderLanguage: wgsl ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL,
+                shaderLanguage: SHADERLANGUAGE_WGSL,
                 attributes: options.attributes,
                 vertexCode: vertexCode,
                 fragmentCode: fragmentCode,
-                useTransformFeedback: options.useTransformFeedback,
                 vertexIncludes: vertexIncludes,
                 vertexDefines: options.vertexDefines,
                 fragmentIncludes: fragmentIncludes,

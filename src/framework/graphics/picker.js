@@ -200,27 +200,8 @@ class Picker {
      * const selection = picker.getSelection(10, 20, 10, 20);
      */
     getSelection(x, y, width = 1, height = 1) {
-        const device = this.device;
-        if (device.isWebGPU) {
-            Debug.errorOnce('pc.Picker#getSelection is not supported on WebGPU, use pc.Picker#getSelectionAsync instead.');
-            return [];
-        }
-
-        Debug.assert(typeof x !== 'object', 'Picker.getSelection:param \'rect\' is deprecated, use \'x, y, width, height\' instead.');
-
-        y = this.renderTarget.height - (y + height);
-        const rect = this.sanitizeRect(x, y, width, height);
-
-        // read pixels from the render target
-        device.setRenderTarget(this.renderTarget);
-        device.updateBegin();
-
-        const pixels = new Uint8Array(4 * rect.z * rect.w);
-        device.readPixels(rect.x, rect.y, rect.z, rect.w, pixels);
-
-        device.updateEnd();
-
-        return this.decodePixels(pixels, this.mapping);
+        Debug.errorOnce('pc.Picker#getSelection is not supported on WebGPU, use pc.Picker#getSelectionAsync instead.');
+        return [];
     }
 
     /**
@@ -263,9 +244,6 @@ class Picker {
      * @private
      */
     _readTexture(texture, x, y, width, height, renderTarget) {
-        if (this.device?.isWebGL2) {
-            y = renderTarget.height - (y + height);
-        }
         const rect = this.sanitizeRect(x, y, width, height);
 
         // @ts-ignore

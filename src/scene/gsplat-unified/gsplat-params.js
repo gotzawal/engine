@@ -6,10 +6,6 @@ import { ShaderMaterial } from '../materials/shader-material.js';
 import { GSplatFormat } from '../gsplat/gsplat-format.js';
 import { GSPLATDATA_COMPACT } from '../constants.js';
 
-import glslCompactRead from '../shader-lib/glsl/chunks/gsplat/vert/formats/containerCompactRead.js';
-import glslCompactWrite from '../shader-lib/glsl/chunks/gsplat/frag/formats/containerCompactWrite.js';
-import glslPackedRead from '../shader-lib/glsl/chunks/gsplat/vert/formats/containerPackedRead.js';
-import glslPackedWrite from '../shader-lib/glsl/chunks/gsplat/frag/formats/containerPackedWrite.js';
 import wgslCompactRead from '../shader-lib/wgsl/chunks/gsplat/vert/formats/containerCompactRead.js';
 import wgslCompactWrite from '../shader-lib/wgsl/chunks/gsplat/frag/formats/containerCompactWrite.js';
 import wgslPackedRead from '../shader-lib/wgsl/chunks/gsplat/vert/formats/containerPackedRead.js';
@@ -81,10 +77,9 @@ class GSplatParams {
                 { name: 'dataTransformA', format: PIXELFORMAT_RGBA32U },
                 { name: 'dataTransformB', format: PIXELFORMAT_R32U }
             ], {
-                readGLSL: glslCompactRead,
                 readWGSL: wgslCompactRead
             });
-            format.setWriteCode(glslCompactWrite, wgslCompactWrite);
+            format.setWriteCode(wgslCompactWrite);
         } else {
             // Large work buffer format (32 bytes/splat):
             // - dataColor (RGBA16F/RGBA16U): RGBA color with alpha
@@ -96,10 +91,9 @@ class GSplatParams {
                 { name: 'dataTransformA', format: PIXELFORMAT_RGBA32U },
                 { name: 'dataTransformB', format: PIXELFORMAT_RG32U }
             ], {
-                readGLSL: glslPackedRead,
                 readWGSL: wgslPackedRead
             });
-            format.setWriteCode(glslPackedWrite, wgslPackedWrite);
+            format.setWriteCode(wgslPackedWrite);
         }
 
         format.allowStreamRemoval = true;
@@ -271,7 +265,7 @@ class GSplatParams {
      * @private
      */
     _syncNodeIndexStream() {
-        const needsNodeIndex = this._culling && !(this._gpuSorting && this._device.isWebGPU);
+        const needsNodeIndex = this._culling && !this._gpuSorting;
         const hasNodeIndex = !!this._format.getStream('pcNodeIndex');
         if (needsNodeIndex && !hasNodeIndex) {
             this._format.addExtraStreams([

@@ -1,4 +1,4 @@
-import { CULLFACE_FRONT, SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { CULLFACE_FRONT, SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { LAYERID_SKYBOX, SKYTYPE_INFINITE } from '../constants.js';
 import { ShaderMaterial } from '../materials/shader-material.js';
 import { MeshInstance } from '../mesh-instance.js';
@@ -40,12 +40,11 @@ class SkyMesh {
      */
     constructor(device, scene, node, texture, type) {
 
+        const wgslChunks = ShaderChunks.get(device, SHADERLANGUAGE_WGSL);
         const material = new ShaderMaterial({
             uniqueName: 'SkyMaterial',
-            vertexGLSL: ShaderChunks.get(device, SHADERLANGUAGE_GLSL).get('skyboxVS'),
-            fragmentGLSL: ShaderChunks.get(device, SHADERLANGUAGE_GLSL).get('skyboxPS'),
-            vertexWGSL: ShaderChunks.get(device, SHADERLANGUAGE_WGSL).get('skyboxVS'),
-            fragmentWGSL: ShaderChunks.get(device, SHADERLANGUAGE_WGSL).get('skyboxPS'),
+            vertexWGSL: wgslChunks.get('skyboxVS'),
+            fragmentWGSL: wgslChunks.get('skyboxPS'),
             attributes: {
                 aPosition: SEMANTIC_POSITION
             }
