@@ -128,7 +128,6 @@ const sandShader = pc.ShaderUtils.createShader(device, {
     uniqueName: 'SandShader',
     attributes: { aPosition: pc.SEMANTIC_POSITION },
     vertexChunk: 'quadVS',
-    fragmentGLSL: files['sandSimulation.glsl.frag'],
     fragmentWGSL: files['sandSimulation.wgsl.frag'],
     // Note that we are changing the shader output type to 'uint'
     // This means we only have to return a single integer value from the shader,
@@ -144,7 +143,6 @@ const outputShader = pc.ShaderUtils.createShader(device, {
     uniqueName: 'RenderOutputShader',
     attributes: { aPosition: pc.SEMANTIC_POSITION },
     vertexChunk: 'quadVS',
-    fragmentGLSL: files['renderOutput.glsl.frag'],
     fragmentWGSL: files['renderOutput.wgsl.frag']
     // For the output shader, we don't need to specify the output type,
     // as we are returning a vec4 by default.

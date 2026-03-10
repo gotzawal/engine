@@ -16,7 +16,7 @@ const gfxOptions = {
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);
 device.maxPixelRatio = Math.min(window.devicePixelRatio, 2);
 
-const shaderLanguage = device.isWebGPU ? 'wgsl' : 'glsl';
+const shaderLanguage = 'wgsl';
 
 const createOptions = new pc.AppOptions();
 createOptions.graphicsDevice = device;
@@ -75,7 +75,7 @@ assetListLoader.load(() => {
     guitar.addComponent('gsplat', {
         asset: assets.guitar
     });
-    const customShaderFile = shaderLanguage === 'wgsl' ? 'shader.wgsl.vert' : 'shader.glsl.vert';
+    const customShaderFile = 'shader.wgsl.vert';
     guitar.gsplat.material.getShaderChunks(shaderLanguage).set('gsplatModifyVS', files[customShaderFile]);
     guitar.setLocalPosition(0, 0.8, 0);
     guitar.setLocalEulerAngles(0, 0, 180);
@@ -121,7 +121,7 @@ assetListLoader.load(() => {
     data.on('shader:set', () => {
         // Apply custom or default material options to the splats when the button is clicked. Note
         // that this uses non-public API, which is subject to change when a proper API is added.
-        const customShaderFile = shaderLanguage === 'wgsl' ? 'shader.wgsl.vert' : 'shader.glsl.vert';
+        const customShaderFile = 'shader.wgsl.vert';
         const vs = files[customShaderFile];
 
         const mat1 = biker.gsplat.material;

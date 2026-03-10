@@ -16,10 +16,9 @@ const gfxOptions = {
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);
 device.maxPixelRatio = Math.min(window.devicePixelRatio, 2);
 
-// Determine shader language and import the appropriate shader chunks
-const shaderLanguage = device.isWebGPU ? pc.SHADERLANGUAGE_WGSL : pc.SHADERLANGUAGE_GLSL;
-const shaderChunkFile = device.isWebGPU ? 'shader-chunks.wgsl.mjs' : 'shader-chunks.glsl.mjs';
-const shaderChunks = await localImport(shaderChunkFile);
+// Import WGSL shader chunks
+const shaderLanguage = pc.SHADERLANGUAGE_WGSL;
+const shaderChunks = await localImport('shader-chunks.wgsl.mjs');
 
 const createOptions = new pc.AppOptions();
 createOptions.graphicsDevice = device;

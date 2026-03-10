@@ -72,15 +72,6 @@ const assets = {
 
 // Work buffer modifier to write component ID uniform to splatId stream
 const workBufferModifier = {
-    glsl: `
-        uniform uint uComponentId;
-
-        void modifySplatCenter(inout vec3 center) {}
-        void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {}
-        void modifySplatColor(vec3 center, inout vec4 color) {
-            writeSplatId(uvec4(uComponentId, 0u, 0u, 0u));
-        }
-    `,
     wgsl: `
         uniform uComponentId: u32;
 
@@ -94,21 +85,6 @@ const workBufferModifier = {
 
 // Render modifier to read splatId and look up color from texture
 // Only colorize splats with y > 0.2 to tint the robot but not the ground
-const glslRenderModifier = `
-    uniform sampler2D uColorLookup;
-
-    void modifySplatCenter(inout vec3 center) {}
-    void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {}
-    void modifySplatColor(vec3 center, inout vec4 color) {
-        if (center.y > 0.2) {
-            // Read component ID from splatId stream, and look up color from color lookup texture
-            uint id = loadSplatId().r;
-            vec3 tintColor = texelFetch(uColorLookup, ivec2(int(id), 0), 0).rgb;
-            color.rgb *= tintColor;
-        }
-    }
-`;
-
 const wgslRenderModifier = `
     var uColorLookup: texture_2d<f32>;
 
@@ -183,13 +159,11 @@ assetListLoader.load(() => {
     // Set color lookup texture parameter
     app.scene.gsplat.material.setParameter('uColorLookup', colorTexture);
 
-    // Function to apply or remove colorization shader (for both GLSL and WGSL)
+    // Function to apply or remove colorization shader
     const applyColorize = (enabled) => {
         if (enabled) {
-            app.scene.gsplat.material.getShaderChunks('glsl').set('gsplatModifyVS', glslRenderModifier);
             app.scene.gsplat.material.getShaderChunks('wgsl').set('gsplatModifyVS', wgslRenderModifier);
         } else {
-            app.scene.gsplat.material.getShaderChunks('glsl').delete('gsplatModifyVS');
             app.scene.gsplat.material.getShaderChunks('wgsl').delete('gsplatModifyVS');
         }
         app.scene.gsplat.material.update();

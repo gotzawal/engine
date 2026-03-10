@@ -17,7 +17,6 @@ import {
     FILTER_LINEAR,
     FILTER_LINEAR_MIPMAP_LINEAR,
     SEMANTIC_POSITION,
-    SHADERLANGUAGE_GLSL,
     SHADERLANGUAGE_WGSL,
     LAYERID_DEPTH
 } from 'playcanvas';
@@ -29,24 +28,6 @@ import {
  * @private
  */
 function setupDepthPassShaderChunks(device) {
-    // GLSL chunks
-    const glslChunks = ShaderChunks.get(device, SHADERLANGUAGE_GLSL);
-
-    glslChunks.set('litUserDeclarationPS', /* glsl */`
-        #ifdef PLANAR_REFLECTION_DEPTH_PASS
-        uniform float planarReflectionPlaneDistance;
-        uniform float planarReflectionHeightRange;
-        #endif
-    `);
-
-    glslChunks.set('litUserMainEndPS', /* glsl */`
-        #ifdef PLANAR_REFLECTION_DEPTH_PASS
-        float distFromPlane = abs(vPositionW.y + planarReflectionPlaneDistance) / planarReflectionHeightRange;
-        gl_FragColor = vec4(distFromPlane, distFromPlane, distFromPlane, 1.0);
-        #endif
-    `);
-
-    // WGSL chunks
     const wgslChunks = ShaderChunks.get(device, SHADERLANGUAGE_WGSL);
 
     wgslChunks.set('litUserDeclarationPS', /* wgsl */`
@@ -63,130 +44,6 @@ function setupDepthPassShaderChunks(device) {
         #endif
     `);
 }
-
-// ----------------------
-// GLSL Shaders
-// ----------------------
-
-const vertexShaderGLSL = /* glsl */`
-    attribute vec4 aPosition;
-
-    uniform mat4 matrix_model;
-    uniform mat4 matrix_viewProjection;
-
-    varying vec3 vWorldPos;
-
-    void main(void) {
-        vec4 worldPos = matrix_model * aPosition;
-        vWorldPos = worldPos.xyz;
-        gl_Position = matrix_viewProjection * worldPos;
-    }
-`;
-
-const fragmentShaderGLSL = /* glsl */`
-    #include "gammaPS"
-
-    uniform vec4 uScreenSize;
-    uniform sampler2D planarReflectionMap;
-    uniform sampler2D planarReflectionDepthMap;
-    uniform vec4 planarReflectionParams; // x: intensity, y: blurAmount, z: fadePower, w: fresnelPower
-    uniform vec3 planarReflectionFadeColor;
-    uniform vec3 view_position;
-
-    varying vec3 vWorldPos;
-
-    // Poisson disk samples for blur (32 samples for smooth blur)
-    const int NUM_TAPS = 32;
-    const vec2 poissonTaps[NUM_TAPS] = vec2[NUM_TAPS](
-        vec2(-0.220147, 0.976896),
-        vec2(-0.735514, 0.693436),
-        vec2(-0.200476, 0.310353),
-        vec2( 0.180822, 0.454146),
-        vec2( 0.292754, 0.937414),
-        vec2( 0.564255, 0.207879),
-        vec2( 0.178031, 0.024583),
-        vec2( 0.613912,-0.205936),
-        vec2(-0.385540,-0.070092),
-        vec2( 0.962838, 0.378319),
-        vec2(-0.886362, 0.032122),
-        vec2(-0.466531,-0.741458),
-        vec2( 0.006773,-0.574796),
-        vec2(-0.739828,-0.410584),
-        vec2( 0.590785,-0.697557),
-        vec2(-0.081436,-0.963262),
-        vec2( 1.000000,-0.100160),
-        vec2( 0.622430, 0.680868),
-        vec2(-0.545396, 0.538133),
-        vec2( 0.330651,-0.468300),
-        vec2(-0.168019,-0.623054),
-        vec2( 0.427100, 0.698100),
-        vec2(-0.827445,-0.304350),
-        vec2( 0.765140, 0.556640),
-        vec2(-0.403340, 0.198600),
-        vec2( 0.114050,-0.891450),
-        vec2(-0.956940, 0.258450),
-        vec2( 0.310545,-0.142367),
-        vec2(-0.143134, 0.619453),
-        vec2( 0.870890,-0.227634),
-        vec2(-0.627623, 0.019867),
-        vec2( 0.487623, 0.012367)
-    );
-
-    void main(void) {
-        // UV coordinates in planar reflection map
-        vec2 screenUV = gl_FragCoord.xy * uScreenSize.zw;
-        screenUV.y = 1.0 - screenUV.y;
-
-        // Sample depth to get distance from plane (0..1 range based on heightRange)
-        float distanceFromPlane = texture2DLod(planarReflectionDepthMap, screenUV, 0.0).x;
-
-        // Calculate blur parameters based on distance
-        float blurAmount = planarReflectionParams.y;
-        vec2 reflTextureSize = vec2(textureSize(planarReflectionMap, 0));
-        float area = distanceFromPlane * 80.0 * blurAmount / reflTextureSize.x;  // Spatial blur spread
-        float mipLevel = min(distanceFromPlane * 2.0 * blurAmount, 4.0);  // Capped mip level to prevent washout
-
-        // Multi-tap Poisson sampling for blur
-        vec3 reflection = vec3(0.0);
-        for (int i = 0; i < NUM_TAPS; i++) {
-            vec2 offset = poissonTaps[i] * area;
-            reflection += texture2DLod(planarReflectionMap, screenUV + offset, mipLevel).rgb;
-        }
-        reflection /= float(NUM_TAPS);
-
-        // Apply intensity - fade to white (fadeColor) when reduced
-        float intensity = planarReflectionParams.x;
-        reflection = mix(planarReflectionFadeColor, reflection, intensity);
-
-        // Distance-based fade with smooth exponential falloff
-        // fadeStrength: higher = quicker fade, lower = gradual fade
-        // No hard cutoff - smoothly approaches white
-        float fadeStrength = planarReflectionParams.z;
-        float distanceFade = 1.0 - exp(-distanceFromPlane * fadeStrength * 3.0);
-
-        // Fresnel effect based on viewing angle
-        // Looking straight down = fade to white, grazing angle = full reflection
-        vec3 viewDir = normalize(view_position - vWorldPos);
-        vec3 planeNormal = vec3(0.0, 1.0, 0.0); // Assuming horizontal plane
-        float NdotV = abs(dot(planeNormal, viewDir));
-        float fresnelPower = planarReflectionParams.w;
-        // fresnelFade: 0 at grazing angle, 1 when looking straight down
-        float fresnelFade = pow(NdotV, fresnelPower);
-
-        // Combine both fades - either distance OR viewing angle can fade to white
-        float totalFade = max(distanceFade, fresnelFade);
-
-        // Mix reflection with fade color
-        reflection = mix(reflection, planarReflectionFadeColor, totalFade);
-
-        gl_FragColor.rgb = gammaCorrectOutput(reflection);
-        gl_FragColor.a = 1.0;
-    }
-`;
-
-// ----------------------
-// WGSL Shaders
-// ----------------------
 
 const vertexShaderWGSL = /* wgsl */`
     attribute aPosition: vec4f;
@@ -522,8 +379,6 @@ class BlurredPlanarReflection extends Script {
     _createReflectionMaterial() {
         const material = new ShaderMaterial({
             uniqueName: 'BlurredPlanarReflectionMaterial',
-            vertexGLSL: vertexShaderGLSL,
-            fragmentGLSL: fragmentShaderGLSL,
             vertexWGSL: vertexShaderWGSL,
             fragmentWGSL: fragmentShaderWGSL,
             attributes: {

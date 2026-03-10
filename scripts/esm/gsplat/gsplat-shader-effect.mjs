@@ -22,7 +22,6 @@ import { Script } from 'playcanvas';
  * When disabled, the custom shader is removed and materials revert to default rendering.
  *
  * Subclasses must implement:
- * - getShaderGLSL(): Return GLSL shader string
  * - getShaderWGSL(): Return WGSL shader string
  * - updateEffect(effectTime, dt): Update effect each frame
  *
@@ -98,10 +97,7 @@ class GsplatShaderEffect extends Script {
     removeShaders() {
         if (!this.material) return;
 
-        const device = this.app.graphicsDevice;
-        const shaderLanguage = device?.isWebGPU ? 'wgsl' : 'glsl';
-
-        this.material.getShaderChunks(shaderLanguage).delete('gsplatModifyVS');
+        this.material.getShaderChunks('wgsl').delete('gsplatModifyVS');
         this.material.update();
         this.material = null;
     }
@@ -135,11 +131,9 @@ class GsplatShaderEffect extends Script {
     }
 
     applyShaderToMaterial(material) {
-        const device = this.app.graphicsDevice;
-        const shaderLanguage = device?.isWebGPU ? 'wgsl' : 'glsl';
-        const customShader = shaderLanguage === 'wgsl' ? this.getShaderWGSL() : this.getShaderGLSL();
+        const customShader = this.getShaderWGSL();
 
-        material.getShaderChunks(shaderLanguage).set('gsplatModifyVS', customShader);
+        material.getShaderChunks('wgsl').set('gsplatModifyVS', customShader);
         material.update();
     }
 
@@ -181,16 +175,6 @@ class GsplatShaderEffect extends Script {
     destroy() {
         // Remove shaders if they're still applied
         this.removeShaders();
-    }
-
-    /**
-     * Get the GLSL shader string.
-     * Must be implemented by subclasses.
-     * @returns {string} GLSL shader code
-     * @abstract
-     */
-    getShaderGLSL() {
-        throw new Error(`${this.constructor.name} must implement getShaderGLSL()`);
     }
 
     /**
