@@ -26,7 +26,8 @@ import { SoundComponent } from '../../src/framework/components/sound/component.j
 import { SpriteComponent } from '../../src/framework/components/sprite/component.js';
 import { ZoneComponent } from '../../src/framework/components/zone/component.js';
 import { Entity } from '../../src/framework/entity.js';
-import { createScript } from '../../src/framework/script/script-create.js';
+import { registerScript } from '../../src/framework/script/script-create.js';
+import { Script } from '../../src/framework/script/script.js';
 import { createApp } from '../app.mjs';
 import { jsdomSetup, jsdomTeardown } from '../jsdom.mjs';
 
@@ -386,9 +387,12 @@ describe('Entity', function () {
         });
 
         it('resolves entity script attributes that refer to entities within the duplicated subtree', function () {
-            const TestScript = createScript('test');
+            class TestScript extends Script {
+                static scriptName = 'test';
+            }
             TestScript.attributes.add('entityAttr', { type: 'entity' });
             TestScript.attributes.add('entityArrayAttr', { type: 'entity', array: true });
+            registerScript(TestScript);
 
             const subtree1 = createSubtree();
             app.root.addChild(subtree1.a);
@@ -433,9 +437,12 @@ describe('Entity', function () {
         });
 
         it('resolves entity script attributes that refer to entities within the duplicated subtree after preloading has finished', function () {
-            const TestScript = createScript('test');
+            class TestScript extends Script {
+                static scriptName = 'test';
+            }
             TestScript.attributes.add('entityAttr', { type: 'entity' });
             TestScript.attributes.add('entityArrayAttr', { type: 'entity', array: true });
+            registerScript(TestScript);
 
             app.systems.script.preloading = false;
 
@@ -483,9 +490,12 @@ describe('Entity', function () {
         });
 
         it('does not attempt to resolve entity script attributes that refer to entities outside of the duplicated subtree', function () {
-            const TestScript = createScript('test');
+            class TestScript extends Script {
+                static scriptName = 'test';
+            }
             TestScript.attributes.add('entityAttr', { type: 'entity' });
             TestScript.attributes.add('entityArrayAttr', { type: 'entity', array: true });
+            registerScript(TestScript);
 
             const subtree1 = createSubtree();
             app.root.addChild(subtree1.a);
@@ -698,7 +708,10 @@ describe('Entity', function () {
     describe('#findScript', function () {
 
         it('finds script on single entity', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const e = new Entity();
             e.addComponent('script');
             e.script.create('myScript');
@@ -724,7 +737,10 @@ describe('Entity', function () {
         });
 
         it('finds script on child entity', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             root.addChild(child);
@@ -735,7 +751,10 @@ describe('Entity', function () {
         });
 
         it('finds script on grandchild entity', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             const grandchild = new Entity();
@@ -748,7 +767,10 @@ describe('Entity', function () {
         });
 
         it('does not find script on parent entity', function () {
-            createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             root.addChild(child);
@@ -763,7 +785,10 @@ describe('Entity', function () {
     describe('#findScripts', function () {
 
         it('finds scripts on single entity', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const e = new Entity();
             e.addComponent('script');
             e.script.create('myScript');
@@ -793,7 +818,10 @@ describe('Entity', function () {
         });
 
         it('finds scripts on child entity', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             root.addChild(child);
@@ -806,7 +834,10 @@ describe('Entity', function () {
         });
 
         it('finds scripts on 3 entity hierarchy', function () {
-            const MyScript = createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             const grandchild = new Entity();
@@ -827,7 +858,10 @@ describe('Entity', function () {
         });
 
         it('does not find scripts on parent entity', function () {
-            createScript('myScript');
+            class MyScript extends Script {
+                static scriptName = 'myScript';
+            }
+            registerScript(MyScript);
             const root = new Entity();
             const child = new Entity();
             root.addChild(child);

@@ -1,13 +1,12 @@
-const ScriptWithAttributes = pc.createScript('scriptWithAttributes');
+class ScriptWithAttributes extends pc.Script {
+    static scriptName = 'scriptWithAttributes';
 
-ScriptWithAttributes.attributes.add('attribute1', {
-    type: 'entity'
-});
+    initialize() {
+    }
 
-ScriptWithAttributes.attributes.add('attribute2', {
-    type: 'number',
-    default: 2
-});
+    postInitialize() {
+    }
+}
 
 const schema = [{
     name: 'fieldNumber',
@@ -23,6 +22,15 @@ const schema = [{
     default: 5
 }];
 
+ScriptWithAttributes.attributes.add('attribute1', {
+    type: 'entity'
+});
+
+ScriptWithAttributes.attributes.add('attribute2', {
+    type: 'number',
+    default: 2
+});
+
 ScriptWithAttributes.attributes.add('attribute3', {
     type: 'json',
     schema: schema
@@ -34,8 +42,4 @@ ScriptWithAttributes.attributes.add('attribute4', {
     schema: schema
 });
 
-ScriptWithAttributes.prototype.initialize = function () {
-};
-
-ScriptWithAttributes.prototype.postInitialize = function () {
-};
+pc.registerScript(ScriptWithAttributes);

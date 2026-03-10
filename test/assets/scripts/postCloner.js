@@ -1,12 +1,16 @@
-const postCloner = pc.createScript('postCloner');
+class postCloner extends pc.Script {
+    static scriptName = 'postCloner';
+
+    postInitialize() {
+
+        const clone = this.entityToClone.clone();
+
+        this.app.root.addChild(clone);
+
+        clone.enabled = true;
+    }
+}
 
 postCloner.attributes.add('entityToClone', { type: 'entity' });
 
-postCloner.prototype.postInitialize = function () {
-
-    const clone = this.entityToClone.clone();
-
-    this.app.root.addChild(clone);
-
-    clone.enabled = true;
-};
+pc.registerScript(postCloner);

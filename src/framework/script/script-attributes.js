@@ -10,7 +10,6 @@ import { Asset } from '../asset/asset.js';
 
 /**
  * @import { AppBase as Application } from '../../framework/app-base.js'
- * @import { ScriptType } from './script-type.js'
  * @import { Script } from '../../framework/script/script.js'
  */
 
@@ -207,8 +206,8 @@ export function assignAttributesToScript(app, attributeSchemaMap, data, script) 
 
 /**
  * Container of Script Attribute definitions. Implements an interface to add/remove attributes and
- * store their definition for a {@link ScriptType}. Note: An instance of ScriptAttributes is
- * created automatically by each {@link ScriptType}.
+ * store their definition for a {@link Script}. Note: An instance of ScriptAttributes is
+ * created automatically by each {@link Script}.
  *
  * @category Script
  */
@@ -220,7 +219,7 @@ class ScriptAttributes {
     /**
      * Create a new ScriptAttributes instance.
      *
-     * @param {typeof ScriptType} scriptType - Script Type that attributes relate to.
+     * @param {typeof Script} scriptType - Script Type that attributes relate to.
      */
     constructor(scriptType) {
         this.scriptType = scriptType;

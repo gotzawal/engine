@@ -61,72 +61,80 @@ assetListLoader.load(() => {
     ////////////////////////////////
     // Script to rotate the scene //
     ////////////////////////////////
-    const Rotator = pc.createScript('rotator');
 
     let t = 0;
 
-    Rotator.prototype.update = function (/** @type {number} */ dt) {
-        t += dt;
-        this.entity.setEulerAngles(0, Math.sin(t) * 40, 0);
-    };
+    class Rotator extends pc.Script {
+        static scriptName = 'rotator';
+        update(/** @type {number} */ dt) {
+            t += dt;
+            this.entity.setEulerAngles(0, Math.sin(t) * 40, 0);
+        }
+    }
+    pc.registerScript(Rotator);
 
     //////////////////////////////////////////////////
     // Script to set up rendering the portal itself //
     //////////////////////////////////////////////////
-    const Portal = pc.createScript('portal');
+    class Portal extends pc.Script {
+        static scriptName = 'portal';
 
-    // initialize code called once per entity
-    Portal.prototype.initialize = function () {
-        // increment value in stencil (from 0 to 1) for stencil geometry
-        const stencil = new pc.StencilParameters({
-            zpass: pc.STENCILOP_INCREMENT
-        });
+        // initialize code called once per entity
+        initialize() {
+            // increment value in stencil (from 0 to 1) for stencil geometry
+            const stencil = new pc.StencilParameters({
+                zpass: pc.STENCILOP_INCREMENT
+            });
 
-        // set the stencil and other parameters on all materials
-        /** @type {Array<pc.RenderComponent>} */
-        const renders = this.entity.findComponents('render');
-        renders.forEach((render) => {
-            for (const meshInstance of render.meshInstances) {
-                const mat = meshInstance.material;
-                mat.stencilBack = mat.stencilFront = stencil;
+            // set the stencil and other parameters on all materials
+            /** @type {Array<pc.RenderComponent>} */
+            const renders = this.entity.findComponents('render');
+            renders.forEach((render) => {
+                for (const meshInstance of render.meshInstances) {
+                    const mat = meshInstance.material;
+                    mat.stencilBack = mat.stencilFront = stencil;
 
-                // We only want to write to the stencil buffer
-                mat.depthWrite = false;
-                mat.redWrite = mat.greenWrite = mat.blueWrite = mat.alphaWrite = false;
-                mat.update();
-            }
-        });
-    };
+                    // We only want to write to the stencil buffer
+                    mat.depthWrite = false;
+                    mat.redWrite = mat.greenWrite = mat.blueWrite = mat.alphaWrite = false;
+                    mat.update();
+                }
+            });
+        }
+    }
+    pc.registerScript(Portal);
 
     /////////////////////////////////////////////////////////////////////////////
     // Script to set stencil options for entities inside or outside the portal //
     /////////////////////////////////////////////////////////////////////////////
 
-    const PortalGeometry = pc.createScript('portalGeometry');
+    class PortalGeometry extends pc.Script {
+        static scriptName = 'portalGeometry';
 
+        initialize() {
+            // based on value in the stencil buffer (0 outside, 1 inside), either render
+            // the geometry when the value is equal, or not equal to zero.
+            const stencil = new pc.StencilParameters({
+                func: this.inside ? pc.FUNC_NOTEQUAL : pc.FUNC_EQUAL,
+                ref: 0
+            });
+
+            // set the stencil parameters on all materials
+            /** @type {Array<pc.RenderComponent>} */
+            const renders = this.entity.findComponents('render');
+            renders.forEach((render) => {
+                for (const meshInstance of render.meshInstances) {
+                    meshInstance.material.stencilBack = meshInstance.material.stencilFront = stencil;
+                }
+            });
+        }
+    }
     PortalGeometry.attributes.add('inside', {
         type: 'boolean',
         default: true,
         title: 'True indicating the geometry is inside the portal, false for outside'
     });
-
-    PortalGeometry.prototype.initialize = function () {
-        // based on value in the stencil buffer (0 outside, 1 inside), either render
-        // the geometry when the value is equal, or not equal to zero.
-        const stencil = new pc.StencilParameters({
-            func: this.inside ? pc.FUNC_NOTEQUAL : pc.FUNC_EQUAL,
-            ref: 0
-        });
-
-        // set the stencil parameters on all materials
-        /** @type {Array<pc.RenderComponent>} */
-        const renders = this.entity.findComponents('render');
-        renders.forEach((render) => {
-            for (const meshInstance of render.meshInstances) {
-                meshInstance.material.stencilBack = meshInstance.material.stencilFront = stencil;
-            }
-        });
-    };
+    pc.registerScript(PortalGeometry);
 
     /////////////////////////////////////////////////////////////////////////////
 
