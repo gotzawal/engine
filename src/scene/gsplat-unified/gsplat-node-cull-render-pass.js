@@ -1,7 +1,6 @@
 import { SEMANTIC_POSITION } from '../../platform/graphics/constants.js';
 import { RenderPassShaderQuad } from '../graphics/render-pass-shader-quad.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
-import glslGsplatNodeCullingPS from '../shader-lib/glsl/chunks/gsplat/frag/gsplatNodeCulling.js';
 import wgslGsplatNodeCullingPS from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatNodeCulling.js';
 
 /**
@@ -42,7 +41,6 @@ class GSplatNodeCullRenderPass extends RenderPassShaderQuad {
             uniqueName: 'GSplatNodeCulling',
             attributes: { aPosition: SEMANTIC_POSITION },
             vertexChunk: 'quadVS',
-            fragmentGLSL: glslGsplatNodeCullingPS,
             fragmentWGSL: wgslGsplatNodeCullingPS,
             fragmentOutputTypes: ['uint']
         });

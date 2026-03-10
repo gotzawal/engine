@@ -1,4 +1,4 @@
-import { PRIMITIVE_TRISTRIP, SEMANTIC_COLOR, SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { PRIMITIVE_TRISTRIP, SEMANTIC_COLOR, SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 
 import { BLEND_NORMAL } from '../constants.js';
 import { GraphNode } from '../graph-node.js';
@@ -44,12 +44,11 @@ class Immediate {
 
     // creates material for line rendering
     createMaterial(depthTest) {
+        const wgslChunks = ShaderChunks.get(this.device, SHADERLANGUAGE_WGSL);
         const material = new ShaderMaterial({
             uniqueName: 'ImmediateLine',
-            vertexGLSL: ShaderChunks.get(this.device, SHADERLANGUAGE_GLSL).get('immediateLineVS'),
-            fragmentGLSL: ShaderChunks.get(this.device, SHADERLANGUAGE_GLSL).get('immediateLinePS'),
-            vertexWGSL: ShaderChunks.get(this.device, SHADERLANGUAGE_WGSL).get('immediateLineVS'),
-            fragmentWGSL: ShaderChunks.get(this.device, SHADERLANGUAGE_WGSL).get('immediateLinePS'),
+            vertexWGSL: wgslChunks.get('immediateLineVS'),
+            fragmentWGSL: wgslChunks.get('immediateLinePS'),
             attributes: {
                 vertex_position: SEMANTIC_POSITION,
                 vertex_color: SEMANTIC_COLOR
@@ -95,22 +94,12 @@ class Immediate {
         return batches.getBatch(material, layer);
     }
 
-    getShaderDesc(id, fragmentGLSL, fragmentWGSL) {
+    getShaderDesc(id, fragmentWGSL) {
         if (!this.shaderDescs.has(id)) {
             this.shaderDescs.set(id, {
                 uniqueName: `DebugShader:${id}`,
 
                 // shared vertex shader for textured quad rendering
-                vertexGLSL: /* glsl */ `
-                    attribute vec2 vertex_position;
-                    uniform mat4 matrix_model;
-                    varying vec2 uv0;
-                    void main(void) {
-                        gl_Position = matrix_model * vec4(vertex_position, 0, 1);
-                        uv0 = vertex_position.xy + 0.5;
-                    }
-                `,
-
                 vertexWGSL: /* wgsl */ `
                     attribute vertex_position: vec2f;
                     uniform matrix_model: mat4x4f;
@@ -123,7 +112,6 @@ class Immediate {
                     }
                 `,
 
-                fragmentGLSL: fragmentGLSL,
                 fragmentWGSL: fragmentWGSL,
                 attributes: { vertex_position: SEMANTIC_POSITION }
             });
@@ -135,15 +123,7 @@ class Immediate {
     getTextureShaderDesc(encoding) {
         const decodeFunc = ChunkUtils.decodeFunc(encoding);
         return this.getShaderDesc(`textureShader-${encoding}`,
-        /* glsl */ `
-            #include "gammaPS"
-            varying vec2 uv0;
-            uniform sampler2D colorMap;
-            void main (void) {
-                vec3 linearColor = ${decodeFunc}(texture2D(colorMap, uv0));
-                gl_FragColor = vec4(gammaCorrectOutput(linearColor), 1);
-            }
-        `, /* wgsl */`
+        /* wgsl */`
             #include "gammaPS"
             varying uv0: vec2f;
             var colorMap: texture_2d<f32>;
@@ -161,14 +141,7 @@ class Immediate {
     // shader used to display infilterable texture sampled using texelFetch
     getUnfilterableTextureShaderDesc() {
         return this.getShaderDesc('textureShaderUnfilterable',
-        /* glsl */ `
-            varying vec2 uv0;
-            uniform highp sampler2D colorMap;
-            void main (void) {
-                ivec2 uv = ivec2(uv0 * textureSize(colorMap, 0));
-                gl_FragColor = vec4(texelFetch(colorMap, uv, 0).xyz, 1);
-            }
-        `, /* wgsl */`
+        /* wgsl */`
 
             varying uv0: vec2f;
             var colorMap: texture_2d<uff>;
@@ -185,15 +158,7 @@ class Immediate {
     // shader used to display depth texture
     getDepthTextureShaderDesc() {
         return this.getShaderDesc('depthTextureShader',
-        /* glsl */ `
-            #include "screenDepthPS"
-            #include "gammaPS"
-            varying vec2 uv0;
-            void main() {
-                float depth = getLinearScreenDepth(getImageEffectUV(uv0)) * camera_params.x;
-                gl_FragColor = vec4(gammaCorrectOutput(vec3(depth)), 1.0);
-            }
-        `, /* wgsl */`
+        /* wgsl */`
             #include "screenDepthPS"
             #include "gammaPS"
             varying uv0: vec2f;

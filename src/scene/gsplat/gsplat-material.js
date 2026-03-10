@@ -1,5 +1,5 @@
 import {
-    CULLFACE_NONE, SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL
+    CULLFACE_NONE, SEMANTIC_POSITION, SHADERLANGUAGE_WGSL
 } from '../../platform/graphics/constants.js';
 
 import { BLEND_NONE, BLEND_PREMULTIPLIED, DITHER_NONE } from '../constants.js';
@@ -32,12 +32,11 @@ const createGSplatMaterial = (device, options = {}) => {
     const ditherEnum = options.dither ?? DITHER_NONE;
     const dither = ditherEnum !== DITHER_NONE;
 
+    const wgslChunks = ShaderChunks.get(device, SHADERLANGUAGE_WGSL);
     const material = new ShaderMaterial({
         uniqueName: 'SplatMaterial',
-        vertexGLSL: options.vertex ?? ShaderChunks.get(device, SHADERLANGUAGE_GLSL).get('gsplatVS'),
-        fragmentGLSL: options.fragment ?? ShaderChunks.get(device, SHADERLANGUAGE_GLSL).get('gsplatPS'),
-        vertexWGSL: options.vertex ? '' : ShaderChunks.get(device, SHADERLANGUAGE_WGSL).get('gsplatVS'),
-        fragmentWGSL: options.vertex ? '' : ShaderChunks.get(device, SHADERLANGUAGE_WGSL).get('gsplatPS'),
+        vertexWGSL: options.vertex ? '' : wgslChunks.get('gsplatVS'),
+        fragmentWGSL: options.vertex ? '' : wgslChunks.get('gsplatPS'),
         attributes: {
             vertex_position: SEMANTIC_POSITION
         }

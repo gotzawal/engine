@@ -584,7 +584,7 @@ class GSplatManager {
      * @private
      */
     get canCpuCompact() {
-        return !this.useGpuSorting && this.device.isWebGPU && this.canCull;
+        return !this.useGpuSorting && this.canCull;
     }
 
     /**
@@ -594,7 +594,7 @@ class GSplatManager {
      * @private
      */
     prepareSortMode() {
-        const gpuSorting = this.device.isWebGPU && this.scene.gsplat.gpuSorting;
+        const gpuSorting = this.scene.gsplat.gpuSorting;
         if (gpuSorting !== this.useGpuSorting) {
 
             if (gpuSorting) {

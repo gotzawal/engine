@@ -106,7 +106,7 @@ assetListLoader.load(() => {
         name: 'MRT',
         colorBuffers: colorBuffers,
         depth: true,
-        flipY: !app.graphicsDevice.isWebGPU,
+        flipY: false,
         samples: 2
     });
 
@@ -143,7 +143,6 @@ assetListLoader.load(() => {
         const meshInstances = render.meshInstances;
         for (let i = 0; i < meshInstances.length; i++) {
             const material = meshInstances[i].material;
-            material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set('outputPS', files['output-glsl.frag']);
             material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set('outputPS', files['output-wgsl.frag']);
             material.shaderChunksVersion = '2.8';
         }

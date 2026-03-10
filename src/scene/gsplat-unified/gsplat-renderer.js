@@ -71,8 +71,6 @@ class GSplatRenderer {
         // construct the material which renders the splats from the work buffer
         this._material = new ShaderMaterial({
             uniqueName: 'UnifiedSplatMaterial',
-            vertexGLSL: '#include "gsplatVS"',
-            fragmentGLSL: '#include "gsplatPS"',
             vertexWGSL: '#include "gsplatVS"',
             fragmentWGSL: '#include "gsplatPS"',
             attributes: {
@@ -211,7 +209,7 @@ class GSplatRenderer {
      * @private
      */
     _injectFormatChunks() {
-        const chunks = this.device.isWebGPU ? this._material.shaderChunks.wgsl : this._material.shaderChunks.glsl;
+        const chunks = this._material.shaderChunks.wgsl;
         const wbFormat = this.workBuffer.format;
 
         // Use work buffer format for declarations and read code
@@ -288,12 +286,7 @@ class GSplatRenderer {
     }
 
     setOrderData() {
-        // Set the appropriate order data resource based on device type
-        if (this.device.isWebGPU) {
-            this._material.setParameter('splatOrder', this.workBuffer.orderBuffer);
-        } else {
-            this._material.setParameter('splatOrder', this.workBuffer.orderTexture);
-        }
+        this._material.setParameter('splatOrder', this.workBuffer.orderBuffer);
     }
 
     frameUpdate(params) {

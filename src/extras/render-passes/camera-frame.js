@@ -206,19 +206,17 @@ import { CameraFrameOptions, RenderPassCameraFrame } from './render-pass-camera-
  * {@link ShaderChunks} map before creating the `CameraFrame`. Those chunks will be picked up by
  * the compose pass and preserved.
  *
- * Example (GLSL):
+ * Example (WGSL):
  *
  * @example
  * // Provide custom compose chunk(s) before constructing CameraFrame
- * ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_GLSL).set('composeVignettePS', `
+ * ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_WGSL).set('composeVignettePS', `
  *     #ifdef VIGNETTE
- *         vec3 applyVignette(vec3 color, vec2 uv) {
- *             return color * uv.u;
+ *         fn applyVignette(color: vec3f, uv: vec2f) -> vec3f {
+ *             return color * uv.x;
  *         }
  *     #endif
  * `);
- *
- * // For WebGPU, use SHADERLANGUAGE_WGSL instead.
  *
  * @category Graphics
  */

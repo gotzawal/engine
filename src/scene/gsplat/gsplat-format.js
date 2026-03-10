@@ -1,5 +1,5 @@
 import {
-    getGlslShaderType, getWgslShaderType,
+    getWgslShaderType,
     PIXELFORMAT_RGBA16F, PIXELFORMAT_RGBA32F
 } from '../../platform/graphics/constants.js';
 import { hashCode } from '../../core/hash.js';
@@ -7,15 +7,11 @@ import { Debug } from '../../core/debug.js';
 import { GSPLAT_STREAM_RESOURCE, GSPLAT_STREAM_INSTANCE } from '../constants.js';
 
 // Shader chunk templates for stream declarations
-import glslStreamDecl from '../shader-lib/glsl/chunks/gsplat/vert/gsplatStreamDecl.js';
 import wgslStreamDecl from '../shader-lib/wgsl/chunks/gsplat/vert/gsplatStreamDecl.js';
-import glslStreamOutput from '../shader-lib/glsl/chunks/gsplat/vert/gsplatStreamOutput.js';
 import wgslStreamOutput from '../shader-lib/wgsl/chunks/gsplat/vert/gsplatStreamOutput.js';
 
 // Container format read chunks
-import glslContainerFloatRead from '../shader-lib/glsl/chunks/gsplat/vert/formats/containerFloatRead.js';
 import wgslContainerFloatRead from '../shader-lib/wgsl/chunks/gsplat/vert/formats/containerFloatRead.js';
-import glslContainerSimpleRead from '../shader-lib/glsl/chunks/gsplat/vert/formats/containerSimpleRead.js';
 import wgslContainerSimpleRead from '../shader-lib/wgsl/chunks/gsplat/vert/formats/containerSimpleRead.js';
 
 /**
@@ -162,12 +158,8 @@ class GSplatFormat {
      * @param {GraphicsDevice} device - The graphics device.
      * @param {GSplatStreamDescriptor[]} streams - Array of stream descriptors.
      * @param {object} options - Format options.
-     * @param {string} [options.readGLSL] - GLSL code defining getCenter(), getColor(),
+     * @param {string} options.readWGSL - WGSL code defining getCenter(), getColor(),
      * getRotation(), getScale() functions. Can include additional declarations at module scope.
-     * Required for WebGL.
-     * @param {string} [options.readWGSL] - WGSL code defining getCenter(), getColor(),
-     * getRotation(), getScale() functions. Can include additional declarations at module scope.
-     * Required for WebGPU.
      */
     constructor(device, streams, options) {
         this._device = device;
@@ -178,12 +170,11 @@ class GSplatFormat {
         // Initialize stream names set for duplicate checking
         this._streamNames = new Set(this.streams.map(s => s.name));
 
-        // Pick the appropriate shader language based on device
-        const isWebGPU = device.isWebGPU;
-        this._read = isWebGPU ? options.readWGSL : options.readGLSL;
+        // Pick the appropriate shader language (WebGPU only)
+        this._read = options.readWGSL;
 
         // Validate read code is provided for the current device
-        Debug.assert(this._read, `GSplatFormat: ${isWebGPU ? 'readWGSL' : 'readGLSL'} is required`);
+        Debug.assert(this._read, 'GSplatFormat: readWGSL is required');
     }
 
     /**
@@ -333,9 +324,8 @@ class GSplatFormat {
      * @ignore
      */
     getInputDeclarations(streamNames) {
-        const isWebGPU = this._device.isWebGPU;
-        const template = isWebGPU ? wgslStreamDecl : glslStreamDecl;
-        const getShaderType = isWebGPU ? getWgslShaderType : getGlslShaderType;
+        const template = wgslStreamDecl;
+        const getShaderType = getWgslShaderType;
         const lines = [];
 
         // Get streams - filter if names specified
@@ -370,15 +360,13 @@ class GSplatFormat {
     }
 
     /**
-     * Sets the write code for encoding splat data into the work buffer. The appropriate code
-     * for the current backend (GLSL or WGSL) is stored.
+     * Sets the write code for encoding splat data into the work buffer.
      *
-     * @param {string} writeGLSL - GLSL code for writing/encoding splat data.
      * @param {string} writeWGSL - WGSL code for writing/encoding splat data.
      * @ignore
      */
-    setWriteCode(writeGLSL, writeWGSL) {
-        this._write = this._device.isWebGPU ? writeWGSL : writeGLSL;
+    setWriteCode(writeWGSL) {
+        this._write = writeWGSL;
     }
 
     /**
@@ -402,12 +390,11 @@ class GSplatFormat {
      * @ignore
      */
     getOutputDeclarations(outputStreams) {
-        const isWebGPU = this._device.isWebGPU;
         const lines = [];
 
         // Generate output declarations using chunk template
-        const template = isWebGPU ? wgslStreamOutput : glslStreamOutput;
-        const getShaderType = isWebGPU ? getWgslShaderType : getGlslShaderType;
+        const template = wgslStreamOutput;
+        const getShaderType = getWgslShaderType;
 
         for (let i = 0; i < outputStreams.length; i++) {
             const stream = outputStreams[i];
@@ -435,10 +422,9 @@ class GSplatFormat {
      * @ignore
      */
     getOutputStubs(streams) {
-        const isWebGPU = this._device.isWebGPU;
         const lines = [];
-        const template = isWebGPU ? wgslStreamOutput : glslStreamOutput;
-        const getShaderType = isWebGPU ? getWgslShaderType : getGlslShaderType;
+        const template = wgslStreamOutput;
+        const getShaderType = getWgslShaderType;
 
         for (const stream of streams) {
             const info = getShaderType(stream.format);
@@ -503,7 +489,6 @@ class GSplatFormat {
             { name: 'dataScale', format: PIXELFORMAT_RGBA16F },
             { name: 'dataRotation', format: PIXELFORMAT_RGBA16F }
         ], {
-            readGLSL: glslContainerFloatRead,
             readWGSL: wgslContainerFloatRead
         });
     }
@@ -522,7 +507,6 @@ class GSplatFormat {
             { name: 'dataCenter', format: PIXELFORMAT_RGBA32F },
             { name: 'dataColor', format: PIXELFORMAT_RGBA16F }
         ], {
-            readGLSL: glslContainerSimpleRead,
             readWGSL: wgslContainerSimpleRead
         });
     }

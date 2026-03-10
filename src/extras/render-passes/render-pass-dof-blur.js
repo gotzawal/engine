@@ -1,7 +1,6 @@
 import { Kernel } from '../../core/math/kernel.js';
-import { SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-quad.js';
-import glsldofBlurPS from '../../scene/shader-lib/glsl/chunks/render-pass/frag/dofBlur.js';
 import wgsldofBlurPS from '../../scene/shader-lib/wgsl/chunks/render-pass/frag/dofBlur.js';
 import { ShaderChunks } from '../../scene/shader-lib/shader-chunks.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
@@ -40,7 +39,6 @@ class RenderPassDofBlur extends RenderPassShaderQuad {
         this.cocTexture = cocTexture;
 
         // register shader chunks
-        ShaderChunks.get(device, SHADERLANGUAGE_GLSL).set('dofBlurPS', glsldofBlurPS);
         ShaderChunks.get(device, SHADERLANGUAGE_WGSL).set('dofBlurPS', wgsldofBlurPS);
 
         const { scope } = device;

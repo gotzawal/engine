@@ -1,8 +1,7 @@
 import { TRACEID_SHADER_ALLOC } from '../../core/constants.js';
 import { Debug } from '../../core/debug.js';
-import { platform } from '../../core/platform.js';
 import { Preprocessor } from '../../core/preprocessor.js';
-import { SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from './constants.js';
+import { SHADERLANGUAGE_WGSL } from './constants.js';
 import { DebugGraphics } from './debug-graphics.js';
 import { ShaderDefinitionUtils } from './shader-definition-utils.js';
 import halfTypes from './shader-chunks/frag/half-types.js';
@@ -92,25 +91,27 @@ class Shader {
      * which default to vec4. Passing a string will set the output type for all color attachments.
      * Passing an array will set the output type for each color attachment.
      * @param {string} [definition.shaderLanguage] - Specifies the shader language of vertex and
-     * fragment shaders. Defaults to {@link SHADERLANGUAGE_GLSL}.
+     * fragment shaders. Defaults to {@link SHADERLANGUAGE_WGSL}.
      * @example
-     * // Create a shader that renders primitives with a solid red color
+     * // Create a shader that renders primitives with a solid red color (WGSL)
      *
-     * // Vertex shader
      * const vshader = `
-     * attribute vec3 aPosition;
+     * struct VertexOutput {
+     *     @builtin(position) position: vec4f
+     * };
      *
-     * void main(void) {
-     *     gl_Position = vec4(aPosition, 1.0);
+     * @vertex
+     * fn main(@location(0) aPosition: vec3f) -> VertexOutput {
+     *     var output: VertexOutput;
+     *     output.position = vec4f(aPosition, 1.0);
+     *     return output;
      * }
      * `;
      *
-     * // Fragment shader
      * const fshader = `
-     * precision ${graphicsDevice.precision} float;
-     *
-     * void main(void) {
-     *     gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+     * @fragment
+     * fn main() -> @location(0) vec4f {
+     *     return vec4f(1.0, 0.0, 0.0, 1.0);
      * }
      * `;
      *
@@ -176,19 +177,8 @@ class Shader {
                 stripDefines: wgsl
             });
 
-            // if no attributes are specified, try to extract the default names after the shader has been pre-processed
-            if (definition.shaderLanguage === SHADERLANGUAGE_GLSL) {
-                definition.attributes ??= ShaderDefinitionUtils.collectAttributes(definition.vshader);
-            }
-
-            // Strip unused color attachments from fragment shader.
-            // Note: this is only needed for iOS 15 on WebGL2 where there seems to be a bug where color attachments that are not
-            // written to generate metal linking errors. This is fixed on iOS 16, and iOS 14 does not support WebGL2.
-            const stripUnusedColorAttachments = graphicsDevice.isWebGL2 && (platform.name === 'osx' || platform.name === 'ios');
-
             // pre-process fragment shader source
             definition.fshader = Preprocessor.run(definition.fshader, definition.fincludes, {
-                stripUnusedColorAttachments,
                 stripDefines: wgsl,
                 sourceName: `fragment shader for ${this.label}`
             });

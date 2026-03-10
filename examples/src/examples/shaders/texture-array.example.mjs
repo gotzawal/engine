@@ -139,8 +139,6 @@ assetListLoader.load(() => {
     // Create a new material with the new shader
     const material = new pc.ShaderMaterial({
         uniqueName: 'MyShader',
-        vertexGLSL: files['shader.glsl.vert'],
-        fragmentGLSL: files['shader.glsl.frag'],
         vertexWGSL: files['shader.wgsl.vert'],
         fragmentWGSL: files['shader.wgsl.frag'],
         attributes: {
@@ -155,8 +153,6 @@ assetListLoader.load(() => {
     // Create a another material with the new shader
     const groundMaterial = new pc.ShaderMaterial({
         uniqueName: 'MyShaderGround',
-        vertexGLSL: files['shader.glsl.vert'],
-        fragmentGLSL: files['ground.glsl.frag'],
         vertexWGSL: files['shader.wgsl.vert'],
         fragmentWGSL: files['ground.wgsl.frag'],
         attributes: {

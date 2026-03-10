@@ -7,7 +7,6 @@ import { QuadRender } from '../../scene/graphics/quad-render.js';
 import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-quad.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
 import { GSPLAT_STREAM_INSTANCE } from '../../scene/constants.js';
-import glslGsplatProcess from '../../scene/shader-lib/glsl/chunks/gsplat/frag/gsplatProcess.js';
 import wgslGsplatProcess from '../../scene/shader-lib/wgsl/chunks/gsplat/frag/gsplatProcess.js';
 
 /**
@@ -397,19 +396,17 @@ class GSplatProcessor {
         const defines = new Map();
         defines.set('SH_BANDS', '0'); // SH processing is currently not supported.
 
-        const isWebGPU = device.isWebGPU;
-
         // Create shader includes for current platform
         // User's process code provides process() function + any declarations at module scope
         const includes = new Map();
         includes.set('gsplatProcessInputVS', inputDeclarations);
         includes.set('gsplatProcessOutputVS', outputDeclarations);
         includes.set('gsplatProcessReadVS', readCode);
-        includes.set('gsplatProcessChunk', isWebGPU ? processWGSL : processGLSL);
+        includes.set('gsplatProcessChunk', processWGSL);
 
         // shader unique name hash
         const hash = hashCode([
-            isWebGPU ? processWGSL : processGLSL,
+            processWGSL,
             this._useAllInputStreams ? '1' : '0'
         ].join('|'));
         const outputStreams = this._dstStreamDescriptors.map(s => s.name).join(',');
@@ -421,7 +418,6 @@ class GSplatProcessor {
             vertexDefines: defines,
             fragmentDefines: defines,
             vertexChunk: 'fullscreenQuadVS',
-            fragmentGLSL: glslGsplatProcess,
             fragmentWGSL: wgslGsplatProcess,
             fragmentIncludes: includes,
             fragmentOutputTypes: fragmentOutputTypes

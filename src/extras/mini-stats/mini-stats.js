@@ -831,11 +831,9 @@ class MiniStats {
                 const vram = this.app.stats.vram;
                 const vramStats = {
                     tex: vram.tex,
-                    geom: vram.geom
+                    geom: vram.geom,
+                    buffers: vram.buffers
                 };
-                if (this.device.isWebGPU) {
-                    vramStats.buffers = vram.buffers;
-                }
                 this.updateSubStats(this.vramGraphs, 'VRAM', vramStats, 'vram', 0);
             }
         }

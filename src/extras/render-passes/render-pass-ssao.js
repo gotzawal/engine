@@ -2,7 +2,7 @@ import { BlueNoise } from '../../core/math/blue-noise.js';
 import { Color } from '../../core/math/color.js';
 import { math } from '../../core/math/math.js';
 import {
-    PIXELFORMAT_R8, SEMANTIC_POSITION, SHADERLANGUAGE_GLSL,
+    PIXELFORMAT_R8, SEMANTIC_POSITION,
     SHADERLANGUAGE_WGSL
 } from '../../platform/graphics/constants.js';
 import { RenderTarget } from '../../platform/graphics/render-target.js';
@@ -11,7 +11,6 @@ import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-qu
 import { RenderPassDepthAwareBlur } from './render-pass-depth-aware-blur.js';
 import { ShaderChunks } from '../../scene/shader-lib/shader-chunks.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
-import glslSsaoPS from '../../scene/shader-lib/glsl/chunks/render-pass/frag/ssao.js';
 import wgslSsaoPS from '../../scene/shader-lib/wgsl/chunks/render-pass/frag/ssao.js';
 
 /**
@@ -83,7 +82,6 @@ class RenderPassSsao extends RenderPassShaderQuad {
         this.cameraComponent = cameraComponent;
 
         // register shader chunks
-        ShaderChunks.get(device, SHADERLANGUAGE_GLSL).set('ssaoPS', glslSsaoPS);
         ShaderChunks.get(device, SHADERLANGUAGE_WGSL).set('ssaoPS', wgslSsaoPS);
 
         // main SSAO render pass

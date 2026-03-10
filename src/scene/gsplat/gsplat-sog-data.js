@@ -9,16 +9,11 @@ import { PIXELFORMAT_RGBA32U, PIXELFORMAT_RGBA8, SEMANTIC_POSITION } from '../..
 import { QuadRender } from '../../scene/graphics/quad-render.js';
 import { RenderPassQuad } from '../../scene/graphics/render-pass-quad.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
-import glslGsplatSogReorderPS from '../shader-lib/glsl/chunks/gsplat/frag/gsplatSogReorder.js';
 import wgslGsplatSogReorderPS from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatSogReorder.js';
-
-import glslGsplatSogReorderSh from '../shader-lib/glsl/chunks/gsplat/frag/gsplatSogReorderSh.js';
-import glslGsplatPackingPS from '../shader-lib/glsl/chunks/gsplat/frag/gsplatPacking.js';
 
 import wgslGsplatSogReorderSH from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatSogReorderSh.js';
 import wgslGsplatPackingPS from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatPacking.js';
 
-import glslSogCentersPS from '../shader-lib/glsl/chunks/gsplat/frag/gsplatSogCenters.js';
 import wgslSogCentersPS from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatSogCenters.js';
 
 /**
@@ -402,10 +397,9 @@ class GSplatSogData {
             uniqueName: 'GsplatSogCentersShader',
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
-            fragmentGLSL: glslSogCentersPS,
             fragmentWGSL: wgslSogCentersPS,
             fragmentOutputTypes: ['uvec4'],
-            fragmentIncludes: new Map([['gsplatPackingPS', device.isWebGPU ? wgslGsplatPackingPS : glslGsplatPackingPS]])
+            fragmentIncludes: new Map([['gsplatPackingPS', wgslGsplatPackingPS]])
         });
 
         const renderTarget = new RenderTarget({
@@ -464,10 +458,9 @@ class GSplatSogData {
             uniqueName: `GsplatSogReorderShader-${shaderKey}`,
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
-            fragmentGLSL: glslGsplatSogReorderPS,
             fragmentWGSL: wgslGsplatSogReorderPS,
             fragmentOutputTypes: ['uvec4', 'vec4'],
-            fragmentIncludes: new Map([['gsplatPackingPS', device.isWebGPU ? wgslGsplatPackingPS : glslGsplatPackingPS]]),
+            fragmentIncludes: new Map([['gsplatPackingPS', wgslGsplatPackingPS]]),
             fragmentDefines: (meta.version === 2) ? undefined : new Map([['REORDER_V1', '1']])
         });
 
@@ -518,9 +511,8 @@ class GSplatSogData {
             uniqueName: `GsplatSogReorderShShader-${shaderKey}`,
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
-            fragmentGLSL: glslGsplatSogReorderSh,
             fragmentWGSL: wgslGsplatSogReorderSH,
-            fragmentIncludes: new Map([['gsplatPackingPS', device.isWebGPU ? wgslGsplatPackingPS : glslGsplatPackingPS]]),
+            fragmentIncludes: new Map([['gsplatPackingPS', wgslGsplatPackingPS]]),
             fragmentDefines: (meta.version === 2) ? undefined : new Map([['REORDER_V1', '1']])
         });
 

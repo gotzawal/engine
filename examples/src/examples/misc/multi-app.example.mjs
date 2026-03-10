@@ -1,7 +1,5 @@
 // @config NO_MINISTATS
 // @config NO_DEVICE_SELECTOR
-// @config WEBGPU_DISABLED
-// @config WEBGL_DISABLED
 import { data } from 'examples/observer';
 import { rootPath } from 'examples/utils';
 import * as pc from 'playcanvas';
@@ -16,9 +14,7 @@ async function createGraphicsDevice(canvas, deviceType) {
     let device;
     if (deviceType === 'webgpu') {
         device = new pc.WebgpuGraphicsDevice(canvas, {});
-        await device.initWebGpu(`${rootPath}/static/lib/glslang/glslang.js`, `${rootPath}/static/lib/twgsl/twgsl.js`);
-    } else if (deviceType === 'webgl2') {
-        device = new pc.WebglGraphicsDevice(canvas);
+        await device.initWebGpu();
     } else {
         device = new pc.NullGraphicsDevice(canvas, {});
     }
@@ -111,7 +107,7 @@ async function createApp(deviceType) {
         anchor: new pc.Vec4(0.5, -0.2, 0.5, 0.5),
         fontAsset: assets.font.id,
         fontSize: 130,
-        text: app.graphicsDevice.isWebGL2 ? 'WebGL 2' : 'WebGPU',
+        text: app.graphicsDevice.deviceType === 'webgpu' ? 'WebGPU' : 'Null',
         color: new pc.Color(0.9, 0.9, 0.9),
         outlineColor: new pc.Color(0, 0, 0),
         outlineThickness: 1,
@@ -132,7 +128,6 @@ async function createApp(deviceType) {
  */
 const apps = {
     webgpu: [],
-    webgl2: [],
     null: []
 };
 
@@ -190,8 +185,8 @@ const destroy = () => {
     }
 };
 
-// Start with a webgl2 and webgpu app
-await addApp('webgl2');
+// Start with two webgpu apps
+await addApp('webgpu');
 await addApp('webgpu');
 
 export { destroy };

@@ -89,10 +89,8 @@ class ShaderProcessorOptions {
         // constructors, and here we should simply concatenate those.
         let key = JSON.stringify(this.uniformFormats) + JSON.stringify(this.bindGroupFormats);
 
-        // WebGPU shaders are processed per vertex format
-        if (device.isWebGPU) {
-            key += this.vertexFormat?.shaderProcessingHashString;
-        }
+        // Shaders are processed per vertex format
+        key += this.vertexFormat?.shaderProcessingHashString;
 
         return key;
     }

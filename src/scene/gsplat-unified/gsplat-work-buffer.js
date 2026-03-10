@@ -3,7 +3,7 @@ import { Frustum } from '../../core/shape/frustum.js';
 import { Mat4 } from '../../core/math/mat4.js';
 import { Vec2 } from '../../core/math/vec2.js';
 import {
-    ADDRESS_CLAMP_TO_EDGE, PIXELFORMAT_R32U, PIXELFORMAT_RGBA16U, PIXELFORMAT_RGBA32F,
+    PIXELFORMAT_R32U, PIXELFORMAT_RGBA16U, PIXELFORMAT_RGBA32F,
     BUFFERUSAGE_COPY_DST, SEMANTIC_POSITION, getGlslShaderType
 } from '../../platform/graphics/constants.js';
 import { RenderTarget } from '../../platform/graphics/render-target.js';
@@ -13,9 +13,7 @@ import { TextureUtils } from '../../platform/graphics/texture-utils.js';
 import { UploadStream } from '../../platform/graphics/upload-stream.js';
 import { QuadRender } from '../graphics/quad-render.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
-import glslGsplatCopyToWorkBufferPS from '../shader-lib/glsl/chunks/gsplat/frag/gsplatCopyToWorkbuffer.js';
 import wgslGsplatCopyToWorkBufferPS from '../shader-lib/wgsl/chunks/gsplat/frag/gsplatCopyToWorkbuffer.js';
-import glslGsplatCopyInstancedQuadVS from '../shader-lib/glsl/chunks/gsplat/vert/gsplatCopyInstancedQuad.js';
 import wgslGsplatCopyInstancedQuadVS from '../shader-lib/wgsl/chunks/gsplat/vert/gsplatCopyInstancedQuad.js';
 import { GSplatNodeCullRenderPass } from './gsplat-node-cull-render-pass.js';
 import { GSplatWorkBufferRenderPass } from './gsplat-work-buffer-render-pass.js';
@@ -84,7 +82,7 @@ class WorkBufferRenderInfo {
 
         // Get custom shader chunks from material (for container support)
         const fragmentIncludes = material.hasShaderChunks ?
-            (device.isWebGPU ? material.shaderChunks.wgsl : material.shaderChunks.glsl) :
+            material.shaderChunks.wgsl :
             undefined;
 
         // Get streams to output - color-only mode uses just dataColor, otherwise all streams
@@ -105,7 +103,6 @@ class WorkBufferRenderInfo {
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexDefines: clonedDefines,
             fragmentDefines: clonedDefines,
-            fragmentGLSL: glslGsplatCopyToWorkBufferPS,
             fragmentWGSL: wgslGsplatCopyToWorkBufferPS,
             fragmentIncludes: fragmentIncludes,
             fragmentOutputTypes: fragmentOutputTypes
@@ -113,7 +110,6 @@ class WorkBufferRenderInfo {
 
         if (useInstanced) {
             // Instanced LOD path: custom vertex shader that positions quads per instance
-            shaderOptions.vertexGLSL = glslGsplatCopyInstancedQuadVS;
             shaderOptions.vertexWGSL = wgslGsplatCopyInstancedQuadVS;
         } else {
             // Standard fullscreen quad path
@@ -254,20 +250,8 @@ class GSplatWorkBuffer {
         // Create upload stream for non-blocking uploads
         this.uploadStream = new UploadStream(device);
 
-        // Use storage buffer on WebGPU, texture on WebGL
-        if (device.isWebGPU) {
-            this.orderBuffer = new StorageBuffer(device, 4, BUFFERUSAGE_COPY_DST);
-        } else {
-            this.orderTexture = new Texture(device, {
-                name: 'SplatGlobalOrder',
-                width: 1,
-                height: 1,
-                format: PIXELFORMAT_R32U,
-                mipmaps: false,
-                addressU: ADDRESS_CLAMP_TO_EDGE,
-                addressV: ADDRESS_CLAMP_TO_EDGE
-            });
-        }
+        // Use storage buffer on WebGPU
+        this.orderBuffer = new StorageBuffer(device, 4, BUFFERUSAGE_COPY_DST);
 
         // Create the optimized render pass for batched splat rendering
         this.renderPass = new GSplatWorkBufferRenderPass(device, this);
@@ -362,13 +346,8 @@ class GSplatWorkBuffer {
 
     setOrderData(data) {
         const size = this.textureSize;
-        if (this.device.isWebGPU) {
-            Debug.assert(data.length <= size * size);
-            this.uploadStream.upload(data, this.orderBuffer, 0, data.length);
-        } else {
-            Debug.assert(data.length === size * size);
-            this.uploadStream.upload(data, this.orderTexture, 0, data.length);
-        }
+        Debug.assert(data.length <= size * size);
+        this.uploadStream.upload(data, this.orderBuffer, 0, data.length);
     }
 
     /**
@@ -380,14 +359,10 @@ class GSplatWorkBuffer {
         this.colorRenderTarget.resize(textureSize, textureSize);
         this.streams.resize(textureSize, textureSize);
 
-        if (this.device.isWebGPU) {
-            const newByteSize = textureSize * textureSize * 4;
-            if (this.orderBuffer.byteSize < newByteSize) {
-                this.orderBuffer.destroy();
-                this.orderBuffer = new StorageBuffer(this.device, newByteSize, BUFFERUSAGE_COPY_DST);
-            }
-        } else {
-            this.orderTexture.resize(textureSize, textureSize);
+        const newByteSize = textureSize * textureSize * 4;
+        if (this.orderBuffer.byteSize < newByteSize) {
+            this.orderBuffer.destroy();
+            this.orderBuffer = new StorageBuffer(this.device, newByteSize, BUFFERUSAGE_COPY_DST);
         }
     }
 

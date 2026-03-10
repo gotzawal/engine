@@ -1,4 +1,3 @@
-// @config WEBGPU_DISABLED
 import * as pc from 'playcanvas';
 
 const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('application-canvas'));

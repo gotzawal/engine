@@ -766,7 +766,7 @@ const createMesh = (device, gltfMesh, accessors, bufferViews, vertexBufferDict, 
                     indexFormat = INDEXFORMAT_UINT32;
                 }
 
-                if (indexFormat === INDEXFORMAT_UINT8 && device.isWebGPU) {
+                if (indexFormat === INDEXFORMAT_UINT8) {
                     // silently convert to 16bit
                     indexFormat = INDEXFORMAT_UINT16;
                     indices = new Uint16Array(indices);

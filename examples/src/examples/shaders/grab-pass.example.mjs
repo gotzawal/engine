@@ -129,8 +129,6 @@ assetListLoader.load(() => {
     // reflection material using the shader
     const refractionMaterial = new pc.ShaderMaterial({
         uniqueName: 'RefractionShader',
-        vertexGLSL: files['shader.glsl.vert'],
-        fragmentGLSL: files['shader.glsl.frag'],
         vertexWGSL: files['shader.wgsl.vert'],
         fragmentWGSL: files['shader.wgsl.frag'],
         attributes: {

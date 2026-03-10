@@ -1,7 +1,6 @@
-import { SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-quad.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
-import glslDepthAwareBlurPS from '../../scene/shader-lib/glsl/chunks/render-pass/frag/depthAwareBlur.js';
 import wgslDepthAwareBlurPS from '../../scene/shader-lib/wgsl/chunks/render-pass/frag/depthAwareBlur.js';
 import { ShaderChunks } from '../../scene/shader-lib/shader-chunks.js';
 
@@ -17,7 +16,6 @@ class RenderPassDepthAwareBlur extends RenderPassShaderQuad {
         this.sourceTexture = sourceTexture;
 
         // register shader chunks
-        ShaderChunks.get(device, SHADERLANGUAGE_GLSL).set('depthAwareBlurPS', glslDepthAwareBlurPS);
         ShaderChunks.get(device, SHADERLANGUAGE_WGSL).set('depthAwareBlurPS', wgslDepthAwareBlurPS);
 
         const defines = new Map();

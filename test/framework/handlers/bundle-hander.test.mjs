@@ -40,8 +40,8 @@ describe('BundleHandler', function () {
                 url: 'test/assets/test.json'
             }),
             new Asset('shader', 'shader', {
-                filename: 'test.glsl',
-                url: 'test/assets/test.glsl'
+                filename: 'test.wgsl',
+                url: 'test/assets/test.wgsl'
             }),
             new Asset('text', 'text', {
                 filename: 'test.txt',
@@ -50,10 +50,10 @@ describe('BundleHandler', function () {
         ];
 
         // the bundle asset (created by calling tar in the root folder of the repo):
-        // tar cvf test.tar test\assets\test.bin test\assets\test.css test\assets\test.glb test\assets\test.glsl test\assets\test.html test\assets\test.json test\assets\test.txt
+        // tar cvf test.tar test\assets\test.bin test\assets\test.css test\assets\test.glb test\assets\test.wgsl test\assets\test.html test\assets\test.json test\assets\test.txt
         bundleAsset = new Asset('bundle asset', 'bundle', {
             url: 'http://localhost:3000/test/assets/test.tar',
-            size: 9728
+            size: 10240
         }, {
             assets: assets.map(function (asset) {
                 return asset.id;
@@ -196,7 +196,7 @@ describe('BundleHandler', function () {
     it('asset loading should prefer smallest bundle', function (done) {
         const bundleAsset2 = new Asset('bundle asset 2', 'bundle', {
             url: 'http://localhost:3000/test/assets/test.tar',
-            size: 9728 + 1
+            size: 10240 + 1
         }, {
             assets: assets.map(function (asset) {
                 return asset.id;

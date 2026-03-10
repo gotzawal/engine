@@ -132,24 +132,6 @@ assetListLoader.load(() => {
     // Pixelation shader is based on this shadertoy shader: https://www.shadertoy.com/view/4dsXWs
 
     // Define the pixelation helper in declarations so it's available in main
-    pc.ShaderChunks.get(device, pc.SHADERLANGUAGE_GLSL).set('composeDeclarationsPS', `
-        uniform float pixelationTilePixels;
-        uniform float pixelationIntensity;
-        vec3 pixelateResult(vec3 color, vec2 uv, vec2 invRes) {
-            vec2 tileUV = vec2(pixelationTilePixels, pixelationTilePixels) * invRes;
-            vec2 centerUv = (floor(uv / tileUV) + 0.5) * tileUV;
-
-            vec2 local = (uv - centerUv) / tileUV;
-            float dist = length(local);
-            float radius = 0.35;
-            float edge = fwidth(dist) * 1.5;
-            float mask = 1.0 - smoothstep(radius, radius + edge, dist);
-            vec3 dotResult = mix(vec3(0.0), color, mask);
-            return mix(color, dotResult, pixelationIntensity);
-        }
-    `);
-
-    // WGSL equivalent declarations
     pc.ShaderChunks.get(device, pc.SHADERLANGUAGE_WGSL).set('composeDeclarationsPS', `
         uniform pixelationTilePixels: f32;
         uniform pixelationIntensity: f32;
@@ -167,11 +149,6 @@ assetListLoader.load(() => {
     `);
 
     // Call the helper at the end of compose to apply on top of previous effects
-    pc.ShaderChunks.get(device, pc.SHADERLANGUAGE_GLSL).set('composeMainEndPS', `
-        result = pixelateResult(result, uv, sceneTextureInvRes);
-    `);
-
-    // WGSL equivalent call
     pc.ShaderChunks.get(device, pc.SHADERLANGUAGE_WGSL).set('composeMainEndPS', `
         result = pixelateResult(result, uv, uniform.sceneTextureInvRes);
     `);

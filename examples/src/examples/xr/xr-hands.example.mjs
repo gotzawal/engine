@@ -1,4 +1,3 @@
-// @config WEBGPU_DISABLED
 import files from 'examples/files';
 import * as pc from 'playcanvas';
 

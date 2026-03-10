@@ -131,8 +131,6 @@ assetListLoader.load(() => {
     // Create a decal material with a custom shader
     const decalMaterial = new pc.ShaderMaterial({
         uniqueName: 'DecalShader',
-        vertexGLSL: files['shader.glsl.vert'],
-        fragmentGLSL: files['shader.glsl.frag'],
         vertexWGSL: files['shader.wgsl.vert'],
         fragmentWGSL: files['shader.wgsl.frag'],
         attributes: {

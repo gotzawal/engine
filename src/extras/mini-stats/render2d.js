@@ -30,20 +30,6 @@ const mainBackgroundColor = '0.0, 0.0, 0.0';
 const gpuBackgroundColor = '0.15, 0.15, 0.0';
 const cpuBackgroundColor = '0.15, 0.0, 0.1';
 
-const vertexShaderGLSL = /* glsl */ `
-    attribute vec3 vertex_position;         // unnormalized xy, word flag
-    attribute vec4 vertex_texCoord0;        // unnormalized texture space uv, normalized uv
-
-    varying vec4 uv0;
-    varying float wordFlag;
-
-    void main(void) {
-        gl_Position = vec4(vertex_position.xy * 2.0 - 1.0, 0.5, 1.0);
-        uv0 = vertex_texCoord0;
-        wordFlag = vertex_position.z;
-    }
-`;
-
 const vertexShaderWGSL = /* wgsl */ `
     attribute vertex_position: vec3f;         // unnormalized xy, word flag
     attribute vertex_texCoord0: vec4f;        // unnormalized texture space uv, normalized uv
@@ -63,48 +49,6 @@ const vertexShaderWGSL = /* wgsl */ `
 // this fragment shader renders the bits required for text and graphs. The text is identified
 // in the texture by white color. The graph data is specified as a single row of pixels
 // where the R channel denotes the graph height
-const fragmentShaderGLSL = /* glsl */ `
-    varying vec4 uv0;
-    varying float wordFlag;
-
-    uniform vec4 clr;
-    uniform sampler2D graphTex;
-    uniform sampler2D wordsTex;
-
-    void main (void) {
-        vec3 graphColor = vec3(${graphColorDefault});
-        if (wordFlag > 0.5) {
-            graphColor = vec3(${graphColorCpu});
-        } else if (wordFlag > 0.2) {
-            graphColor = vec3(${graphColorGpu});
-        }
-
-        vec4 graphSample = texture2D(graphTex, uv0.xy);
-
-        vec4 graph;
-        if (uv0.w < graphSample.r)
-            graph = vec4(graphColor, 1.0);
-        else {
-            vec3 bgColor = vec3(${mainBackgroundColor});
-            if (wordFlag > 0.5) {
-                bgColor = vec3(${cpuBackgroundColor});  // CPU: red tint
-            } else if (wordFlag > 0.2) {
-                bgColor = vec3(${gpuBackgroundColor});  // GPU: blue tint
-            }
-            graph = vec4(bgColor, 1.0);
-        }
-
-        vec4 words = texture2D(wordsTex, vec2(uv0.x, 1.0 - uv0.y));
-
-        // Binary blend: either graph or text, no partial mixing
-        if (wordFlag > 0.99) {
-            gl_FragColor = words * clr;
-        } else {
-            gl_FragColor = graph * clr;
-        }
-    }
-`;
-
 const fragmentShaderWGSL = /* wgsl */ `
     varying uv0: vec4f;
     varying wordFlag: f32;
@@ -196,8 +140,6 @@ class Render2d {
 
         const material = new ShaderMaterial({
             uniqueName: 'MiniStats',
-            vertexGLSL: vertexShaderGLSL,
-            fragmentGLSL: fragmentShaderGLSL,
             vertexWGSL: vertexShaderWGSL,
             fragmentWGSL: fragmentShaderWGSL,
             attributes: {

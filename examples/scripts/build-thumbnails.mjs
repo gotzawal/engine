@@ -140,7 +140,7 @@ const takeThumbnails = async (pool, categoryKebab, exampleNameKebab) => {
     }
 
     // navigate to example
-    const link = `http://localhost:${PORT}/iframe/${categoryKebab}_${exampleNameKebab}.html?miniStats=false&deviceType=webgl2`;
+    const link = `http://localhost:${PORT}/iframe/${categoryKebab}_${exampleNameKebab}.html?miniStats=false&deviceType=webgpu`;
     if (DEBUG) {
         console.log('goto', link);
     }

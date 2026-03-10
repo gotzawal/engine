@@ -7,9 +7,7 @@ const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('applic
 window.focus();
 
 const gfxOptions = {
-    deviceTypes: [deviceType],
-    glslangUrl: `${rootPath}/static/lib/glslang/glslang.js`,
-    twgslUrl: `${rootPath}/static/lib/twgsl/twgsl.js`
+    deviceTypes: [deviceType]
 };
 
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);
@@ -74,7 +72,7 @@ const TEX_WIDTH = 4;
 const TEX_HEIGHT = 4;
 
 // Define formats to test (normalized 8-bit formats only)
-// Note: Integer formats (R8I, R8U, RG8I, RG8U) are excluded due to WebGL readPixels limitations
+// Note: Integer formats (R8I, R8U, RG8I, RG8U) are excluded
 // Note: RG8S is excluded because it's not renderable in WebGPU (RG8Snorm doesn't support RenderAttachment)
 // Note: RGB8 is excluded because WebGPU doesn't support it (maps to rgba8unorm internally)
 const formatsToTest = [

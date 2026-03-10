@@ -7,7 +7,7 @@ import { createApp } from '../../../app.mjs';
 import { jsdomSetup, jsdomTeardown } from '../../../jsdom.mjs';
 
 /**
- * @import { Application } from '../../../../src/framework/application.js'
+ * @import { AppBase as Application } from '../../../../src/framework/app-base.js'
  * @import { LayoutGroupComponentSystem } from '../../../../src/framework/components/layout-group/system.js'
  */
 

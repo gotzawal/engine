@@ -21,42 +21,6 @@ import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
 
 // Fragment shader which works on a source image containing objects rendered using a constant color.
 // The shader removes the original object color and outputs outline color only.
-const shaderOutlineExtendPS = /* glsl */ `
-
-    varying vec2 vUv0;
-
-    uniform vec2 uOffset;
-    uniform float uSrcMultiplier;
-    uniform sampler2D source;
-
-    void main(void)
-    {
-        vec4 pixel;
-        vec4 texel = texture2D(source, vUv0);
-        vec4 firstTexel = texel;
-        float diff = texel.a * uSrcMultiplier;
-
-        pixel = texture2D(source, vUv0 + uOffset * -2.0);
-        texel = max(texel, pixel);
-        diff = max(diff, length(firstTexel.rgb - pixel.rgb));
-
-        pixel = texture2D(source, vUv0 + uOffset * -1.0);
-        texel = max(texel, pixel);
-        diff = max(diff, length(firstTexel.rgb - pixel.rgb));
-
-        pixel = texture2D(source, vUv0 + uOffset * 1.0);
-        texel = max(texel, pixel);
-        diff = max(diff, length(firstTexel.rgb - pixel.rgb));
-
-        pixel = texture2D(source, vUv0 + uOffset * 2.0);
-        texel = max(texel, pixel);
-        diff = max(diff, length(firstTexel.rgb - pixel.rgb));
-
-       gl_FragColor = vec4(texel.rgb, min(diff, 1.0));
-    }
-`;
-
-// WGSL version of the outline extend shader
 const shaderOutlineExtendWGSL = /* wgsl */ `
 
     varying vUv0: vec2f;
@@ -156,7 +120,6 @@ class OutlineRenderer {
             uniqueName: 'OutlineExtendShader',
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
-            fragmentGLSL: shaderOutlineExtendPS,
             fragmentWGSL: shaderOutlineExtendWGSL
         });
 
@@ -362,7 +325,7 @@ class OutlineRenderer {
         return new RenderTarget({
             colorBuffer: texture,
             depth: depth,
-            flipY: this.app.graphicsDevice.isWebGPU
+            flipY: true
         });
     }
 

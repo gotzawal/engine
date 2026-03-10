@@ -14,7 +14,7 @@ const gfxOptions = {
     // disable anti-aliasing to make dithering more pronounced
     antialias: false,
 
-    // use sRGB for display format (only supported on WebGPU, fallbacks to LDR on WebGL2)
+    // use sRGB for display format
     displayFormat: pc.DISPLAYFORMAT_LDR_SRGB
 };
 

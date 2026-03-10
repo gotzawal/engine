@@ -305,7 +305,7 @@ describe('AssetRegistry', function () {
         });
 
         it('loads shader assets', (done) => {
-            app.assets.loadFromUrl(`${assetPath}test.glsl`, 'shader', (err, asset) => {
+            app.assets.loadFromUrl(`${assetPath}test.wgsl`, 'shader', (err, asset) => {
                 expect(err).to.be.null;
                 expect(asset).to.be.instanceof(Asset);
                 expect(asset.resource).to.be.a('string');

@@ -172,7 +172,7 @@ class GSplatContainer extends GSplatResourceBase {
         super.configureMaterial(material, workBufferModifier, formatDeclarations);
 
         // Inject format chunks
-        const chunks = this.device.isWebGPU ? material.shaderChunks.wgsl : material.shaderChunks.glsl;
+        const chunks = material.shaderChunks.wgsl;
 
         // Set declarations (load functions for streams)
         chunks.set('gsplatContainerDeclarationsVS', this.format.getInputDeclarations());

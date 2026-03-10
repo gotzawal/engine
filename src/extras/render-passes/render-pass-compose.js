@@ -4,9 +4,8 @@ import { RenderPassShaderQuad } from '../../scene/graphics/render-pass-shader-qu
 import { GAMMA_NONE, GAMMA_SRGB, gammaNames, TONEMAP_LINEAR, tonemapNames } from '../../scene/constants.js';
 import { ShaderChunks } from '../../scene/shader-lib/shader-chunks.js';
 import { hashCode } from '../../core/hash.js';
-import { SEMANTIC_POSITION, SHADERLANGUAGE_GLSL, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
+import { SEMANTIC_POSITION, SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { ShaderUtils } from '../../scene/shader-lib/shader-utils.js';
-import { composeChunksGLSL } from '../../scene/shader-lib/glsl/collections/compose-chunks-glsl.js';
 import { composeChunksWGSL } from '../../scene/shader-lib/wgsl/collections/compose-chunks-wgsl.js';
 
 /**
@@ -109,7 +108,6 @@ class RenderPassCompose extends RenderPassShaderQuad {
         super(graphicsDevice);
 
         // register compose shader chunks
-        ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_GLSL).add(composeChunksGLSL, false);
         ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_WGSL).add(composeChunksWGSL, false);
 
         const { scope } = graphicsDevice;
@@ -299,7 +297,7 @@ class RenderPassCompose extends RenderPassShaderQuad {
             this._shaderDirty = true;
         }
 
-        const shaderChunks = ShaderChunks.get(this.device, this.device.isWebGPU ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL);
+        const shaderChunks = ShaderChunks.get(this.device, SHADERLANGUAGE_WGSL);
 
         // detect changes to custom compose chunks and mark shader dirty
         for (const [name, prevValue] of this._customComposeChunks.entries()) {

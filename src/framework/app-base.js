@@ -15,7 +15,6 @@ import { Vec3 } from '../core/math/vec3.js';
 
 import {
     PRIMITIVE_TRIANGLES, PRIMITIVE_TRIFAN, PRIMITIVE_TRISTRIP, CULLFACE_NONE,
-    SHADERLANGUAGE_GLSL,
     SHADERLANGUAGE_WGSL
 } from '../platform/graphics/constants.js';
 import { DebugGraphics } from '../platform/graphics/debug-graphics.js';
@@ -54,7 +53,6 @@ import { SceneRegistry } from './scene-registry.js';
 import { script } from './script.js';
 import { ApplicationStats } from './stats.js';
 import { getApplication, setApplication } from './globals.js';
-import { shaderChunksGLSL } from '../scene/shader-lib/glsl/collections/shader-chunks-glsl.js';
 import { shaderChunksWGSL } from '../scene/shader-lib/wgsl/collections/shader-chunks-wgsl.js';
 import { ShaderChunks } from '../scene/shader-lib/shader-chunks.js';
 
@@ -488,7 +486,6 @@ class AppBase extends EventHandler {
         this.graphicsDevice = graphicsDevice;
 
         // register shader chunks
-        ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_GLSL).add(shaderChunksGLSL);
         ShaderChunks.get(graphicsDevice, SHADERLANGUAGE_WGSL).add(shaderChunksWGSL);
 
         this._initDefaultMaterial();
@@ -1805,12 +1802,6 @@ class AppBase extends EventHandler {
      * @ignore
      */
     drawTexture(x, y, width, height, texture, material, layer = this.scene.defaultDrawLayer, filterable = true) {
-
-        // only WebGPU supports filterable parameter to be false, allowing a depth texture / shadow
-        // map to be fetched (without filtering) and rendered
-        if (filterable === false && !this.graphicsDevice.isWebGPU) {
-            return;
-        }
 
         // TODO: if this is used for anything other than debug texture display, we should optimize this to avoid allocations
         const matrix = new Mat4();

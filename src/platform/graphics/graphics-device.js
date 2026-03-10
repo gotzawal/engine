@@ -28,7 +28,7 @@ import { DebugGraphics } from './debug-graphics.js';
 
 /**
  * @import { Compute } from './compute.js'
- * @import { DEVICETYPE_WEBGL2, DEVICETYPE_WEBGPU } from './constants.js'
+ * @import { DEVICETYPE_WEBGPU } from './constants.js'
  * @import { DynamicBuffers } from './dynamic-buffers.js'
  * @import { GpuProfiler } from './gpu-profiler.js'
  * @import { RenderTarget } from './render-target.js'
@@ -105,14 +105,6 @@ class GraphicsDevice extends EventHandler {
      * @readonly
      */
     isWebGPU = false;
-
-    /**
-     * True if the deviceType is WebGL2
-     *
-     * @type {boolean}
-     * @readonly
-     */
-    isWebGL2 = false;
 
     /**
      * True if the deviceType is Null
@@ -1187,10 +1179,9 @@ class GraphicsDevice extends EventHandler {
     /**
      * Gets the type of the device. Can be:
      *
-     * - {@link DEVICETYPE_WEBGL2}
      * - {@link DEVICETYPE_WEBGPU}
      *
-     * @type {DEVICETYPE_WEBGL2|DEVICETYPE_WEBGPU}
+     * @type {DEVICETYPE_WEBGPU}
      */
     get deviceType() {
         return this._deviceType;
@@ -1301,8 +1292,8 @@ class GraphicsDevice extends EventHandler {
 
                 case PIXELFORMAT_RGBA32F:
 
-                    // on WebGPU platform, RGBA32F is not compatible with multi-sampling
-                    if (this.isWebGPU && samples > 1) {
+                    // RGBA32F is not compatible with multi-sampling
+                    if (samples > 1) {
                         continue;
                     }
 

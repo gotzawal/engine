@@ -2,7 +2,6 @@ import {
     SEMANTIC_ATTR8, SEMANTIC_ATTR9, SEMANTIC_ATTR12, SEMANTIC_ATTR11, SEMANTIC_ATTR14, SEMANTIC_ATTR15,
     SEMANTIC_BLENDINDICES, SEMANTIC_BLENDWEIGHT, SEMANTIC_COLOR, SEMANTIC_NORMAL, SEMANTIC_POSITION, SEMANTIC_TANGENT,
     SEMANTIC_TEXCOORD0, SEMANTIC_TEXCOORD1,
-    SHADERLANGUAGE_GLSL,
     SHADERLANGUAGE_WGSL,
     primitiveGlslToWgslTypeMap
 } from '../../../platform/graphics/constants.js';
@@ -17,7 +16,6 @@ import {
 } from '../../constants.js';
 import { ChunkUtils } from '../chunk-utils.js';
 import { ShaderPass } from '../../shader-pass.js';
-import { validateUserChunks } from '../glsl/chunks/chunk-validation.js';
 import { Debug } from '../../../core/debug.js';
 import { ShaderChunks } from '../shader-chunks.js';
 
@@ -59,7 +57,7 @@ class LitShader {
     options;
 
     /**
-     * The shader language, {@link SHADERLANGUAGE_GLSL} or {@link SHADERLANGUAGE_WGSL}.
+     * The shader language, {@link SHADERLANGUAGE_WGSL}.
      *
      * @type {string}
      */
@@ -104,15 +102,7 @@ class LitShader {
 
         // shader language
         const userChunks = options.shaderChunks;
-        this.shaderLanguage = (device.isWebGPU && allowWGSL && (!userChunks || userChunks.useWGSL)) ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL;
-
-        if (device.isWebGPU && this.shaderLanguage === SHADERLANGUAGE_GLSL) {
-            if (!device.hasTranspilers) {
-                Debug.errorOnce('Cannot use GLSL shader on WebGPU without transpilers', {
-                    litShader: this
-                });
-            }
-        }
+        this.shaderLanguage = (allowWGSL && (!userChunks || userChunks.useWGSL)) ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_WGSL;
 
         // resolve custom chunk attributes
         this.attributes = {
@@ -131,11 +121,7 @@ class LitShader {
 
         // optionally add user chunks
         if (userChunks) {
-            const userChunkMap = this.shaderLanguage === SHADERLANGUAGE_GLSL ? userChunks.glsl : userChunks.wgsl;
-
-            Debug.call(() => {
-                validateUserChunks(userChunkMap, userChunks.version);
-            });
+            const userChunkMap = userChunks.wgsl;
 
             userChunkMap.forEach((chunk, chunkName) => {
 
@@ -426,7 +412,7 @@ class LitShader {
                     if (light.cascadeBlend > 0) fDefines.set(`LIGHT${i}_SHADOW_CASCADE_BLEND`, true);
                     if (light.numCascades > 1) fDefines.set(`LIGHT${i}_SHADOW_CASCADES`, true);
                 }
-                if (shadowInfo.pcf || shadowInfo.pcss || this.device.isWebGPU) fDefines.set(`LIGHT${i}_SHADOW_SAMPLE_SOURCE_ZBUFFER`, true);
+                fDefines.set(`LIGHT${i}_SHADOW_SAMPLE_SOURCE_ZBUFFER`, true);
                 if (lightType === LIGHTTYPE_OMNI) fDefines.set(`LIGHT${i}_SHADOW_SAMPLE_POINT`, true);
             }
 

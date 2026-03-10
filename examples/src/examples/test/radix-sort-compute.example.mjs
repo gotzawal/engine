@@ -1,5 +1,4 @@
 // @config DESCRIPTION Test example for ComputeRadixSort - GPU radix sort using 4-bit compute shaders
-// @config WEBGL_DISABLED
 // @config HIDDEN
 import files from 'examples/files';
 import { data } from 'examples/observer';
@@ -10,9 +9,7 @@ const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('applic
 window.focus();
 
 const gfxOptions = {
-    deviceTypes: [deviceType],
-    glslangUrl: `${rootPath}/static/lib/glslang/glslang.js`,
-    twgslUrl: `${rootPath}/static/lib/twgsl/twgsl.js`
+    deviceTypes: [deviceType]
 };
 
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);

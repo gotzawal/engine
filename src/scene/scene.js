@@ -427,7 +427,7 @@ class Scene extends EventHandler {
      */
     set clusteredLightingEnabled(value) {
 
-        if (this.device.isWebGPU && !value) {
+        if (!value) {
             Debug.warnOnce('WebGPU currently only supports clustered lighting, and this cannot be disabled.');
             return;
         }

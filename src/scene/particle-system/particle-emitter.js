@@ -22,8 +22,7 @@ import {
     requiresManualGamma,
     PIXELFORMAT_SRGBA8,
     SEMANTIC_POSITION,
-    SHADERLANGUAGE_WGSL,
-    SHADERLANGUAGE_GLSL
+    SHADERLANGUAGE_WGSL
 } from '../../platform/graphics/constants.js';
 import { DeviceCache } from '../../platform/graphics/device-cache.js';
 import { IndexBuffer } from '../../platform/graphics/index-buffer.js';
@@ -665,7 +664,7 @@ class ParticleEmitter {
         if (this.emitterShape === EMITTERSHAPE_BOX) defines.set('EMITTERSHAPE_BOX', '');
         const shaderUniqueId = `Shape:${this.emitterShape}-Pack:${this.pack8}-Local:${this.localSpace}`;
 
-        const engineChunks = ShaderChunks.get(gd, gd.isWebGPU ? SHADERLANGUAGE_WGSL : SHADERLANGUAGE_GLSL);
+        const engineChunks = ShaderChunks.get(gd, SHADERLANGUAGE_WGSL);
         const includes = new Map(engineChunks);
 
         // shader options shared by all 3 shaders

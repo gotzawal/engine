@@ -10,35 +10,6 @@ export const unlitShader = {
     attributes: {
         vertex_position: SEMANTIC_POSITION
     },
-    vertexGLSL: /* glsl */`
-        attribute vec3 vertex_position;
-    
-        uniform mat4 matrix_model;
-        uniform mat4 matrix_viewProjection;
-    
-        void main(void) {
-            gl_Position = matrix_viewProjection * matrix_model * vec4(vertex_position, 1.0);
-            gl_Position.z = clamp(gl_Position.z, -abs(gl_Position.w), abs(gl_Position.w));
-        }
-    `,
-    fragmentGLSL: /* glsl */`
-        #include "gammaPS"
-    
-        precision highp float;
-    
-        uniform vec4 uColor;
-        uniform float uDepth;
-
-        void main(void) {
-            if (uColor.a < 1.0 / 255.0) {
-                discard;
-            }
-            gl_FragColor = vec4(gammaCorrectOutput(decodeGamma(uColor)), uColor.a);
-            #if DEPTH_WRITE == 1
-                gl_FragDepth = uDepth;
-            #endif
-        }
-    `,
     vertexWGSL: /* wgsl */`
         attribute vertex_position: vec3f;
 

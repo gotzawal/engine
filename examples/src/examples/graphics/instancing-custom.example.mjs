@@ -97,7 +97,6 @@ assetListLoader.load(() => {
 
     // and a custom instancing shader chunk, which will be used in case the mesh instance has instancing enabled
     material.shaderChunksVersion = '2.8';
-    material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set('transformInstancingVS', files['transform-instancing.glsl.vert']);
     material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set('transformInstancingVS', files['transform-instancing.wgsl.vert']);
 
     material.update();
