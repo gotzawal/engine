@@ -41,22 +41,6 @@ class PostEffect {
     }
 
     /**
-     * A simple vertex shader used to render a quad, which requires 'vec2 aPosition' in the vertex
-     * buffer, and generates uv coordinates vUv0 for use in the fragment shader.
-     *
-     * @type {string}
-     */
-    static quadVertexShader = `
-        attribute vec2 aPosition;
-        varying vec2 vUv0;
-        void main(void)
-        {
-            gl_Position = vec4(aPosition, 0.0, 1.0);
-            vUv0 = getImageEffectUV((aPosition.xy + 1.0) * 0.5);
-        }
-    `;
-
-    /**
      * Render the post effect using the specified inputTarget to the specified outputTarget.
      *
      * @param {RenderTarget} inputTarget - The input render target.
