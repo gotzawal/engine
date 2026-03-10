@@ -1,6 +1,9 @@
 import { AppBase } from '../src/framework/app-base.js';
 import { AppOptions } from '../src/framework/app-options.js';
 import { NullGraphicsDevice } from '../src/platform/graphics/null/null-graphics-device.js';
+import { BatchManager } from '../src/scene/batching/batch-manager.js';
+import { Lightmapper } from '../src/framework/lightmapper/lightmapper.js';
+import { XrManager } from '../src/framework/xr/xr-manager.js';
 
 import { AnimationComponentSystem } from '../src/framework/components/animation/system.js';
 import { AnimComponentSystem } from '../src/framework/components/anim/system.js';
@@ -82,6 +85,10 @@ function createApp() {
         BinaryHandler, TextureAtlasHandler, SpriteHandler, TemplateHandler,
         ContainerHandler, GSplatHandler
     ];
+
+    appOptions.lightmapper = Lightmapper;
+    appOptions.batchManager = BatchManager;
+    appOptions.xr = XrManager;
 
     app.init(appOptions);
     return app;

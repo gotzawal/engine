@@ -1,4 +1,3 @@
-// @config WEBGPU_DISABLED
 import files from 'examples/files';
 import { deviceType, loadES5, rootPath } from 'examples/utils';
 import * as pc from 'playcanvas';
@@ -12,9 +11,7 @@ const DRACO = await loadES5('https://cdn.jsdelivr.net/npm/@loaders.gl/draco@2.3.
 // This example uses draco point cloud loader library from https://loaders.gl/
 // Note that many additional formats are supported by the library and can be used.
 const gfxOptions = {
-    deviceTypes: [deviceType],
-    glslangUrl: `${rootPath}/static/lib/glslang/glslang.js`,
-    twgslUrl: `${rootPath}/static/lib/twgsl/twgsl.js`
+    deviceTypes: [deviceType]
 };
 
 /** @type {pc.GraphicsDevice} */

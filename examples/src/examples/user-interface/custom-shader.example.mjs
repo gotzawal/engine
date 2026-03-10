@@ -70,8 +70,6 @@ assetListLoader.load(() => {
     // Create a new material with the new shader and additive alpha blending
     const material = new pc.ShaderMaterial({
         uniqueName: 'myUIShader',
-        vertexGLSL: files['shader.glsl.vert'],
-        fragmentGLSL: files['shader.glsl.frag'],
         vertexWGSL: files['shader.wgsl.vert'],
         fragmentWGSL: files['shader.wgsl.frag'],
         attributes: {

@@ -63,8 +63,6 @@ Examples can also contain comments which allow you to define the default configu
 // @config ENGINE performance
 // @config NO_DEVICE_SELECTOR
 // @config NO_MINISTATS
-// @config WEBGPU_DISABLED
-// @config WEBGL_DISABLED
 import * as pc from 'playcanvas';
 ...
 ```

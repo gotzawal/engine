@@ -3,14 +3,12 @@ import { Component } from 'react';
 
 import {
     DEVICETYPE_WEBGPU,
-    DEVICETYPE_WEBGL2,
     DEVICETYPE_NULL
 } from '../constants.mjs';
 import { jsx } from '../jsx.mjs';
 
 const deviceTypeNames = {
     [DEVICETYPE_WEBGPU]: 'WebGPU',
-    [DEVICETYPE_WEBGL2]: 'WebGL 2',
     [DEVICETYPE_NULL]: 'Null'
 };
 
@@ -86,21 +84,15 @@ class DeviceSelector extends TypedComponent {
     }
 
     /**
-     * If our preferred device was e.g. WebGPU, but our active device is suddenly e.g. WebGL 2,
+     * If our preferred device was WebGPU, but our active device is suddenly Null,
      * then we basically infer that WebGPU wasn't supported and mark it like that.
-     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_WEBGL2 | DEVICETYPE_NULL} preferredDevice - The preferred device.
-     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_WEBGL2 | DEVICETYPE_NULL} activeDevice - The active device reported from
+     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_NULL} preferredDevice - The preferred device.
+     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_NULL} activeDevice - The active device reported from
      * the example iframe.
      */
     setDisabledOptions(preferredDevice = DEVICETYPE_WEBGPU, activeDevice) {
-        if (preferredDevice === DEVICETYPE_WEBGL2 && activeDevice !== DEVICETYPE_WEBGL2) {
-            const fallbackOrder = [DEVICETYPE_WEBGPU];
-            const disabledOptions = {
-                [DEVICETYPE_WEBGL2]: 'WebGL 2 (not supported)'
-            };
-            this.mergeState({ fallbackOrder, disabledOptions, activeDevice });
-        } else if (preferredDevice === DEVICETYPE_WEBGPU && activeDevice !== DEVICETYPE_WEBGPU) {
-            const fallbackOrder = [DEVICETYPE_WEBGL2];
+        if (preferredDevice === DEVICETYPE_WEBGPU && activeDevice !== DEVICETYPE_WEBGPU) {
+            const fallbackOrder = [DEVICETYPE_NULL];
             const disabledOptions = {
                 [DEVICETYPE_WEBGPU]: 'WebGPU (not supported)'
             };
@@ -113,7 +105,7 @@ class DeviceSelector extends TypedComponent {
     }
 
     /**
-     * Disable MiniStats because WebGPU / Null renderer can't use it.
+     * Disable MiniStats because Null renderer can't use it.
      * @param {string} value - Selected device.
      */
     updateMiniStats(value) {
@@ -125,7 +117,7 @@ class DeviceSelector extends TypedComponent {
     }
 
     /**
-     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_WEBGL2 | DEVICETYPE_NULL} value - Is graphics device
+     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_NULL} value - Is graphics device
      * active
      */
     onSetActiveGraphicsDevice(value) {
@@ -137,7 +129,7 @@ class DeviceSelector extends TypedComponent {
     }
 
     /**
-     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_WEBGL2 | DEVICETYPE_NULL} value - The newly picked
+     * @param {DEVICETYPE_WEBGPU | DEVICETYPE_NULL} value - The newly picked
      * graphics device.
      */
     onSetPreferredGraphicsDevice(value) {
@@ -153,7 +145,6 @@ class DeviceSelector extends TypedComponent {
             id: 'deviceTypeSelectInput',
             options: [
                 { t: deviceTypeNames[DEVICETYPE_WEBGPU], v: DEVICETYPE_WEBGPU },
-                { t: deviceTypeNames[DEVICETYPE_WEBGL2], v: DEVICETYPE_WEBGL2 },
                 { t: deviceTypeNames[DEVICETYPE_NULL], v: DEVICETYPE_NULL }
             ],
             value: activeDevice,

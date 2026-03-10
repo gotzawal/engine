@@ -16,17 +16,6 @@ class RenderPassTint extends pc.RenderPassShaderQuad {
             attributes: { aPosition: pc.SEMANTIC_POSITION },
             vertexChunk: 'quadVS',
 
-            fragmentGLSL: /* glsl */ `
-                uniform sampler2D sourceTexture;
-                uniform vec3 tint;
-                varying vec2 uv0;
-
-                void main() {
-                    vec4 color = texture2D(sourceTexture, uv0);
-                    gl_FragColor = vec4(color.rgb * tint, color.a);
-                }
-            `,
-
             fragmentWGSL: /* wgsl */ `
 
                 var sourceTexture: texture_2d<f32>;

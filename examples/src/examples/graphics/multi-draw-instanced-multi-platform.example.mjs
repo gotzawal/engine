@@ -1,8 +1,7 @@
-import files from 'examples/files';
 import { rootPath, deviceType } from 'examples/utils';
 import * as pc from 'playcanvas';
 
-// @config DESCRIPTION Multi-draw instanced rendering of multiple primitives in one call. WebGL2 lacks support for firstInstance for sub-draws, so instance data lives in a data texture and is fetched in the vertex shader via base[gl_DrawID] + gl_InstanceID — portable and fast workaround.
+// @config DESCRIPTION Multi-draw instanced rendering of multiple primitives in a single call.
 const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('application-canvas'));
 window.focus();
 
@@ -150,48 +149,14 @@ assetListLoader.load(() => {
         prevInstanceMaxCount += n;
     }
 
-    let vbFormat;
-    let vbData;
-
-    if (app.graphicsDevice.isWebGL2 && app.graphicsDevice.supportsMultiDraw) {
-
-        // webgl2 not support instancing counter use vertex workaround
-        // update shader transform instancing chunk
-        material.shaderChunks.glsl.set('transformInstancingVS', files['transform-instancing.vert']);
-
-        // store matrices in texture
-        const matricesDataTexture = new pc.Texture(app.graphicsDevice, {
-            width: totalInstances * 16 / 4, // write rbga as vec4
-            height: 1,
-            format: pc.PIXELFORMAT_RGBA32F,
-            minFilter: pc.FILTER_NEAREST,
-            magFilter: pc.FILTER_NEAREST,
-            addressU: pc.ADDRESS_CLAMP_TO_EDGE,
-            addressV: pc.ADDRESS_CLAMP_TO_EDGE,
-            mipmaps: false,
-            numLevels: 1,
-            levels: [matrices]
-        });
-
-        vbData = instanceIndexes;
-        vbFormat = new pc.VertexFormat(app.graphicsDevice, [{
-            semantic: pc.SEMANTIC_ATTR11, components: 1, type: pc.TYPE_INT32, asInt: true
-        }]);
-
-        material.setAttribute('aInstanceId', pc.SEMANTIC_ATTR11);
-        material.setParameter('uDrawOffsets[0]', drawOffsets);
-        material.setParameter('uInstanceMatrices', matricesDataTexture);
-        material.update();
-    } else {
-        vbData = matrices;
-        vbFormat = pc.VertexFormat.getDefaultInstancingFormat(app.graphicsDevice);
-    }
+    const vbData = matrices;
+    const vbFormat = pc.VertexFormat.getDefaultInstancingFormat(app.graphicsDevice);
 
     const vb = new pc.VertexBuffer(app.graphicsDevice, vbFormat, totalInstances, { data: vbData });
     meshInst.setInstancing(vb);
 
     // multi-draw: 3 draws (sphere, box, cylinder) with different instance counts
-    // provide firstInstance (instances are packed sequentially per ring) - this is WebGPU only
+    // provide firstInstance (instances are packed sequentially per ring)
     const firstInstance = [0, ringCounts[0], ringCounts[0] + ringCounts[1]];
     const cmd = meshInst.setMultiDraw(null, 3);
     cmd.add(0, idxCounts[0], ringCounts[0], firstIndex[0], 0, firstInstance[0]);

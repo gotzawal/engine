@@ -5,23 +5,6 @@ import * as pc from 'playcanvas';
 
 // Shader options for GSplatProcessor - paints splats inside brush sphere
 const shaderOptions = {
-    // GLSL process code - provides process() function with declarations
-    processGLSL: `
-        uniform vec4 uPaintSphere;
-        uniform vec4 uPaintColor;
-
-        void process() {
-            vec3 center = getCenter();
-            float dist = distance(center, uPaintSphere.xyz);
-            if (dist < uPaintSphere.w) {
-                // Inside brush - write paint color with intensity as alpha
-                writeCustomColor(uPaintColor);
-            } else {
-                // Outside brush - output transparent (blender will keep existing)
-                writeCustomColor(vec4(0.0));
-            }
-        }
-    `,
     // WGSL process code
     processWGSL: `
         uniform uPaintSphere: vec4f;
@@ -41,25 +24,6 @@ const shaderOptions = {
 
 // Work buffer modifier - blends customColor paint texture with original splat color
 const workBufferModifier = {
-    glsl: `
-        // Modify splat center position (no change)
-        void modifySplatCenter(inout vec3 center) {
-        }
-
-        // Modify rotation/scale (no change)
-        void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {
-        }
-
-        // Modify color based on customColor
-        void modifySplatColor(vec3 center, inout vec4 color) {
-            // Read custom color using generated load function
-            vec4 custom = loadCustomColor();
-            if (custom.a > 0.0) {
-                // Blend original color with custom color based on alpha (intensity)
-                color.rgb = mix(color.rgb, custom.rgb, custom.a);
-            }
-        }
-    `,
     wgsl: `
         // Modify splat center position (no change)
         fn modifySplatCenter(center: ptr<function, vec3f>) {

@@ -1,4 +1,3 @@
-// @config WEBGL_DISABLED
 // @config HIDDEN
 import files from 'examples/files';
 import { deviceType, rootPath } from 'examples/utils';

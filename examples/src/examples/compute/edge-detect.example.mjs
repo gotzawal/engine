@@ -1,5 +1,4 @@
 // @config DESCRIPTION A compute shader reads from a render target texture, applies edge detection and highlights edges in red.
-// @config WEBGL_DISABLED
 import files from 'examples/files';
 import { deviceType, rootPath } from 'examples/utils';
 import * as pc from 'playcanvas';
