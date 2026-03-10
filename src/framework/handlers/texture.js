@@ -12,7 +12,6 @@ import { BasisParser } from '../parsers/texture/basis.js';
 import { ImgParser } from '../parsers/texture/img.js';
 import { KtxParser } from '../parsers/texture/ktx.js';
 import { Ktx2Parser } from '../parsers/texture/ktx2.js';
-import { DdsParser } from '../parsers/texture/dds.js';
 import { HdrParser } from '../parsers/texture/hdr.js';
 import { ResourceHandler } from './handler.js';
 
@@ -139,7 +138,6 @@ class TextureHandler extends ResourceHandler {
         this.imgParser = new ImgParser(assets, device);
 
         this.parsers = {
-            dds: new DdsParser(assets),
             ktx: new KtxParser(assets),
             ktx2: new Ktx2Parser(assets, device),
             basis: new BasisParser(assets, device),

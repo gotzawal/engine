@@ -333,7 +333,6 @@ class Scene extends EventHandler {
         this._lightmapFilterSmoothness = 0.2;
 
         // clustered lighting
-        this._clusteredLightingEnabled = true;
         this._lightingParams = new LightingParams(this.device.supportsAreaLights, this.device.maxTextureSize, () => {
             this.updateShaders = true;
         });
@@ -419,33 +418,22 @@ class Scene extends EventHandler {
     }
 
     /**
-     * Sets whether clustered lighting is enabled. Set to false before the first frame is rendered
-     * to use non-clustered lighting. Defaults to true.
-     *
+     * @deprecated Clustered lighting is now always enabled. This setter is a no-op.
      * @type {boolean}
      */
     set clusteredLightingEnabled(value) {
-
         if (!value) {
-            Debug.warnOnce('WebGPU currently only supports clustered lighting, and this cannot be disabled.');
-            return;
+            Debug.warnOnce('Clustered lighting is always enabled and cannot be disabled.');
         }
-
-        if (!this._clusteredLightingEnabled && value) {
-            console.error('Turning on disabled clustered lighting is not currently supported');
-            return;
-        }
-
-        this._clusteredLightingEnabled = value;
     }
 
     /**
-     * Gets whether clustered lighting is enabled.
+     * Gets whether clustered lighting is enabled. Always returns true.
      *
      * @type {boolean}
      */
     get clusteredLightingEnabled() {
-        return this._clusteredLightingEnabled;
+        return true;
     }
 
     /**
@@ -816,7 +804,6 @@ class Scene extends EventHandler {
 
         this.sky.applySettings(render);
 
-        this.clusteredLightingEnabled = render.clusteredLightingEnabled ?? false;
         this.lighting.applySettings(render);
 
         // bake settings

@@ -192,10 +192,8 @@ class Renderer {
         this._shadowRendererDirectional = new ShadowRendererDirectional(this, this.shadowRenderer);
 
         // clustered passes
-        if (this.scene.clusteredLightingEnabled) {
-            this._renderPassUpdateClustered = new RenderPassUpdateClustered(this.device, this, this.shadowRenderer,
-                this._shadowRendererLocal, this.lightTextureAtlas);
-        }
+        this._renderPassUpdateClustered = new RenderPassUpdateClustered(this.device, this, this.shadowRenderer,
+            this._shadowRendererLocal, this.lightTextureAtlas);
 
         // view bind group format with its uniform buffer format
         this.viewUniformFormat = null;
@@ -954,7 +952,6 @@ class Renderer {
 
     cullLights(camera, lights) {
 
-        const clusteredLightingEnabled = this.scene.clusteredLightingEnabled;
         const physicalUnits = this.scene.physicalUnits;
         for (let i = 0; i < lights.length; i++) {
             const light = lights[i];
@@ -970,16 +967,6 @@ class Renderer {
                         // maximum screen area taken by the light
                         const screenSize = camera.getScreenSize(tempSphere);
                         light.maxScreenSize = Math.max(light.maxScreenSize, screenSize);
-                    } else {
-                        // if shadow casting light does not have shadow map allocated, mark it visible to allocate shadow map
-                        // Note: This won't be needed when clustered shadows are used, but at the moment even culled out lights
-                        // are used for rendering, and need shadow map to be allocated
-                        // TODO: delete this code when clusteredLightingEnabled is being removed and is on by default.
-                        if (!clusteredLightingEnabled) {
-                            if (light.castShadows && !light.shadowMap) {
-                                light.visibleThisFrame = true;
-                            }
-                        }
                     }
                 } else {
                     light.usePhysicalUnits = this.scene.physicalUnits;
@@ -997,26 +984,14 @@ class Renderer {
      */
     cullShadowmaps(comp) {
 
-        const isClustered = this.scene.clusteredLightingEnabled;
-
         // shadow casters culling for local (point and spot) lights
         for (let i = 0; i < this.localLights.length; i++) {
             const light = this.localLights[i];
             if (light._type !== LIGHTTYPE_DIRECTIONAL) {
 
-                if (isClustered) {
-                    // if atlas slot is reassigned, make sure to update the shadow map, including the culling
-                    if (light.atlasSlotUpdated && light.shadowUpdateMode === SHADOWUPDATE_NONE) {
-                        light.shadowUpdateMode = SHADOWUPDATE_THISFRAME;
-                    }
-                } else {
-
-                    // force rendering shadow at least once to allocate the shadow map needed by the shaders
-                    if (light.shadowUpdateMode === SHADOWUPDATE_NONE && light.castShadows) {
-                        if (!light.getRenderData(null, 0).shadowCamera.renderTarget) {
-                            light.shadowUpdateMode = SHADOWUPDATE_THISFRAME;
-                        }
-                    }
+                // if atlas slot is reassigned, make sure to update the shadow map, including the culling
+                if (light.atlasSlotUpdated && light.shadowUpdateMode === SHADOWUPDATE_NONE) {
+                    light.shadowUpdateMode = SHADOWUPDATE_THISFRAME;
                 }
 
                 if (light.visibleThisFrame && light.castShadows && light.shadowUpdateMode !== SHADOWUPDATE_NONE) {
@@ -1120,9 +1095,7 @@ class Renderer {
 
         // update shadow / cookie atlas allocation for the visible lights. Update it after the ligthts were culled,
         // but before shadow maps were culling, as it might force some 'update once' shadows to cull.
-        if (scene.clusteredLightingEnabled) {
-            this.updateLightTextureAtlas();
-        }
+        this.updateLightTextureAtlas();
 
         // cull shadow casters for all lights
         this.cullShadowmaps(comp);
@@ -1281,7 +1254,7 @@ class Renderer {
 
         this.clustersDebugRendered = false;
 
-        this.initViewBindGroupFormat(this.scene.clusteredLightingEnabled);
+        this.initViewBindGroupFormat(true);
 
         // no valid shadows at the start of the frame
         this.dirLightShadows.clear();

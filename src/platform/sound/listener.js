@@ -56,13 +56,9 @@ class Listener {
         this.position.copy(position);
         const listener = this.listener;
         if (listener) {
-            if ('positionX' in listener) {
-                listener.positionX.value = position.x;
-                listener.positionY.value = position.y;
-                listener.positionZ.value = position.z;
-            } else if (listener.setPosition) { // Firefox (and legacy browsers)
-                listener.setPosition(position.x, position.y, position.z);
-            }
+            listener.positionX.value = position.x;
+            listener.positionY.value = position.y;
+            listener.positionZ.value = position.z;
         }
     }
 
@@ -76,17 +72,13 @@ class Listener {
         const listener = this.listener;
         if (listener) {
             const m = orientation.data;
-            if ('forwardX' in listener) {
-                listener.forwardX.value = -m[8];
-                listener.forwardY.value = -m[9];
-                listener.forwardZ.value = -m[10];
+            listener.forwardX.value = -m[8];
+            listener.forwardY.value = -m[9];
+            listener.forwardZ.value = -m[10];
 
-                listener.upX.value = m[4];
-                listener.upY.value = m[5];
-                listener.upZ.value = m[6];
-            } else if (listener.setOrientation) { // Firefox (and legacy browsers)
-                listener.setOrientation(-m[8], -m[9], -m[10], m[4], m[5], m[6]);
-            }
+            listener.upX.value = m[4];
+            listener.upY.value = m[5];
+            listener.upZ.value = m[6];
         }
     }
 
