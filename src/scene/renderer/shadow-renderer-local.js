@@ -2,11 +2,8 @@ import { math } from '../../core/math/math.js';
 import {
     LIGHTTYPE_OMNI, LIGHTTYPE_SPOT
 } from '../constants.js';
-import { ShadowMap } from './shadow-map.js';
-import { RenderPassShadowLocalNonClustered } from './render-pass-shadow-local-non-clustered.js';
 
 /**
- * @import { FrameGraph } from '../../scene/frame-graph.js'
  * @import { GraphicsDevice } from '../../platform/graphics/graphics-device.js'
  * @import { Light } from '../../scene/light.js'
  * @import { Renderer } from './renderer.js'
@@ -35,17 +32,8 @@ class ShadowRendererLocal {
     // cull local shadow map
     cull(light, comp, casters = null) {
 
-        const isClustered = this.renderer.scene.clusteredLightingEnabled;
-
         // force light visibility if function was manually called
         light.visibleThisFrame = true;
-
-        // allocate shadow map unless in clustered lighting mode
-        if (!isClustered) {
-            if (!light._shadowMap) {
-                light._shadowMap = ShadowMap.create(this.device, light);
-            }
-        }
 
         const type = light._type;
         const faceCount = type === LIGHTTYPE_SPOT ? 1 : 6;
@@ -72,15 +60,11 @@ class ShadowRendererLocal {
 
             } else if (type === LIGHTTYPE_OMNI) {
 
-                // when rendering omni shadows to an atlas, use larger fov by few pixels to allow shadow filtering to stay on a single face
-                if (isClustered) {
-                    const tileSize = this.shadowRenderer.lightTextureAtlas.shadowAtlasResolution * light.atlasViewport.z / 3;    // using 3x3 for cubemap
-                    const texelSize = 2 / tileSize;
-                    const filterSize = texelSize * this.shadowRenderer.lightTextureAtlas.shadowEdgePixels;
-                    shadowCam.fov = Math.atan(1 + filterSize) * math.RAD_TO_DEG * 2;
-                } else {
-                    shadowCam.fov = 90;
-                }
+                // use larger fov by few pixels to allow shadow filtering to stay on a single face
+                const tileSize = this.shadowRenderer.lightTextureAtlas.shadowAtlasResolution * light.atlasViewport.z / 3;    // using 3x3 for cubemap
+                const texelSize = 2 / tileSize;
+                const filterSize = texelSize * this.shadowRenderer.lightTextureAtlas.shadowEdgePixels;
+                shadowCam.fov = Math.atan(1 + filterSize) * math.RAD_TO_DEG * 2;
             }
 
             // cull shadow casters
@@ -106,33 +90,6 @@ class ShadowRendererLocal {
         }
 
         return shadowCamera;
-    }
-
-    /**
-     * Prepare render passes for rendering of shadows for local non-clustered lights. Each shadow face
-     * is a separate render pass as it renders to a separate render target.
-     *
-     * @param {FrameGraph} frameGraph - The frame graph.
-     * @param {Light[]} localLights - The list of local lights.
-     */
-    buildNonClusteredRenderPasses(frameGraph, localLights) {
-
-        for (let i = 0; i < localLights.length; i++) {
-            const light = localLights[i];
-
-            if (this.shadowRenderer.needsShadowRendering(light)) {
-
-                // only spot lights support VSM
-                const applyVsm = light._type === LIGHTTYPE_SPOT;
-
-                // create render pass per face
-                const faceCount = light.numShadowFaces;
-                for (let face = 0; face < faceCount; face++) {
-                    const renderPass = new RenderPassShadowLocalNonClustered(this.device, this.shadowRenderer, light, face, applyVsm);
-                    frameGraph.addRenderPass(renderPass);
-                }
-            }
-        }
     }
 }
 

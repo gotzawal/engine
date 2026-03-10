@@ -40,7 +40,6 @@ import { BlendState } from '../../platform/graphics/blend-state.js';
 import { DepthState } from '../../platform/graphics/depth-state.js';
 import { RenderPassLightmapper } from './render-pass-lightmapper.js';
 import { RenderPassShadowLocalClustered } from '../../scene/renderer/render-pass-shadow-local-clustered.js';
-import { RenderPassShadowLocalNonClustered } from '../../scene/renderer/render-pass-shadow-local-non-clustered.js';
 
 /**
  * @import { AssetRegistry } from '../asset/asset-registry.js'
@@ -170,8 +169,7 @@ class Lightmapper {
         }
 
         // create light cluster structure
-        if (this.scene.clusteredLightingEnabled) {
-
+        {
             // create light params, and base most parameters on the lighting params of the scene
             const lightingParams = new LightingParams(device.supportsAreaLights, device.maxTextureSize, () => {});
             this.lightingParams = lightingParams;
@@ -838,15 +836,9 @@ class Lightmapper {
     renderShadowMap(comp, shadowMapRendered, casters, bakeLight) {
 
         const light = bakeLight.light;
-        const isClustered = this.scene.clusteredLightingEnabled;
-        const castShadow = light.castShadows && (!isClustered || this.scene.lighting.shadowsEnabled);
+        const castShadow = light.castShadows && this.scene.lighting.shadowsEnabled;
 
         if (!shadowMapRendered && castShadow) {
-
-            // allocate shadow map from the cache to avoid per light allocation
-            if (!light.shadowMap && !isClustered) {
-                light.shadowMap = this.shadowMapCache.get(this.device, light);
-            }
 
             if (light.type === LIGHTTYPE_DIRECTIONAL) {
                 this.renderer._shadowRendererDirectional.cull(light, comp, this.camera, casters);
@@ -858,26 +850,9 @@ class Lightmapper {
 
                 this.renderer._shadowRendererLocal.cull(light, comp, casters);
 
-                if (isClustered) {
-                    // Clustered mode: use a single render pass for all faces to the shadow atlas
-                    this.shadowLocalClusteredPass.update([light]);
-                    if (this.shadowLocalClusteredPass.enabled) {
-                        this.shadowLocalClusteredPass.render();
-                    }
-                } else {
-                    // Non-clustered mode: use render passes for each face
-                    const faceCount = light.numShadowFaces;
-                    const applyVsm = light._type === LIGHTTYPE_SPOT;
-                    for (let face = 0; face < faceCount; face++) {
-                        const renderPass = new RenderPassShadowLocalNonClustered(
-                            this.device,
-                            this.renderer.shadowRenderer,
-                            light,
-                            face,
-                            applyVsm
-                        );
-                        renderPass.render();
-                    }
+                this.shadowLocalClusteredPass.update([light]);
+                if (this.shadowLocalClusteredPass.enabled) {
+                    this.shadowLocalClusteredPass.render();
                 }
             }
         }
@@ -938,7 +913,6 @@ class Lightmapper {
         const scene = this.scene;
         const comp = scene.layers;
         const device = this.device;
-        const clusteredLightingEnabled = scene.clusteredLightingEnabled;
 
         this.createMaterials(device, scene, passCount);
         this.setupScene();
@@ -1041,16 +1015,12 @@ class Lightmapper {
                     this.setupLightArray(lightArray, bakeLight.light);
                     const clusterLights = isDirectional ? [] : [bakeLight.light];
 
-                    if (clusteredLightingEnabled) {
-                        this.renderer.lightTextureAtlas.update(clusterLights, this.lightingParams);
-                    }
+                    this.renderer.lightTextureAtlas.update(clusterLights, this.lightingParams);
 
                     // render light shadow map needs to be rendered
                     shadowMapRendered = this.renderShadowMap(comp, shadowMapRendered, casters, bakeLight);
 
-                    if (clusteredLightingEnabled) {
-                        this.worldClusters.update(clusterLights, this.lightingParams);
-                    }
+                    this.worldClusters.update(clusterLights, this.lightingParams);
 
                     // Store original materials
                     this.backupMaterials(rcv);
@@ -1106,7 +1076,7 @@ class Lightmapper {
                         }
 
                         const renderPass = new RenderPassLightmapper(device, this.renderer, this.camera,
-                            clusteredLightingEnabled ? this.worldClusters : null,
+                            this.worldClusters,
                             rcv, lightArray);
                         renderPass.init(tempRT);
                         renderPass.colorOps.clear = true;
@@ -1155,11 +1125,7 @@ class Lightmapper {
         this.restoreLights(allLights);
         this.restoreScene();
 
-        // empty cache to minimize persistent memory use .. if some cached textures are needed,
-        // they will be allocated again as needed
-        if (!clusteredLightingEnabled) {
-            this.shadowMapCache.clear();
-        }
+        // empty cache to minimize persistent memory use
     }
 }
 

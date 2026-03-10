@@ -14,7 +14,7 @@ import {
     BLUR_GAUSSIAN,
     EVENT_POSTCULL,
     EVENT_PRECULL,
-    LIGHTTYPE_DIRECTIONAL, LIGHTTYPE_OMNI,
+    LIGHTTYPE_DIRECTIONAL,
     SHADER_SHADOW,
     SHADOWCAMERA_NAME,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -218,10 +218,8 @@ class ShadowRenderer {
     setupRenderState(device, light) {
 
         // Set standard shadowmap states
-        const isClustered = this.renderer.scene.clusteredLightingEnabled;
-        const useShadowSampler = isClustered ?
-            light._isPcf :     // both spot and omni light are using shadow sampler when clustered
-            light._isPcf && light._type !== LIGHTTYPE_OMNI;    // for non-clustered, point light is using depth encoded in color buffer (should change to shadow sampler)
+        // both spot and omni light are using shadow sampler when clustered
+        const useShadowSampler = light._isPcf;
 
         device.setBlendState(useShadowSampler ? this.blendStateNoWrite : this.blendStateWrite);
         device.setDepthState(light.shadowDepthState);
@@ -473,14 +471,9 @@ class ShadowRenderer {
 
     renderVsm(light, camera) {
 
-        // VSM blur if light supports vsm (directional and spot in general)
-        if (light._isVsm && light._vsmBlurSize > 1) {
-
-            // in clustered mode, only directional light can be vms
-            const isClustered = this.renderer.scene.clusteredLightingEnabled;
-            if (!isClustered || light._type === LIGHTTYPE_DIRECTIONAL) {
-                this.applyVsmBlur(light, camera);
-            }
+        // VSM blur if light supports vsm — only directional light can be vsm in clustered mode
+        if (light._isVsm && light._vsmBlurSize > 1 && light._type === LIGHTTYPE_DIRECTIONAL) {
+            this.applyVsmBlur(light, camera);
         }
     }
 

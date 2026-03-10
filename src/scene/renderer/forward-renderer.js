@@ -1,19 +1,17 @@
 import { now } from '../../core/time.js';
 import { Debug } from '../../core/debug.js';
-import { math } from '../../core/math/math.js';
 import { Vec3 } from '../../core/math/vec3.js';
 import { Color } from '../../core/math/color.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import {
     FOG_NONE, FOG_LINEAR,
-    LIGHTTYPE_OMNI, LIGHTTYPE_SPOT, LIGHTTYPE_DIRECTIONAL,
+    LIGHTTYPE_DIRECTIONAL,
     LIGHTSHAPE_PUNCTUAL,
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
-import { LightCamera } from './light-camera.js';
 import { RenderPassForward } from './render-pass-forward.js';
 
 import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
@@ -308,183 +306,6 @@ class ForwardRenderer extends Renderer {
         return cnt;
     }
 
-    setLTCPositionalLight(wtm, cnt) {
-        const hWidth = wtm.transformVector(new Vec3(-0.5, 0, 0));
-        this.lightWidth[cnt][0] = hWidth.x;
-        this.lightWidth[cnt][1] = hWidth.y;
-        this.lightWidth[cnt][2] = hWidth.z;
-        this.lightWidthId[cnt].setValue(this.lightWidth[cnt]);
-
-        const hHeight = wtm.transformVector(new Vec3(0, 0, 0.5));
-        this.lightHeight[cnt][0] = hHeight.x;
-        this.lightHeight[cnt][1] = hHeight.y;
-        this.lightHeight[cnt][2] = hHeight.z;
-        this.lightHeightId[cnt].setValue(this.lightHeight[cnt]);
-    }
-
-    dispatchOmniLight(scope, omni, cnt) {
-        const wtm = omni._node.getWorldTransform();
-
-        if (!this.lightColorId[cnt]) {
-            this._resolveLight(scope, cnt);
-        }
-
-        this.lightRadiusId[cnt].setValue(omni.attenuationEnd);
-        this.lightColorId[cnt].setValue(omni._colorLinear);
-        wtm.getTranslation(omni._position);
-        this.lightPos[cnt][0] = omni._position.x;
-        this.lightPos[cnt][1] = omni._position.y;
-        this.lightPos[cnt][2] = omni._position.z;
-        this.lightPosId[cnt].setValue(this.lightPos[cnt]);
-
-        if (omni.shape !== LIGHTSHAPE_PUNCTUAL) {
-            // non-punctual shape
-            this.setLTCPositionalLight(wtm, cnt);
-        }
-
-        if (omni.castShadows) {
-
-            // shadow map
-            const lightRenderData = omni.getRenderData(null, 0);
-            this.lightShadowMapId[cnt].setValue(lightRenderData.shadowBuffer);
-
-            const biases = omni._getUniformBiasValues(lightRenderData);
-            const params = omni._shadowRenderParams;
-            params.length = 4;
-            params[0] = omni._shadowResolution;
-            params[1] = biases.normalBias;
-            params[2] = biases.bias;
-            params[3] = 1.0 / omni.attenuationEnd;
-            this.lightShadowParamsId[cnt].setValue(params);
-            this.lightShadowIntensity[cnt].setValue(omni.shadowIntensity);
-
-            const pixelsPerMeter = omni.penumbraSize / lightRenderData.shadowCamera.renderTarget.width;
-            this.lightShadowSearchAreaId[cnt].setValue(pixelsPerMeter);
-            const cameraParams = omni._shadowCameraParams;
-
-            cameraParams.length = 4;
-            cameraParams[0] = 0; // unused
-            cameraParams[1] = lightRenderData.shadowCamera._farClip;
-            cameraParams[2] = lightRenderData.shadowCamera._nearClip;
-            cameraParams[3] = 0;
-            this.lightCameraParamsId[cnt].setValue(cameraParams);
-        }
-        if (omni._cookie) {
-            this.lightCookieId[cnt].setValue(omni._cookie);
-            this.lightShadowMatrixId[cnt].setValue(wtm.data);
-            this.lightCookieIntId[cnt].setValue(omni.cookieIntensity);
-        }
-    }
-
-    dispatchSpotLight(scope, spot, cnt) {
-        const wtm = spot._node.getWorldTransform();
-
-        if (!this.lightColorId[cnt]) {
-            this._resolveLight(scope, cnt);
-        }
-
-        this.lightInAngleId[cnt].setValue(spot._innerConeAngleCos);
-        this.lightOutAngleId[cnt].setValue(spot._outerConeAngleCos);
-        this.lightRadiusId[cnt].setValue(spot.attenuationEnd);
-        this.lightColorId[cnt].setValue(spot._colorLinear);
-        wtm.getTranslation(spot._position);
-        this.lightPos[cnt][0] = spot._position.x;
-        this.lightPos[cnt][1] = spot._position.y;
-        this.lightPos[cnt][2] = spot._position.z;
-        this.lightPosId[cnt].setValue(this.lightPos[cnt]);
-
-        if (spot.shape !== LIGHTSHAPE_PUNCTUAL) {
-            // non-punctual shape
-            this.setLTCPositionalLight(wtm, cnt);
-        }
-
-        // Spots shine down the negative Y axis
-        wtm.getY(spot._direction).mulScalar(-1);
-        spot._direction.normalize();
-        this.lightDir[cnt][0] = spot._direction.x;
-        this.lightDir[cnt][1] = spot._direction.y;
-        this.lightDir[cnt][2] = spot._direction.z;
-        this.lightDirId[cnt].setValue(this.lightDir[cnt]);
-
-        if (spot.castShadows) {
-
-            // shadow map
-            const lightRenderData = spot.getRenderData(null, 0);
-            this.lightShadowMapId[cnt].setValue(lightRenderData.shadowBuffer);
-
-            this.lightShadowMatrixId[cnt].setValue(lightRenderData.shadowMatrix.data);
-
-            const biases = spot._getUniformBiasValues(lightRenderData);
-            const params = spot._shadowRenderParams;
-            params.length = 4;
-            params[0] = spot._shadowResolution;
-            params[1] = biases.normalBias;
-            params[2] = biases.bias;
-            params[3] = 1.0 / spot.attenuationEnd;
-            this.lightShadowParamsId[cnt].setValue(params);
-            this.lightShadowIntensity[cnt].setValue(spot.shadowIntensity);
-
-            const pixelsPerMeter = spot.penumbraSize / lightRenderData.shadowCamera.renderTarget.width;
-            const fov = lightRenderData.shadowCamera._fov * math.DEG_TO_RAD;
-            const fovRatio = 1.0 / Math.tan(fov / 2.0);
-            this.lightShadowSearchAreaId[cnt].setValue(pixelsPerMeter * fovRatio);
-
-            const cameraParams = spot._shadowCameraParams;
-            cameraParams.length = 4;
-            cameraParams[0] = 0; // unused
-            cameraParams[1] = lightRenderData.shadowCamera._farClip;
-            cameraParams[2] = lightRenderData.shadowCamera._nearClip;
-            cameraParams[3] = 0;
-            this.lightCameraParamsId[cnt].setValue(cameraParams);
-        }
-
-        if (spot._cookie) {
-
-            // if shadow is not rendered, we need to evaluate light projection matrix
-            if (!spot.castShadows) {
-                const cookieMatrix = LightCamera.evalSpotCookieMatrix(spot);
-                this.lightShadowMatrixId[cnt].setValue(cookieMatrix.data);
-            }
-
-            this.lightCookieId[cnt].setValue(spot._cookie);
-            this.lightCookieIntId[cnt].setValue(spot.cookieIntensity);
-            if (spot._cookieTransform) {
-                spot._cookieTransformUniform[0] = spot._cookieTransform.x;
-                spot._cookieTransformUniform[1] = spot._cookieTransform.y;
-                spot._cookieTransformUniform[2] = spot._cookieTransform.z;
-                spot._cookieTransformUniform[3] = spot._cookieTransform.w;
-                this.lightCookieMatrixId[cnt].setValue(spot._cookieTransformUniform);
-                spot._cookieOffsetUniform[0] = spot._cookieOffset.x;
-                spot._cookieOffsetUniform[1] = spot._cookieOffset.y;
-                this.lightCookieOffsetId[cnt].setValue(spot._cookieOffsetUniform);
-            }
-        }
-    }
-
-    dispatchLocalLights(sortedLights, mask, usedDirLights) {
-
-        let cnt = usedDirLights;
-        const scope = this.device.scope;
-
-        const omnis = sortedLights[LIGHTTYPE_OMNI];
-        const numOmnis = omnis.length;
-        for (let i = 0; i < numOmnis; i++) {
-            const omni = omnis[i];
-            if (!(omni.mask & mask)) continue;
-            this.dispatchOmniLight(scope, omni, cnt);
-            cnt++;
-        }
-
-        const spts = sortedLights[LIGHTTYPE_SPOT];
-        const numSpts = spts.length;
-        for (let i = 0; i < numSpts; i++) {
-            const spot = spts[i];
-            if (!(spot.mask & mask)) continue;
-            this.dispatchSpotLight(scope, spot, cnt);
-            cnt++;
-        }
-    }
-
     // execute first pass over draw calls, in order to update materials / shaders
     renderForwardPrepareMaterials(camera, renderTarget, drawCalls, sortedLights, layer, pass) {
 
@@ -508,8 +329,7 @@ class ForwardRenderer extends Renderer {
 
         const device = this.device;
         const scene = this.scene;
-        const clusteredLightingEnabled = scene.clusteredLightingEnabled;
-        const lightHash = layer?.getLightHash(clusteredLightingEnabled) ?? 0;
+        const lightHash = layer?.getLightHash(true) ?? 0;
         let prevMaterial = null, prevObjDefs, prevLightMask;
 
         const drawCallsCount = drawCalls.length;
@@ -575,10 +395,8 @@ class ForwardRenderer extends Renderer {
 
     renderForwardInternal(camera, preparedCalls, sortedLights, pass, drawCallback, flipFaces, viewBindGroups) {
         const device = this.device;
-        const scene = this.scene;
         const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
-        const clusteredLightingEnabled = scene.clusteredLightingEnabled;
 
         // multiview xr rendering
         const viewList = camera.xr?.session && camera.xr.views.list.length ? camera.xr.views.list : null;
@@ -608,11 +426,7 @@ class ForwardRenderer extends Renderer {
                 material.setParameters(device);
 
                 if (lightMaskChanged) {
-                    const usedDirLights = this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);
-
-                    if (!clusteredLightingEnabled) {
-                        this.dispatchLocalLights(sortedLights, lightMask, usedDirLights);
-                    }
+                    this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);
                 }
 
                 this.alphaTestId.setValue(material.alphaTest);
@@ -739,7 +553,6 @@ class ForwardRenderer extends Renderer {
     renderForwardLayer(camera, renderTarget, layer, transparent, shaderPass, viewBindGroups, options = {}) {
 
         const { scene, device } = this;
-        const clusteredLightingEnabled = scene.clusteredLightingEnabled;
 
         this.setupViewport(camera, renderTarget);
 
@@ -777,16 +590,14 @@ class ForwardRenderer extends Renderer {
         Debug.assert(visible, 'Either layer or options.meshInstances must be provided');
 
         // upload clustered lights uniforms
-        if (clusteredLightingEnabled) {
-            const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
-            lightClusters.activate();
+        const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
+        lightClusters.activate();
 
-            // debug rendering of clusters
-            if (layer) {
-                if (!this.clustersDebugRendered && scene.lighting.debugLayer === layer.id) {
-                    this.clustersDebugRendered = true;
-                    WorldClustersDebug.render(lightClusters, this.scene);
-                }
+        // debug rendering of clusters
+        if (layer) {
+            if (!this.clustersDebugRendered && scene.lighting.debugLayer === layer.id) {
+                this.clustersDebugRendered = true;
+                WorldClustersDebug.render(lightClusters, this.scene);
             }
         }
 
@@ -880,18 +691,10 @@ class ForwardRenderer extends Renderer {
         const scene = this.scene;
         frameGraph.reset();
 
-        if (scene.clusteredLightingEnabled) {
-
-            // clustered lighting passes
-            const { shadowsEnabled, cookiesEnabled } = scene.lighting;
-            this._renderPassUpdateClustered.update(frameGraph, shadowsEnabled, cookiesEnabled, this.lights, this.localLights);
-            frameGraph.addRenderPass(this._renderPassUpdateClustered);
-
-        } else {
-
-            // non-clustered local shadows - these are shared by all cameras (not entirely correctly)
-            this._shadowRendererLocal.buildNonClusteredRenderPasses(frameGraph, this.localLights);
-        }
+        // clustered lighting passes
+        const { shadowsEnabled, cookiesEnabled } = scene.lighting;
+        this._renderPassUpdateClustered.update(frameGraph, shadowsEnabled, cookiesEnabled, this.lights, this.localLights);
+        frameGraph.addRenderPass(this._renderPassUpdateClustered);
 
         // main passes
         let startIndex = 0;

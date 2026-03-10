@@ -97,13 +97,9 @@ class SoundInstance3d extends SoundInstance {
     set position(value) {
         this._position.copy(value);
         const panner = this.panner;
-        if ('positionX' in panner) {
-            panner.positionX.value = value.x;
-            panner.positionY.value = value.y;
-            panner.positionZ.value = value.z;
-        } else if (panner.setPosition) { // Firefox (and legacy browsers)
-            panner.setPosition(value.x, value.y, value.z);
-        }
+        panner.positionX.value = value.x;
+        panner.positionY.value = value.y;
+        panner.positionZ.value = value.z;
     }
 
     /**
