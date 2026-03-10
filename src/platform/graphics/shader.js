@@ -93,23 +93,25 @@ class Shader {
      * @param {string} [definition.shaderLanguage] - Specifies the shader language of vertex and
      * fragment shaders. Defaults to {@link SHADERLANGUAGE_WGSL}.
      * @example
-     * // Create a shader that renders primitives with a solid red color
+     * // Create a shader that renders primitives with a solid red color (WGSL)
      *
-     * // Vertex shader
      * const vshader = `
-     * attribute vec3 aPosition;
+     * struct VertexOutput {
+     *     @builtin(position) position: vec4f
+     * };
      *
-     * void main(void) {
-     *     gl_Position = vec4(aPosition, 1.0);
+     * @vertex
+     * fn main(@location(0) aPosition: vec3f) -> VertexOutput {
+     *     var output: VertexOutput;
+     *     output.position = vec4f(aPosition, 1.0);
+     *     return output;
      * }
      * `;
      *
-     * // Fragment shader
      * const fshader = `
-     * precision ${graphicsDevice.precision} float;
-     *
-     * void main(void) {
-     *     gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+     * @fragment
+     * fn main() -> @location(0) vec4f {
+     *     return vec4f(1.0, 0.0, 0.0, 1.0);
      * }
      * `;
      *

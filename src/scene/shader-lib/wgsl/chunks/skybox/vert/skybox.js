@@ -44,7 +44,7 @@ export default /* wgsl */`
             output.vViewDir = input.aPosition.xyz * uniform.cubeMapRotationMatrix;
 
             #ifdef PREPASS_PASS
-                // for infinite skybox, use negative gl_Position.w to get positive linear depth
+                // for infinite skybox, use negative position.w to get positive linear depth
                 output.vLinearDepth = -pcPosition.w;
             #endif
         #endif

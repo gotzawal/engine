@@ -222,29 +222,31 @@ class XrView extends EventHandler {
      * material.setParameter('matrix_depth_uv', view.depthUvMatrix.data);
      * material.setParameter('depth_to_meters', view.depthValueToMeters);
      * @example
-     * // GLSL shader to unpack depth texture
+     * // WGSL shader to unpack depth texture
      * // when depth information is provided in form of LA8
-     * varying vec2 vUv0;
      *
-     * uniform sampler2D texture_depthSensingMap;
-     * uniform mat4 matrix_depth_uv;
-     * uniform float depth_to_meters;
+     * @group(0) @binding(0) var texture_depthSensingMap: texture_2d<f32>;
+     * @group(0) @binding(1) var texture_depthSensingSampler: sampler;
+     * @group(0) @binding(2) var<uniform> matrix_depth_uv: mat4x4f;
+     * @group(0) @binding(3) var<uniform> depth_to_meters: f32;
      *
-     * void main(void) {
+     * @fragment
+     * fn main(@location(0) vUv0: vec2f) -> @location(0) vec4f {
      *     // transform UVs using depth matrix
-     *     vec2 texCoord = (matrix_depth_uv * vec4(vUv0.xy, 0.0, 1.0)).xy;
+     *     let texCoord = (matrix_depth_uv * vec4f(vUv0.xy, 0.0, 1.0)).xy;
      *
      *     // get luminance alpha components from depth texture
-     *     vec2 packedDepth = texture2D(texture_depthSensingMap, texCoord).ra;
+     *     let sample = textureSample(texture_depthSensingMap, texture_depthSensingSampler, texCoord);
+     *     let packedDepth = vec2f(sample.r, sample.a);
      *
      *     // unpack into single value in millimeters
-     *     float depth = dot(packedDepth, vec2(255.0, 256.0 * 255.0)) * depth_to_meters; // m
+     *     let depth_m = dot(packedDepth, vec2f(255.0, 256.0 * 255.0)) * depth_to_meters;
      *
      *     // normalize: 0m to 8m distance
-     *     depth = min(depth / 8.0, 1.0); // 0..1 = 0m..8m
+     *     let depth = min(depth_m / 8.0, 1.0); // 0..1 = 0m..8m
      *
      *     // paint scene from black to white based on distance
-     *     gl_FragColor = vec4(depth, depth, depth, 1.0);
+     *     return vec4f(depth, depth, depth, 1.0);
      * }
      */
     get textureDepth() {
