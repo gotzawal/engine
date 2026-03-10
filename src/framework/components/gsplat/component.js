@@ -483,40 +483,6 @@ class GSplatComponent extends Component {
     }
 
     /**
-     * @deprecated Use {@link lodBaseDistance} and {@link lodMultiplier} instead.
-     * @type {number[]|null}
-     */
-    set lodDistances(value) {
-        Debug.removed('GSplatComponent#lodDistances is removed. Use lodBaseDistance and lodMultiplier instead.');
-        if (Array.isArray(value) && value.length > 0) {
-            this.lodBaseDistance = value[0];
-            this.lodMultiplier = 3;
-        }
-    }
-
-    /**
-     * @deprecated Use {@link lodBaseDistance} and {@link lodMultiplier} instead.
-     * @type {number[]}
-     */
-    get lodDistances() {
-        Debug.removed('GSplatComponent#lodDistances is removed. Use lodBaseDistance and lodMultiplier instead.');
-        return [];
-    }
-
-    /**
-     * @deprecated Use app.scene.gsplat.splatBudget instead for global budget control.
-     * @type {number}
-     */
-    set splatBudget(value) {
-        Debug.removed('GSplatComponent.splatBudget is removed. Use app.scene.gsplat.splatBudget instead for global budget control.');
-    }
-
-    get splatBudget() {
-        Debug.removed('GSplatComponent.splatBudget is removed. Use app.scene.gsplat.splatBudget instead for global budget control.');
-        return 0;
-    }
-
-    /**
      * Sets whether to use the unified gsplat rendering. Default is false.
      *
      * Note: Material handling differs between modes. When unified is false, use

@@ -142,16 +142,14 @@ const string = {
     },
 
     /**
-     * Get the code point number for a character in a string. Polyfill for
-     * [`codePointAt`]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/codePointAt}.
+     * Get the code point number for a character in a string.
      *
      * @param {string} string - The string to get the code point from.
      * @param {number} [i] - The index in the string.
      * @returns {number} The code point value for the character in the string.
      */
     getCodePoint(string, i) {
-        const codePointData = getCodePointData(string, i);
-        return codePointData && codePointData.code;
+        return string.codePointAt(i || 0);
     },
 
     /**
@@ -216,24 +214,14 @@ const string = {
     },
 
     /**
-     * Get the string for a given code point or set of code points. Polyfill for
-     * [`fromCodePoint`]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint}.
+     * Get the string for a given code point or set of code points.
      *
      * @param {...number} args - The code points to convert to a string.
      * @returns {string} The converted string.
      * @ignore
      */
     fromCodePoint(...args) {
-        return args.map((codePoint) => {
-            if (codePoint > 0xFFFF) {
-                codePoint -= 0x10000;
-                return String.fromCharCode(
-                    (codePoint >> 10) + 0xD800,
-                    (codePoint % 0x400) + 0xDC00
-                );
-            }
-            return String.fromCharCode(codePoint);
-        }).join('');
+        return String.fromCodePoint(...args);
     }
 };
 

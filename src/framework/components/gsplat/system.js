@@ -203,10 +203,6 @@ class GSplatComponentSystem extends ComponentSystem {
         return layerData?.gsplatManager?.material ?? null;
     }
 
-    getGSplatMaterial(camera, layer) {
-        Debug.deprecated('GSplatComponentSystem#getGSplatMaterial is deprecated. Use GSplatComponentSystem#getMaterial instead.');
-        return this.getMaterial(camera, layer);
-    }
 }
 
 Component._buildAccessors(GSplatComponent.prototype, _schema);

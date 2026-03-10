@@ -348,8 +348,7 @@ class Scene extends EventHandler {
             meshInstances: 0,
             lights: 0,
             dynamicLights: 0,
-            bakedLights: 0,
-            updateShadersTime: 0 // deprecated
+            bakedLights: 0
         };
 
         /**

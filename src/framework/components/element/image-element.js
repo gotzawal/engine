@@ -16,7 +16,6 @@ import { VertexBuffer } from '../../../platform/graphics/vertex-buffer.js';
 import { VertexFormat } from '../../../platform/graphics/vertex-format.js';
 import { DeviceCache } from '../../../platform/graphics/device-cache.js';
 import {
-    LAYER_HUD, LAYER_WORLD,
     SPRITE_RENDERMODE_SIMPLE, SPRITE_RENDERMODE_SLICED, SPRITE_RENDERMODE_TILED
 } from '../../../scene/constants.js';
 import { GraphNode } from '../../../scene/graph-node.js';
@@ -421,7 +420,7 @@ class ImageElement {
             this._renderable.setCull(!this._element._isScreenSpace() || this._element._isScreenCulled());
             this._renderable.setMaterial(this._material);
             this._renderable.setScreenSpace(screenSpace);
-            this._renderable.setLayer(screenSpace ? LAYER_HUD : LAYER_WORLD);
+            this._renderable.setLayer(screenSpace ? 0 : 15);
         }
     }
 

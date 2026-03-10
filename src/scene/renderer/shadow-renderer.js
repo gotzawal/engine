@@ -367,9 +367,6 @@ class ShadowRenderer {
             device.draw(mesh.primitive[style], mesh.indexBuffer[style], instancingData?.count, indirectData);
 
             renderer._shadowDrawCalls++;
-            if (instancingData) {
-                renderer._instancedDrawCalls++;
-            }
 
             DebugGraphics.popGpuMarker(device);
         }

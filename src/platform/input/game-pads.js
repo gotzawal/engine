@@ -16,7 +16,7 @@ let getGamepads = function () {
 };
 
 if (typeof navigator !== 'undefined') {
-    getGamepads = (navigator.getGamepads || navigator.webkitGetGamepads || getGamepads).bind(navigator);
+    getGamepads = (navigator.getGamepads || getGamepads).bind(navigator);
 }
 
 const MAPS_INDEXES = {

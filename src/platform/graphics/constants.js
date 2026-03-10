@@ -678,20 +678,6 @@ export const PIXELFORMAT_PVRTC_4BPP_RGBA_1 = 27;
 export const PIXELFORMAT_ASTC_4x4 = 28;
 
 /**
- * ATC compressed format with no alpha channel.
- *
- * @category Graphics
- */
-export const PIXELFORMAT_ATC_RGB = 29;
-
-/**
- * ATC compressed format with alpha channel.
- *
- * @category Graphics
- */
-export const PIXELFORMAT_ATC_RGBA = 30;
-
-/**
  * 32-bit BGRA (8-bits for blue channel, 8 for green, 8 for red with 8-bit alpha). This is an
  * internal format used by the WebGPU's backbuffer only.
  *
@@ -1039,8 +1025,6 @@ export const pixelFormatInfo = new Map([
     [PIXELFORMAT_PVRTC_4BPP_RGB_1,  { name: 'PVRTC_4BPP_RGB_1', ldr: true, blockSize: 8 }],
     [PIXELFORMAT_PVRTC_4BPP_RGBA_1, { name: 'PVRTC_4BPP_RGBA_1', ldr: true, blockSize: 8 }],
     [PIXELFORMAT_ASTC_4x4,          { name: 'ASTC_4x4', blockSize: 16, ldr: true, srgbFormat: PIXELFORMAT_ASTC_4x4_SRGB }],
-    [PIXELFORMAT_ATC_RGB,           { name: 'ATC_RGB', blockSize: 8, ldr: true }],
-    [PIXELFORMAT_ATC_RGBA,          { name: 'ATC_RGBA', blockSize: 16, ldr: true }],
     [PIXELFORMAT_BC6F,              { name: 'BC6H_RGBF', blockSize: 16 }],
     [PIXELFORMAT_BC6UF,             { name: 'BC6H_RGBUF', blockSize: 16 }],
     [PIXELFORMAT_BC7,               { name: 'BC7_RGBA', blockSize: 16, ldr: true, srgbFormat: PIXELFORMAT_BC7_SRGBA }],

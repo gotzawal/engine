@@ -22,8 +22,7 @@ export default [
                 'earcut': 'readonly',
                 'opentype': 'readonly',
                 'pc': 'readonly',
-                'TWEEN': 'readonly',
-                'webkitAudioContext': 'readonly'
+                'TWEEN': 'readonly'
             }
         },
         rules: {

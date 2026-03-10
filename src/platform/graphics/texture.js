@@ -159,8 +159,6 @@ class Texture {
      * - {@link PIXELFORMAT_PVRTC_4BPP_RGBA_1}
      * - {@link PIXELFORMAT_111110F}
      * - {@link PIXELFORMAT_ASTC_4x4}
-     * - {@link PIXELFORMAT_ATC_RGB}
-     * - {@link PIXELFORMAT_ATC_RGBA}
      *
      * Defaults to {@link PIXELFORMAT_RGBA8}.
      * @param {string} [options.projection] - The projection type of the texture, used when the
@@ -795,8 +793,6 @@ class Texture {
      * - {@link PIXELFORMAT_PVRTC_4BPP_RGBA_1}
      * - {@link PIXELFORMAT_111110F}
      * - {@link PIXELFORMAT_ASTC_4x4}
-     * - {@link PIXELFORMAT_ATC_RGB}
-     * - {@link PIXELFORMAT_ATC_RGBA}
      *
      * @type {number}
      */

@@ -204,7 +204,7 @@ export { FogParams } from './scene/fog-params.js';
 export { RenderPassForward } from './scene/renderer/render-pass-forward.js';
 
 // SCENE / SHADER-LIB
-export { ShaderUtils, createShader, createShaderFromCode } from './scene/shader-lib/shader-utils.js';
+export { ShaderUtils } from './scene/shader-lib/shader-utils.js';
 export { LitShaderOptions } from './scene/shader-lib/programs/lit-shader-options.js';
 export { ProgramLibrary } from './scene/shader-lib/program-library.js';
 export { ChunkUtils } from './scene/shader-lib/chunk-utils.js';
@@ -406,9 +406,6 @@ export { XrPlaneDetection } from './framework/xr/xr-plane-detection.js';
 export { XrTrackedImage } from './framework/xr/xr-tracked-image.js';
 export { XrView } from './framework/xr/xr-view.js';
 export { XrViews } from './framework/xr/xr-views.js';
-
-// BACKWARDS COMPATIBILITY
-export * from './deprecated/deprecated.js';
 
 // EXTRAS
 export * from './extras/index.js';

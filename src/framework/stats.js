@@ -35,7 +35,6 @@ class ApplicationStats {
             sortTime: 0,
             skinTime: 0,
             morphTime: 0,
-            instancingTime: 0, // deprecated
 
             triangles: 0,
             gsplats: 0,
@@ -47,7 +46,6 @@ class ApplicationStats {
             cameras: 0,
             shadowMapUpdates: 0,
             shadowMapTime: 0,
-            depthMapTime: 0, // deprecated
             forwardTime: 0,
 
             lightClustersTime: 0,
@@ -59,17 +57,12 @@ class ApplicationStats {
 
         this.drawCalls = {
             forward: 0,
-            depth: 0, // deprecated
             shadow: 0,
-            immediate: 0, // deprecated
-            misc: 0, // everything that is not forward/depth/shadow (post effect quads etc)
-            total: 0, // total = forward + depth + shadow + misc
+            misc: 0, // everything that is not forward/shadow (post effect quads etc)
+            total: 0, // total = forward + shadow + misc
 
-            // Some of forward/depth/shadow/misc draw calls:
-            skinned: 0,
-            instanced: 0, // deprecated
-
-            removedByInstancing: 0 // deprecated
+            // Some of forward/shadow/misc draw calls:
+            skinned: 0
         };
 
         this.misc = {

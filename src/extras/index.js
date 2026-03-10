@@ -44,18 +44,6 @@ export { OrbitController } from './input/controllers/orbit-controller.js';
 export { FocusController } from './input/controllers/focus-controller.js';
 
 // GIZMOS
-export {
-    GIZMOSPACE_LOCAL,
-    GIZMOSPACE_WORLD,
-    GIZMOAXIS_X,
-    GIZMOAXIS_Y,
-    GIZMOAXIS_Z,
-    GIZMOAXIS_XY,
-    GIZMOAXIS_XZ,
-    GIZMOAXIS_YZ,
-    GIZMOAXIS_XYZ,
-    GIZMOAXIS_FACE
-} from './gizmo/constants.js';
 export { Gizmo } from './gizmo/gizmo.js';
 export { TransformGizmo } from './gizmo/transform-gizmo.js';
 export { TranslateGizmo } from './gizmo/translate-gizmo.js';

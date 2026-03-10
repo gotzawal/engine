@@ -783,7 +783,7 @@ describe('ScriptComponent', function () {
             expect(app.root.findByName(name)).to.not.exist;
         });
 
-        app.loadSceneHierarchy('http://localhost:3000/test/assets/scenes/scene1.json', function () {
+        app.scenes.loadSceneHierarchy('http://localhost:3000/test/assets/scenes/scene1.json', function () {
 
             // verify entities are loaded
             names.forEach(function (name) {
@@ -1782,7 +1782,7 @@ describe('ScriptComponent', function () {
         app.root.children[0].destroy();
 
         // load scene
-        app.loadSceneHierarchy('http://localhost:3000/test/assets/scenes/scene3.json', function () {
+        app.scenes.loadSceneHierarchy('http://localhost:3000/test/assets/scenes/scene3.json', function () {
             window.initializeCalls.length = 0;
             app.update();
 
