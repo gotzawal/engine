@@ -1,9 +1,13 @@
-const postInitializeReporter = pc.createScript('postInitializeReporter');
+class postInitializeReporter extends pc.Script {
+    static scriptName = 'postInitializeReporter';
 
-postInitializeReporter.prototype.initialize = function () {
-    console.log(`${this.entity.getGuid()} initialize postInitializeReporter`);
-};
+    initialize() {
+        console.log(`${this.entity.getGuid()} initialize postInitializeReporter`);
+    }
 
-postInitializeReporter.prototype.postInitialize = function () {
-    window.initializeCalls.push(`${this.entity.getGuid()} postInitialize postInitializeReporter`);
-};
+    postInitialize() {
+        window.initializeCalls.push(`${this.entity.getGuid()} postInitialize postInitializeReporter`);
+    }
+}
+
+pc.registerScript(postInitializeReporter);

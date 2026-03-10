@@ -2,95 +2,99 @@
  * This script allows GPU Profiling on Mac using Xcode's GPU Frame Capture. Please read the instructions
  * in the manual: https://developer.playcanvas.com/user-manual/optimization/gpu-profiling/
  */
-var MacGPUProfiling = pc.createScript('MacGPUProfiling');
+class MacGPUProfiling extends pc.Script {
+    static scriptName = 'MacGPUProfiling';
 
-// Called once after all resources are loaded and initialized
-MacGPUProfiling.prototype.initialize = function () {
-    this.isInitialized = false;
-    this.device = null;
-    this.context = null;
+    // Called once after all resources are loaded and initialized
+    initialize() {
+        this.isInitialized = false;
+        this.device = null;
+        this.context = null;
 
-    // this is not needed for WebGPU
-    if (this.app.graphicsDevice.isWebGPU) return;
+        // this is not needed for WebGPU
+        if (this.app.graphicsDevice.isWebGPU) return;
 
-    // only needed on Mac
-    if (pc.platform.name !== 'osx') return;
+        // only needed on Mac
+        if (pc.platform.name !== 'osx') return;
 
-    // Create a new canvas for WebGPU with a smaller size
-    this.webgpuCanvas = document.createElement('canvas');
-    this.webgpuCanvas.width = 20;
-    this.webgpuCanvas.height = 20;
-    this.webgpuCanvas.style.position = 'absolute';
-    this.webgpuCanvas.style.top = '20px';  // Adjust position if needed
-    this.webgpuCanvas.style.left = '20px'; // Adjust position if needed
-    document.body.appendChild(this.webgpuCanvas);
+        // Create a new canvas for WebGPU with a smaller size
+        this.webgpuCanvas = document.createElement('canvas');
+        this.webgpuCanvas.width = 20;
+        this.webgpuCanvas.height = 20;
+        this.webgpuCanvas.style.position = 'absolute';
+        this.webgpuCanvas.style.top = '20px';  // Adjust position if needed
+        this.webgpuCanvas.style.left = '20px'; // Adjust position if needed
+        document.body.appendChild(this.webgpuCanvas);
 
-    // Start the asynchronous WebGPU initialization
-    this.initWebGPU();
-};
-
-// Async function for WebGPU initialization
-MacGPUProfiling.prototype.initWebGPU = async function () {
-    // Check for WebGPU support
-    if (!navigator.gpu) {
-        console.error('WebGPU is not supported on this browser.');
-        return;
+        // Start the asynchronous WebGPU initialization
+        this.initWebGPU();
     }
 
-    // Get WebGPU adapter and device
-    const adapter = await navigator.gpu.requestAdapter();
-    this.device = await adapter.requestDevice();
+    // Async function for WebGPU initialization
+    async initWebGPU() {
+        // Check for WebGPU support
+        if (!navigator.gpu) {
+            console.error('WebGPU is not supported on this browser.');
+            return;
+        }
 
-    console.log('Created WebGPU device used for profiling');
+        // Get WebGPU adapter and device
+        const adapter = await navigator.gpu.requestAdapter();
+        this.device = await adapter.requestDevice();
 
-    // Create a WebGPU context for the new canvas
-    this.context = this.webgpuCanvas.getContext('webgpu');
+        console.log('Created WebGPU device used for profiling');
 
-    // Configure the WebGPU context
-    const swapChainFormat = 'bgra8unorm';
-    this.context.configure({
-        device: this.device,
-        format: swapChainFormat
-    });
+        // Create a WebGPU context for the new canvas
+        this.context = this.webgpuCanvas.getContext('webgpu');
 
-    // Mark initialization as complete
-    this.isInitialized = true;
+        // Configure the WebGPU context
+        const swapChainFormat = 'bgra8unorm';
+        this.context.configure({
+            device: this.device,
+            format: swapChainFormat
+        });
 
-    // Hook into the 'frameend' event
-    this.app.on('frameend', this.onFrameEnd, this);
-};
+        // Mark initialization as complete
+        this.isInitialized = true;
 
-// Called when the 'frameend' event is triggered
-MacGPUProfiling.prototype.onFrameEnd = function () {
-    // If WebGPU is not initialized yet, do nothing
-    if (!this.isInitialized) return;
+        // Hook into the 'frameend' event
+        this.app.on('frameend', this.onFrameEnd, this);
+    }
 
-    // Clear the WebGPU surface to red after WebGL rendering
-    this.clearToRed();
-};
+    // Called when the 'frameend' event is triggered
+    onFrameEnd() {
+        // If WebGPU is not initialized yet, do nothing
+        if (!this.isInitialized) return;
 
-// Function to clear the WebGPU surface to red
-MacGPUProfiling.prototype.clearToRed = function () {
-    // Get the current texture to render to
-    const textureView = this.context.getCurrentTexture().createView();
+        // Clear the WebGPU surface to red after WebGL rendering
+        this.clearToRed();
+    }
 
-    // Create a command encoder
-    const commandEncoder = this.device.createCommandEncoder();
+    // Function to clear the WebGPU surface to red
+    clearToRed() {
+        // Get the current texture to render to
+        const textureView = this.context.getCurrentTexture().createView();
 
-    // Create a render pass descriptor with a red background
-    const renderPassDescriptor = {
-        colorAttachments: [{
-            view: textureView,
-            clearValue: { r: 1.0, g: 0.0, b: 0.0, a: 1.0 },  // Red background
-            loadOp: 'clear',
-            storeOp: 'store'
-        }]
-    };
+        // Create a command encoder
+        const commandEncoder = this.device.createCommandEncoder();
 
-    // render pass
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-    passEncoder.end();
+        // Create a render pass descriptor with a red background
+        const renderPassDescriptor = {
+            colorAttachments: [{
+                view: textureView,
+                clearValue: { r: 1.0, g: 0.0, b: 0.0, a: 1.0 },  // Red background
+                loadOp: 'clear',
+                storeOp: 'store'
+            }]
+        };
 
-    // Submit the commands to the GPU
-    this.device.queue.submit([commandEncoder.finish()]);
-};
+        // render pass
+        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+        passEncoder.end();
+
+        // Submit the commands to the GPU
+        this.device.queue.submit([commandEncoder.finish()]);
+    }
+}
+
+pc.registerScript(MacGPUProfiling);

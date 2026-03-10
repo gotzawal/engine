@@ -7,7 +7,6 @@ import {
     SCRIPT_INITIALIZE, SCRIPT_POST_INITIALIZE, SCRIPT_UPDATE,
     SCRIPT_POST_UPDATE, SCRIPT_SWAP
 } from '../../script/constants.js';
-import { ScriptType } from '../../script/script-type.js';
 import { getScriptName } from '../../script/script.js';
 
 /**
@@ -58,7 +57,7 @@ class ScriptComponent extends Component {
     _attributeDataMap = new Map();
 
     /**
-     * Fired when a {@link ScriptType} instance is created and attached to the script component.
+     * Fired when a {@link Script} instance is created and attached to the script component.
      * This event is available in two forms. They are as follows:
      *
      * 1. `create` - Fired when a script instance is created. The name of the script type and the
@@ -79,7 +78,7 @@ class ScriptComponent extends Component {
     static EVENT_CREATE = 'create';
 
     /**
-     * Fired when a {@link ScriptType} instance is destroyed and removed from the script component.
+     * Fired when a {@link Script} instance is destroyed and removed from the script component.
      * This event is available in two forms. They are as follows:
      *
      * 1. `destroy` - Fired when a script instance is destroyed. The name of the script type and
@@ -148,7 +147,7 @@ class ScriptComponent extends Component {
     static EVENT_STATE = 'state';
 
     /**
-     * Fired when the index of a {@link ScriptType} instance is changed in the script component.
+     * Fired when the index of a {@link Script} instance is changed in the script component.
      * This event is available in two forms. They are as follows:
      *
      * 1. `move` - Fired when a script instance is moved. The name of the script type, the script
@@ -169,7 +168,7 @@ class ScriptComponent extends Component {
     static EVENT_MOVE = 'move';
 
     /**
-     * Fired when a {@link ScriptType} instance had an exception. The handler is passed the script
+     * Fired when a {@link Script} instance had an exception. The handler is passed the script
      * instance, the exception and the method name that the exception originated from.
      *
      * @event
@@ -192,7 +191,7 @@ class ScriptComponent extends Component {
         /**
          * Holds all script instances for this component.
          *
-         * @type {ScriptType[]}
+         * @type {Script[]}
          * @private
          */
         this._scripts = [];
@@ -283,7 +282,7 @@ class ScriptComponent extends Component {
     /**
      * Gets the array of all script instances attached to an entity.
      *
-     * @type {ScriptType[]}
+     * @type {Script[]}
      */
     get scripts() {
         return this._scripts;
@@ -428,32 +427,27 @@ class ScriptComponent extends Component {
 
     initializeAttributes(script) {
 
-        // if script has __initializeAttributes method assume it has a runtime schema
-        if (script instanceof ScriptType) {
+        // Initialize attributes from ScriptAttributes definitions (attributes.add pattern)
+        script.__initializeAttributes();
 
-            script.__initializeAttributes();
+        // Also try schema-based attribute initialization
+        const name = script.__scriptType.__name;
+        const data = this._attributeDataMap.get(name);
 
-        } else {
-
-            // otherwise we need to manually initialize attributes from the schema
-            const name = script.__scriptType.__name;
-            const data = this._attributeDataMap.get(name);
-
-            // If not data exists return early
-            if (!data) {
-                return;
-            }
-
-            // Fetch schema and warn if it doesn't exist
-            const schema = this.system.app.scripts?.getSchema(name);
-            if (!schema) {
-                Debug.warnOnce(`No schema exists for the script '${name}'. A schema must exist for data to be instantiated on the script.`);
-            }
-
-            // Assign the attributes to the script instance based on the attribute schema
-            assignAttributesToScript(this.system.app, schema.attributes, data, script);
-
+        // If no data exists return early
+        if (!data) {
+            return;
         }
+
+        // Fetch schema and warn if it doesn't exist
+        const schema = this.system.app.scripts?.getSchema(name);
+        if (!schema) {
+            Debug.warnOnce(`No schema exists for the script '${name}'. A schema must exist for data to be instantiated on the script.`);
+            return;
+        }
+
+        // Assign the attributes to the script instance based on the attribute schema
+        assignAttributesToScript(this.system.app, schema.attributes, data, script);
     }
 
     _scriptMethod(script, method, arg) {
@@ -636,7 +630,7 @@ class ScriptComponent extends Component {
     /**
      * Detect if script is attached to an entity.
      *
-     * @param {string|typeof ScriptType} nameOrType - The name or type of {@link ScriptType}.
+     * @param {string|typeof Script} nameOrType - The name or type of {@link Script}.
      * @returns {boolean} If script is attached to an entity.
      * @example
      * if (entity.script.has('playerController')) {
@@ -659,8 +653,8 @@ class ScriptComponent extends Component {
     /**
      * Get a script instance (if attached).
      *
-     * @param {string|typeof ScriptType} nameOrType - The name or type of {@link ScriptType}.
-     * @returns {ScriptType|null} If script is attached, the instance is returned. Otherwise null
+     * @param {string|typeof Script} nameOrType - The name or type of {@link Script}.
+     * @returns {Script|null} If script is attached, the instance is returned. Otherwise null
      * is returned.
      * @example
      * const controller = entity.script.get('playerController');
@@ -693,9 +687,9 @@ class ScriptComponent extends Component {
      * script and attributes must be initialized manually. Defaults to false.
      * @param {number} [args.ind] - The index where to insert the script instance at. Defaults to
      * -1, which means append it at the end.
-     * @returns {ScriptType|null} Returns an instance of a {@link ScriptType} if successfully
+     * @returns {Script|null} Returns an instance of a {@link Script} if successfully
      * attached to an entity, or null if it failed because a script with a same name has already
-     * been added or if the {@link ScriptType} cannot be found by name in the
+     * been added or if the {@link Script} cannot be found by name in the
      * {@link ScriptRegistry}.
      * @example
      * entity.script.create('playerController', {
@@ -718,7 +712,7 @@ class ScriptComponent extends Component {
             const inferredScriptName = getScriptName(scriptType);
             const lowerInferredScriptName = toLowerCamelCase(inferredScriptName);
 
-            if (!(scriptType.prototype instanceof ScriptType) && !scriptType.scriptName) {
+            if (!scriptType.scriptName) {
                 Debug.warnOnce(`The Script class "${inferredScriptName}" must have a static "scriptName" property: \`${inferredScriptName}.scriptName = "${lowerInferredScriptName}";\`. This will be an error in future versions of PlayCanvas.`);
             }
 
@@ -740,8 +734,9 @@ class ScriptComponent extends Component {
                     Object.assign(scriptInstance, args.properties);
                 }
 
-                // If the script is not a ScriptType then we must store attribute data on the component
-                if (!(scriptInstance instanceof ScriptType) && args.attributes) {
+                // If the script class does not have attributes defined via attributes.add(),
+                // store attribute data on the component for schema-based initialization
+                if (!scriptType.hasOwnProperty('__attributes') && args.attributes) {
 
                     // Store the Attribute data
                     this._attributeDataMap.set(scriptName, { ...args.attributes });
@@ -812,7 +807,7 @@ class ScriptComponent extends Component {
     /**
      * Destroy the script instance that is attached to an entity.
      *
-     * @param {string|typeof ScriptType} nameOrType - The name or type of {@link ScriptType}.
+     * @param {string|typeof Script} nameOrType - The name or type of {@link Script}.
      * @returns {boolean} If it was successfully destroyed.
      * @example
      * entity.script.destroy('playerController');
@@ -871,7 +866,7 @@ class ScriptComponent extends Component {
     /**
      * Swap the script instance.
      *
-     * @param {string|typeof ScriptType} nameOrType - The name or type of {@link ScriptType}.
+     * @param {string|typeof Script} nameOrType - The name or type of {@link Script}.
      * @returns {boolean} If it was successfully swapped.
      * @private
      */
@@ -1043,7 +1038,7 @@ class ScriptComponent extends Component {
     /**
      * Move script instance to different position to alter update order of scripts within entity.
      *
-     * @param {string|typeof ScriptType} nameOrType - The name or type of {@link ScriptType}.
+     * @param {string|typeof Script} nameOrType - The name or type of {@link Script}.
      * @param {number} ind - New position index.
      * @returns {boolean} If it was successfully moved.
      * @example

@@ -83,10 +83,13 @@ assetListLoader.load(() => {
     light.setEulerAngles(45, 0, 40);
 
     // a helper script that rotates the entity
-    const Rotator = pc.createScript('rotator');
-    Rotator.prototype.update = function (/** @type {number} */ dt) {
-        this.entity.rotate(5 * dt, 10 * dt, -15 * dt);
-    };
+    class Rotator extends pc.Script {
+        static scriptName = 'rotator';
+        update(/** @type {number} */ dt) {
+            this.entity.rotate(5 * dt, 10 * dt, -15 * dt);
+        }
+    }
+    pc.registerScript(Rotator);
 
     // a compute shader that will compute the histogram of the input texture and write the result to the storage buffer
     const shader = device.supportsCompute ?

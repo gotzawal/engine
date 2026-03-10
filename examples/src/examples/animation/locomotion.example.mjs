@@ -299,40 +299,6 @@ assetListLoader.load(() => {
         }
     });
 
-    // create a Locomotion script and initialize some variables
-    const Locomotion = pc.createScript('Locomotion');
-
-    let characterDirection;
-    /** @type {pc.Vec3} */
-    let targetPosition;
-
-    // initialize code called once per entity
-    Locomotion.prototype.initialize = function () {
-        characterDirection = new pc.Vec3(1, 0, 0);
-        targetPosition = new pc.Vec3(2, 0, 2);
-        document.addEventListener('mousedown', this.onMouseDown);
-        this.on('destroy', this.destroy, this);
-    };
-
-    // @ts-ignore engine-tsd
-    Locomotion.prototype.onMouseDown = function (event) {
-        if (event.button !== 0) return;
-        // Set the character target position to a position on the plane that the user has clicked
-        /** @type {pc.Entity} */
-        const cameraEntity = app.root.findByName('Camera');
-        const near = cameraEntity.camera.screenToWorld(event.x, event.y, cameraEntity.camera.nearClip);
-        const far = cameraEntity.camera.screenToWorld(event.x, event.y, cameraEntity.camera.farClip);
-        const result = app.systems.rigidbody.raycastFirst(far, near);
-        if (result) {
-            targetPosition = new pc.Vec3(result.point.x, 0, result.point.z);
-            characterEntity.anim.setInteger('speed', data.get('jogToggle') ? 2 : 1);
-        }
-    };
-
-    Locomotion.prototype.destroy = function () {
-        document.removeEventListener('mousedown', this.onMouseDown);
-    };
-
     /**
      * Defines how many units the character should move per second given its current animation state.
      *
@@ -352,34 +318,70 @@ assetListLoader.load(() => {
         }
     }
 
+    let characterDirection;
+    /** @type {pc.Vec3} */
+    let targetPosition;
     const currentPosition = new pc.Vec3(0, 0, 0);
 
-    // update code called every frame
-    Locomotion.prototype.update = function (/** @type {number} */ dt) {
-        if (characterEntity.anim.getInteger('speed')) {
-            // Update position if target position is not the same as entity position. Base the movement speed on the current state
-            // Move the character along X & Z axis based on click target position & make character face click direction
-            let moveSpeed = speedForState(characterEntity.anim.baseLayer.activeState);
-            if (characterEntity.anim.baseLayer.transitioning) {
-                const prevMoveSpeed = speedForState(characterEntity.anim.baseLayer.previousState);
-                const progress = characterEntity.anim.baseLayer.transitionProgress;
-                moveSpeed = prevMoveSpeed * (1.0 - progress) + moveSpeed * progress;
-            }
-            const distance = targetPosition.clone().sub(currentPosition);
-            const direction = distance.clone().normalize();
-            characterDirection = new pc.Vec3().sub(direction);
-            const movement = direction.clone().mulScalar(dt * moveSpeed);
-            if (movement.length() < distance.length()) {
-                currentPosition.add(movement);
-                characterEntity.setPosition(currentPosition);
-                characterEntity.lookAt(characterEntity.getPosition().clone().add(characterDirection));
-            } else {
-                currentPosition.copy(targetPosition);
-                characterEntity.setPosition(currentPosition);
-                characterEntity.anim.setInteger('speed', 0);
+    // create a Locomotion script
+    class Locomotion extends pc.Script {
+        static scriptName = 'Locomotion';
+
+        // initialize code called once per entity
+        initialize() {
+            characterDirection = new pc.Vec3(1, 0, 0);
+            targetPosition = new pc.Vec3(2, 0, 2);
+            document.addEventListener('mousedown', this.onMouseDown);
+            this.on('destroy', this.destroy, this);
+        }
+
+        // @ts-ignore engine-tsd
+        onMouseDown(event) {
+            if (event.button !== 0) return;
+            // Set the character target position to a position on the plane that the user has clicked
+            /** @type {pc.Entity} */
+            const cameraEntity = app.root.findByName('Camera');
+            const near = cameraEntity.camera.screenToWorld(event.x, event.y, cameraEntity.camera.nearClip);
+            const far = cameraEntity.camera.screenToWorld(event.x, event.y, cameraEntity.camera.farClip);
+            const result = app.systems.rigidbody.raycastFirst(far, near);
+            if (result) {
+                targetPosition = new pc.Vec3(result.point.x, 0, result.point.z);
+                characterEntity.anim.setInteger('speed', data.get('jogToggle') ? 2 : 1);
             }
         }
-    };
+
+        destroy() {
+            document.removeEventListener('mousedown', this.onMouseDown);
+        }
+
+        // update code called every frame
+        update(/** @type {number} */ dt) {
+            if (characterEntity.anim.getInteger('speed')) {
+                // Update position if target position is not the same as entity position. Base the movement speed on the current state
+                // Move the character along X & Z axis based on click target position & make character face click direction
+                let moveSpeed = speedForState(characterEntity.anim.baseLayer.activeState);
+                if (characterEntity.anim.baseLayer.transitioning) {
+                    const prevMoveSpeed = speedForState(characterEntity.anim.baseLayer.previousState);
+                    const progress = characterEntity.anim.baseLayer.transitionProgress;
+                    moveSpeed = prevMoveSpeed * (1.0 - progress) + moveSpeed * progress;
+                }
+                const distance = targetPosition.clone().sub(currentPosition);
+                const direction = distance.clone().normalize();
+                characterDirection = new pc.Vec3().sub(direction);
+                const movement = direction.clone().mulScalar(dt * moveSpeed);
+                if (movement.length() < distance.length()) {
+                    currentPosition.add(movement);
+                    characterEntity.setPosition(currentPosition);
+                    characterEntity.lookAt(characterEntity.getPosition().clone().add(characterDirection));
+                } else {
+                    currentPosition.copy(targetPosition);
+                    characterEntity.setPosition(currentPosition);
+                    characterEntity.anim.setInteger('speed', 0);
+                }
+            }
+        }
+    }
+    pc.registerScript(Locomotion);
 
     characterEntity.addComponent('script');
     characterEntity.script.create('Locomotion', {});

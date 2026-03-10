@@ -1,6 +1,7 @@
 import { Debug } from '../..//core/debug.js';
 import { EventHandler } from '../../core/event-handler.js';
 import { SCRIPT_INITIALIZE, SCRIPT_POST_INITIALIZE } from './constants.js';
+import { ScriptAttributes } from './script-attributes.js';
 
 /**
  * @import { AppBase } from '../app-base.js'
@@ -193,6 +194,12 @@ export class Script extends EventHandler {
     __destroyed;
 
     /** @private */
+    __attributes;
+
+    /** @private */
+    __attributesRaw;
+
+    /** @private */
     __scriptType;
 
     /**
@@ -285,16 +292,92 @@ export class Script extends EventHandler {
         this._enabledOld = this.enabled;
 
         this.__destroyed = false;
+        this.__attributes = { };
+        this.__attributesRaw = args.attributes || { };
 
         this.__scriptType = script;
         this.__executionOrder = -1;
     }
 
     /**
+     * The interface to define attributes for Script Types. Refer to {@link ScriptAttributes}.
+     *
+     * @type {ScriptAttributes}
+     * @example
+     * class PlayerController extends Script {
+     *     static scriptName = 'playerController';
+     * }
+     *
+     * PlayerController.attributes.add('speed', {
+     *     type: 'number',
+     *     title: 'Speed',
+     *     placeholder: 'km/h',
+     *     default: 22.2
+     * });
+     */
+    static get attributes() {
+        if (!this.hasOwnProperty('__attributes')) this.__attributes = new ScriptAttributes(this);
+        return this.__attributes;
+    }
+
+    /**
+     * @param {boolean} [force] - Set to true to force initialization of the attributes.
+     * @ignore
+     */
+    __initializeAttributes(force) {
+        if (!force && !this.__attributesRaw) {
+            return;
+        }
+
+        // set attributes values
+        for (const key in this.__scriptType.attributes.index) {
+            if (this.__attributesRaw && this.__attributesRaw.hasOwnProperty(key)) {
+                this[key] = this.__attributesRaw[key];
+            } else if (!this.__attributes.hasOwnProperty(key)) {
+                if (this.__scriptType.attributes.index[key].hasOwnProperty('default')) {
+                    this[key] = this.__scriptType.attributes.index[key].default;
+                } else {
+                    this[key] = null;
+                }
+            }
+        }
+
+        this.__attributesRaw = null;
+    }
+
+    /**
+     * Shorthand function to extend Script Type prototype with list of methods.
+     *
+     * @param {object} methods - Object with methods, where key - is name of method, and value - is function.
+     * @example
+     * class PlayerController extends Script {
+     *     static scriptName = 'playerController';
+     * }
+     *
+     * PlayerController.extend({
+     *     initialize: function () {
+     *         // called once on initialize
+     *     },
+     *     update: function (dt) {
+     *         // called each tick
+     *     }
+     * });
+     */
+    static extend(methods) {
+        for (const key in methods) {
+            if (!methods.hasOwnProperty(key)) {
+                continue;
+            }
+
+            this.prototype[key] = methods[key];
+        }
+    }
+
+    /**
      * @type {string|null}
      * @private
      */
-    static __name = null; // Will be assigned when calling createScript or registerScript.
+    static __name = null; // Will be assigned when calling registerScript.
 
     /**
      * @param {*} constructorFn - The constructor function of the script type.

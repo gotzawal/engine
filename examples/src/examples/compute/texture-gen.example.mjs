@@ -73,10 +73,13 @@ assetListLoader.load(() => {
     light.setEulerAngles(45, 0, 0);
 
     // a helper script that rotates the entity
-    const Rotator = pc.createScript('rotator');
-    Rotator.prototype.update = function (/** @type {number} */ dt) {
-        this.entity.rotate(10 * dt, 20 * dt, 30 * dt);
-    };
+    class Rotator extends pc.Script {
+        static scriptName = 'rotator';
+        update(/** @type {number} */ dt) {
+            this.entity.rotate(10 * dt, 20 * dt, 30 * dt);
+        }
+    }
+    pc.registerScript(Rotator);
 
     // a compute shader that will tint the input texture and write the result to the storage texture
     const shader = device.supportsCompute ?

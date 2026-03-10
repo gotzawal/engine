@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { Debug } from '../../../../src/core/debug.js';
 import { Asset } from '../../../../src/framework/asset/asset.js';
 import { Entity } from '../../../../src/framework/entity.js';
-import { createScript } from '../../../../src/framework/script/script-create.js';
+import { registerScript } from '../../../../src/framework/script/script-create.js';
 import { Script } from '../../../../src/framework/script/script.js';
 import { createApp } from '../../../app.mjs';
 import { jsdomSetup, jsdomTeardown } from '../../../jsdom.mjs';
@@ -1889,14 +1889,17 @@ describe('ScriptComponent', function () {
     });
 
     it('update and postUpdate are not called on script instance that was disabled during update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
-            this.entity.script.scriptA.enabled = false;
-        };
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
+                this.entity.script.scriptA.enabled = false;
+            }
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -1925,14 +1928,17 @@ describe('ScriptComponent', function () {
     });
 
     it('update and postUpdate are not called on script component that was disabled during update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
-            this.entity.script.enabled = false;
-        };
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
+                this.entity.script.enabled = false;
+            }
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -1962,14 +1968,17 @@ describe('ScriptComponent', function () {
     });
 
     it('update and postUpdate are not called on entity that was disabled during update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
-            this.entity.enabled = false;
-        };
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
+                this.entity.enabled = false;
+            }
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -1999,11 +2008,14 @@ describe('ScriptComponent', function () {
     });
 
     it('postUpdate not called on script instance that was disabled during post update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-            this.entity.script.scriptA.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+                this.entity.script.scriptA.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -2032,11 +2044,14 @@ describe('ScriptComponent', function () {
     });
 
     it('postUpdate not called on script component that was disabled during post update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-            this.entity.script.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+                this.entity.script.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -2067,11 +2082,14 @@ describe('ScriptComponent', function () {
     });
 
     it('postUpdate not called on entity that was disabled during post update loop', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-            this.entity.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+                this.entity.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -2102,17 +2120,23 @@ describe('ScriptComponent', function () {
     });
 
     it('update not called second time on script instance that was re-enabled during the same frame', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
-            this.entity.script.disableDuringUpdateLoop.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
+                this.entity.script.disableDuringUpdateLoop.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            this.entity.script.disableDuringUpdateLoop.enabled = true; // enable first script back
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                this.entity.script.disableDuringUpdateLoop.enabled = true; // enable first script back
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -2139,17 +2163,23 @@ describe('ScriptComponent', function () {
     });
 
     it('post update not called second time on script instance that was re-enabled during the same frame', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-            this.entity.script.disableDuringUpdateLoop.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+                this.entity.script.disableDuringUpdateLoop.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate enableDuringUpdateLoop`);
-            this.entity.script.disableDuringUpdateLoop.enabled = true; // enable first script back
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate enableDuringUpdateLoop`);
+                this.entity.script.disableDuringUpdateLoop.enabled = true; // enable first script back
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         const a = new Entity();
         a.addComponent('script', {
@@ -2176,18 +2206,24 @@ describe('ScriptComponent', function () {
     });
 
     it('update not called second time on script instance whose script component was re-enabled during the same frame', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
-            this.entity.script.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update disableDuringUpdateLoop`);
+                this.entity.script.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            const e = app.root.findByName('a');
-            e.script.enabled = true; // enable first script component back
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                const e = app.root.findByName('a');
+                e.script.enabled = true; // enable first script component back
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         const a = new Entity('a');
         a.addComponent('script', {
@@ -2223,18 +2259,24 @@ describe('ScriptComponent', function () {
     });
 
     it('post update not called second time on script instance whose script component was re-enabled during the same frame', function () {
-        const DisableDuringUpdateLoop = createScript('disableDuringUpdateLoop');
-        DisableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
-            this.entity.script.enabled = false;
-        };
+        class DisableDuringUpdateLoop extends Script {
+            static scriptName = 'disableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate disableDuringUpdateLoop`);
+                this.entity.script.enabled = false;
+            }
+        }
+        registerScript(DisableDuringUpdateLoop);
 
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate enableDuringUpdateLoop`);
-            const e = app.root.findByName('a');
-            e.script.enabled = true; // enable first script component back
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate enableDuringUpdateLoop`);
+                const e = app.root.findByName('a');
+                e.script.enabled = true; // enable first script component back
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         const a = new Entity('a');
         a.addComponent('script', {
@@ -2364,12 +2406,15 @@ describe('ScriptComponent', function () {
     });
 
     it('update and post update are called on the same frame for child entities that become enabled during a parent\s update', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            const e = app.root.findByName('b');
-            e.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                const e = app.root.findByName('b');
+                e.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity
         const a = new Entity('a');
@@ -2419,12 +2464,15 @@ describe('ScriptComponent', function () {
     });
 
     it('update is called on the next frame and post update on the same frame for parent entities whose script component becomes enabled during a child\s update', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            const e = app.root.findByName('a');
-            e.script.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                const e = app.root.findByName('a');
+                e.script.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity (note there doesn't have to be a parent-child relationship
         // what really matters is which script component is created first by calling addComponent)
@@ -2480,11 +2528,14 @@ describe('ScriptComponent', function () {
     });
 
     it('update is called on the same frame for subsequent script instance that gets enabled during update loop', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            this.entity.script.scriptB.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                this.entity.script.scriptB.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity (note there doesn't have to be a parent-child relationship
         // what really matters is which script component is created first by calling addComponent)
@@ -2520,11 +2571,14 @@ describe('ScriptComponent', function () {
     });
 
     it('update is called on the next frame and post update on the same frame for previous script instance that gets enabled during update loop', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
-            this.entity.script.scriptB.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update enableDuringUpdateLoop`);
+                this.entity.script.scriptB.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity (note there doesn't have to be a parent-child relationship
         // what really matters is which script component is created first by calling addComponent)
@@ -2569,11 +2623,14 @@ describe('ScriptComponent', function () {
     });
 
     it('post update is called on the same frame for subsequent script instance that gets enabled during post update loop', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} post update enableDuringUpdateLoop`);
-            this.entity.script.scriptB.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} post update enableDuringUpdateLoop`);
+                this.entity.script.scriptB.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity (note there doesn't have to be a parent-child relationship
         // what really matters is which script component is created first by calling addComponent)
@@ -2608,11 +2665,14 @@ describe('ScriptComponent', function () {
     });
 
     it('post update is called on the next frame previous script instance that gets enabled during post update loop', function () {
-        const EnableDuringUpdateLoop = createScript('enableDuringUpdateLoop');
-        EnableDuringUpdateLoop.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} post update enableDuringUpdateLoop`);
-            this.entity.script.scriptB.enabled = true;
-        };
+        class EnableDuringUpdateLoop extends Script {
+            static scriptName = 'enableDuringUpdateLoop';
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} post update enableDuringUpdateLoop`);
+                this.entity.script.scriptB.enabled = true;
+            }
+        }
+        registerScript(EnableDuringUpdateLoop);
 
         // parent entity (note there doesn't have to be a parent-child relationship
         // what really matters is which script component is created first by calling addComponent)
@@ -2794,10 +2854,13 @@ describe('ScriptComponent', function () {
     });
 
     it('move() during update loop will update moved script again if new index is after the script who called move()', function () {
-        const Move = createScript('mover');
-        Move.prototype.update = function () {
-            this.entity.script.move('scriptA', 2);
-        };
+        class Move extends Script {
+            static scriptName = 'mover';
+            update() {
+                this.entity.script.move('scriptA', 2);
+            }
+        }
+        registerScript(Move);
 
         const e = new Entity();
         e.addComponent('script', {
@@ -2829,10 +2892,13 @@ describe('ScriptComponent', function () {
     });
 
     it('move() during update loop will not update moved script if new index is before the script who called move()', function () {
-        const Move = createScript('mover');
-        Move.prototype.update = function () {
-            this.entity.script.move('scriptB', 0);
-        };
+        class Move extends Script {
+            static scriptName = 'mover';
+            update() {
+                this.entity.script.move('scriptB', 0);
+            }
+        }
+        registerScript(Move);
 
         const e = new Entity();
         e.addComponent('script', {
@@ -2879,15 +2945,18 @@ describe('ScriptComponent', function () {
 
         // create new script with the same name
         // so that 'swap' is triggered
-        const NewScriptA = createScript('scriptA');
-        NewScriptA.prototype.update = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} update new scriptA`);
-        };
-        NewScriptA.prototype.postUpdate = function () {
-            window.initializeCalls.push(`${this.entity.getGuid()} postUpdate new scriptA`);
-        };
-        NewScriptA.prototype.swap = function () {
-        };
+        class NewScriptA extends Script {
+            static scriptName = 'scriptA';
+            update() {
+                window.initializeCalls.push(`${this.entity.getGuid()} update new scriptA`);
+            }
+            postUpdate() {
+                window.initializeCalls.push(`${this.entity.getGuid()} postUpdate new scriptA`);
+            }
+            swap() {
+            }
+        }
+        registerScript(NewScriptA);
 
         app.scripts.on('swap', function () {
             setTimeout(function () {
@@ -2964,7 +3033,10 @@ describe('ScriptComponent', function () {
 
     it('does not warn when a ScriptType is used', function () {
         Debug._loggedMessages.clear();
-        createScript('nullScript');
+        class NullScript extends Script {
+            static scriptName = 'nullScript';
+        }
+        registerScript(NullScript);
         const e = new Entity();
         e.addComponent('script', {
             enabled: true,
