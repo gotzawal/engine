@@ -119,33 +119,6 @@ assetListLoader.load(() => {
     app.scene.lighting.shadowsEnabled = false;
     app.scene.lighting.cookiesEnabled = false;
 
-    material.shaderChunkGLSL = /* glsl */`
-
-        #include "litShaderCorePS"
-
-        uniform sampler2D texture_diffuseMap;
-        uniform sampler2D texture_glossMap;
-        uniform sampler2D texture_normalMap;
-        uniform float material_normalMapIntensity;
-        uniform vec3 material_specularRgb;
-
-        void evaluateFrontend() {
-            litArgs_emission = vec3(0, 0, 0);
-            litArgs_metalness = 0.5;
-            litArgs_specularity = material_specularRgb;
-            litArgs_specularityFactor = 1.0;
-            litArgs_gloss = texture2D(texture_glossMap, vUv0).r;
-
-            litArgs_ior = 0.1;
-
-            vec3 normalMap = texture2D(texture_normalMap, vUv0).xyz * 2.0 - 1.0;
-            litArgs_worldNormal = normalize(dTBN * mix(vec3(0,0,1), normalMap, material_normalMapIntensity));
-            litArgs_albedo = vec3(0.5) + texture2D(texture_diffuseMap, vUv0).xyz;
-
-            litArgs_ao = 0.0;
-            litArgs_opacity = 1.0;
-        }`;
-
     material.shaderChunkWGSL = /* wgsl */`
 
         #include "litShaderCorePS"

@@ -90,7 +90,7 @@ class RenderPassRadixSortCount extends RenderPassShaderQuad {
             vertexChunk: 'quadVS',
             fragmentChunk: 'radixSortCountPS',
             fragmentDefines: defines,
-            fragmentOutputTypes: 'float'
+            fragmentOutputTypes: 'f32'
         });
 
         // Resolve uniform locations

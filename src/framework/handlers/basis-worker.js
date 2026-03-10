@@ -181,8 +181,7 @@ function BasisWorker() {
             // atc
             case BASIS_FORMAT.cTFATC_RGB:
             case BASIS_FORMAT.cTFATC_RGBA_INTERPOLATED_ALPHA:
-                // TODO: remove atc support? looks like it's been removed from the webgl spec, see
-                // https://www.khronos.org/registry/webgl/extensions/rejected/WEBGL_compressed_texture_atc/
+                // TODO: remove atc support? ATC format is no longer standard.
                 return true;
         }
         return false;

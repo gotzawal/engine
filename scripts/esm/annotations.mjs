@@ -22,15 +22,6 @@ import {
 /** @import { EventHandle } from 'playcanvas' */
 
 // clamp the vertices of the hotspot so it is never clipped by the near or far plane
-const depthClamp = `
-    float f = gl_Position.z / gl_Position.w;
-    if (f > 1.0) {
-        gl_Position.z = gl_Position.w;
-    } else if (f < -1.0) {
-        gl_Position.z = -gl_Position.w;
-    }
-`;
-
 const depthClampWGSL = `
     let f: f32 = output.position.z / output.position.w;
     if (f > 1.0) {
@@ -442,10 +433,6 @@ export class AnnotationManager extends Script {
         material.depthWrite = depthWrite;
         material.cull = CULLFACE_NONE;
         material.useLighting = false;
-
-        material.shaderChunks.glsl.add({
-            'litUserMainEndVS': depthClamp
-        });
 
         material.shaderChunks.wgsl.add({
             'litUserMainEndVS': depthClampWGSL

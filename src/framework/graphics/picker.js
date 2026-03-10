@@ -381,8 +381,7 @@ class Picker {
 
     allocateRenderTarget() {
 
-        // TODO: Ideally we'd use a UINT32 texture format and avoid RGBA8 conversion, but WebGL2 does not
-        // support clearing render targets of this format, so we'd need a quad based clear solution.
+        // TODO: Ideally we'd use a UINT32 texture format and avoid RGBA8 conversion.
         this.colorBuffer = this.createTexture('pick');
         const colorBuffers = [this.colorBuffer];
 

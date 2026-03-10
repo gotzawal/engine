@@ -5,24 +5,6 @@
  * - Selected splats (selection>0.5) are tinted yellow for visual feedback
  */
 export const workBufferModifier = {
-    glsl: /* glsl */ `
-        void modifySplatCenter(inout vec3 center) {
-        }
-
-        void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {
-            float visible = texelFetch(splatVisible, splat.uv, 0).r;
-            if (visible < 0.5) {
-                scale = vec3(0.0);  // Deleted - make invisible
-            }
-        }
-
-        void modifySplatColor(vec3 center, inout vec4 color) {
-            float selected = texelFetch(splatSelection, splat.uv, 0).r;
-            if (selected > 0.5) {
-                color.rgb = mix(color.rgb, vec3(1.0, 1.0, 0.0), 0.7);  // Yellow tint for selected
-            }
-        }
-    `,
     wgsl: /* wgsl */ `
         fn modifySplatCenter(center: ptr<function, vec3f>) {
         }

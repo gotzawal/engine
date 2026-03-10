@@ -1,51 +1,6 @@
 import { Vec3 } from 'playcanvas';
 import { GsplatShaderEffect } from './gsplat-shader-effect.mjs';
 
-const shaderGLSL = /* glsl */`
-uniform vec3 uAabbMin;
-uniform vec3 uAabbMax;
-uniform float uEdgeScaleFactor;
-
-void modifySplatCenter(inout vec3 center) {
-    // No modifications needed
-}
-
-void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {
-    // Check if splat is inside AABB
-    bool insideAABB = all(greaterThanEqual(modifiedCenter, uAabbMin)) && all(lessThanEqual(modifiedCenter, uAabbMax));
-    
-    // If outside AABB, make invisible by scaling to 0
-    if (!insideAABB) {
-        scale = vec3(0.0);
-        return;
-    }
-    
-    #ifdef GSPLAT_PRECISE_CROP
-    // Conservative bound: use length(scale) * 3.0 (3 sigma)
-    // This gives the maximum possible extent
-    float maxRadius = length(scale) * 3.0;
-    
-    // Find minimum distance to any AABB face
-    vec3 distToMin = modifiedCenter - uAabbMin;
-    vec3 distToMax = uAabbMax - modifiedCenter;
-    float minDist = min(
-        min(min(distToMin.x, distToMin.y), distToMin.z),
-        min(min(distToMax.x, distToMax.y), distToMax.z)
-    );
-    
-    // Scale if splat would exceed boundary
-    if (maxRadius > minDist) {
-        float s = (minDist / maxRadius) * uEdgeScaleFactor;
-        scale *= s;
-    }
-    #endif
-}
-
-void modifySplatColor(vec3 center, inout vec4 color) {
-    // No color modification needed
-}
-`;
-
 const shaderWGSL = /* wgsl */`
 uniform uAabbMin: vec3f;
 uniform uAabbMax: vec3f;
@@ -141,10 +96,6 @@ class GsplatCropShaderEffect extends GsplatShaderEffect {
      * @attribute
      */
     edgeScaleFactor = 0.5;
-
-    getShaderGLSL() {
-        return shaderGLSL;
-    }
 
     getShaderWGSL() {
         return shaderWGSL;

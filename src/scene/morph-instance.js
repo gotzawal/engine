@@ -193,7 +193,7 @@ class MorphInstance {
         defines.set('{MORPH_TEXTURE_MAX_COUNT}', maxCount);
         if (this.morph.intRenderFormat) defines.set('MORPH_INT', '');
 
-        const outputType = this.morph.intRenderFormat ? 'uvec4' : 'vec4';
+        const outputType = this.morph.intRenderFormat ? 'vec4u' : 'vec4f';
 
         return ShaderUtils.createShader(this.device, {
             uniqueName: `TextureMorphShader_${maxCount}-${this.morph.intRenderFormat ? 'int' : 'float'}`,

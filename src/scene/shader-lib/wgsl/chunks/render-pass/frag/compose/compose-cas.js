@@ -1,5 +1,5 @@
 // Contrast Adaptive Sharpening (CAS) is used to apply the sharpening. It's based on AMD's
-// FidelityFX CAS, WebGL implementation: https://www.shadertoy.com/view/wtlSWB. It's best to run it
+// FidelityFX CAS, reference implementation: https://www.shadertoy.com/view/wtlSWB. It's best to run it
 // on a tone-mapped color buffer after post-processing, but before the UI, and so this is the
 // obvious place to put it to avoid a separate render pass, even though we need to handle running it
 // before the tone-mapping.

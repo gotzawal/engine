@@ -33,13 +33,7 @@ class ShaderGeneratorPassThrough extends ShaderGenerator {
 
 class ShaderUtils {
     /**
-     * Creates a shader. When the active graphics device is WebGL, the provided GLSL vertex and
-     * fragment source code is used. For WebGPU, if WGSL vertex and fragment source code is
-     * supplied, it is used directly; otherwise, the system automatically translates the provided
-     * GLSL code into WGSL. In the case of GLSL shaders, additional blocks are appended to both the
-     * vertex and fragment source code to support extended features and maintain compatibility.
-     * These additions include the shader version declaration, precision qualifiers, and commonly
-     * used extensions, and therefore should be excluded from the user-supplied GLSL source.
+     * Creates a shader using WGSL vertex and fragment source code.
      * Note: The shader has access to all registered shader chunks via the `#include` directive.
      * Any provided includes will be applied as overrides on top of those.
      *
@@ -69,7 +63,7 @@ class ShaderUtils {
      * define names and their values. These are used for resolving #ifdef style of directives in the
      * fragment code.
      * @param {string | string[]} [options.fragmentOutputTypes] - Fragment shader output types,
-     * which default to vec4. Passing a string will set the output type for all color attachments.
+     * which default to vec4f. Passing a string will set the output type for all color attachments.
      * Passing an array will set the output type for each color attachment.
      * @returns {Shader} The newly created shader.
      */

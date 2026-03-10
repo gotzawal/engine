@@ -42,7 +42,7 @@ class GSplatNodeCullRenderPass extends RenderPassShaderQuad {
             attributes: { aPosition: SEMANTIC_POSITION },
             vertexChunk: 'quadVS',
             fragmentWGSL: wgslGsplatNodeCullingPS,
-            fragmentOutputTypes: ['uint']
+            fragmentOutputTypes: ['u32']
         });
 
         // Resolve uniform scope IDs

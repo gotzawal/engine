@@ -54,24 +54,6 @@ const format = new pc.GSplatFormat(device, [
     // this line gives us 'loadData' function in the shader, returning vec4
     { name: 'data', format: pc.PIXELFORMAT_RGBA8 }
 ], {
-    readGLSL: `
-        uniform vec3 uTint;
-        uniform vec3 uTint2;
-
-        vec3 getCenter() {
-            vec4 splatData = loadData();
-            return (splatData.rgb - 0.5) * ${(posScale * 2.0).toFixed(1)};
-        }
-
-        vec4 getColor() {
-            vec4 splatData = loadData();
-            vec3 tint = mix(uTint2, uTint, splatData.a);
-            return vec4(tint, 1.0);
-        }
-
-        vec3 getScale() { return vec3(0.15); }
-        vec4 getRotation() { return vec4(0.0, 0.0, 0.0, 1.0); }
-    `,
     readWGSL: `
         uniform uTint: vec3f;
         uniform uTint2: vec3f;

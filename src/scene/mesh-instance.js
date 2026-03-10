@@ -220,14 +220,10 @@ class ShaderInstance {
  *
  * ### Multi-draw
  *
- * Multi-draw lets the engine submit multiple sub-draws with a single API call. On WebGL2 this maps
- * to the `WEBGL_multi_draw` extension; on WebGPU, to indirect multi-draw. Use {@link setMultiDraw}
- * to allocate a {@link DrawCommands} container, fill it with sub-draws using
- * {@link DrawCommands#add} and finalize with {@link DrawCommands#update} whenever the data changes.
- *
- * Support: {@link GraphicsDevice#supportsMultiDraw} is true on WebGPU and commonly true on WebGL2
- * (high coverage). When not supported, the engine can still render by issuing a fast internal loop
- * of single draws using the multi-draw data.
+ * Multi-draw lets the engine submit multiple sub-draws with a single API call using indirect
+ * multi-draw. Use {@link setMultiDraw} to allocate a {@link DrawCommands} container, fill it with
+ * sub-draws using {@link DrawCommands#add} and finalize with {@link DrawCommands#update} whenever
+ * the data changes.
  *
  * ```javascript
  * // two indexed sub-draws from a single mesh

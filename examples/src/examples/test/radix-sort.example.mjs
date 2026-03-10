@@ -99,8 +99,6 @@ radixSort = new pc.RenderPassRadixSort(device);
 // Create unsorted visualization material
 const unsortedMaterial = new pc.ShaderMaterial({
     uniqueName: 'UnsortedVizMaterial',
-    vertexGLSL: files['vert.glsl'],
-    fragmentGLSL: files['unsorted.glsl.frag'],
     vertexWGSL: files['vert.wgsl'],
     fragmentWGSL: files['unsorted.wgsl.frag'],
     attributes: {
@@ -112,8 +110,6 @@ const unsortedMaterial = new pc.ShaderMaterial({
 // Create sorted visualization material
 const sortedMaterial = new pc.ShaderMaterial({
     uniqueName: 'SortedVizMaterial',
-    vertexGLSL: files['vert.glsl'],
-    fragmentGLSL: files['sorted.glsl.frag'],
     vertexWGSL: files['vert.wgsl'],
     fragmentWGSL: files['sorted.wgsl.frag'],
     attributes: {

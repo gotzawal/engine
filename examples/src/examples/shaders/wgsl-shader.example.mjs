@@ -10,8 +10,6 @@ const assets = {
     diffuse: new pc.Asset('color', 'texture', { url: `${rootPath}/static/assets/textures/playcanvas.png` })
 };
 
-// Even though we're using WGSL, we still need to provide glslang
-// and twgsl to compile shaders used internally by the engine.
 const gfxOptions = {
     deviceTypes: [deviceType]
 };
@@ -19,10 +17,6 @@ const gfxOptions = {
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);
 device.maxPixelRatio = Math.min(window.devicePixelRatio, 2);
 
-
-if (!device.isWebGPU) {
-    throw new Error('WebGPU is required for this example.');
-}
 
 const createOptions = new pc.AppOptions();
 createOptions.graphicsDevice = device;

@@ -204,7 +204,7 @@ assetListLoader.load(() => {
 
     // ------- Particle rendering -------
 
-    // material to render the particles using WGSL shader as GLSL does not have access to storage buffers
+    // material to render the particles using WGSL shader with access to storage buffers
     const material = new pc.ShaderMaterial({
         uniqueName: 'ParticleRenderShader',
         vertexWGSL: files['shader-shared.wgsl'] + files['shader-rendering.vertex.wgsl'],

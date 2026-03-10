@@ -16,111 +16,6 @@ const tmpVa = new Vec2();
 
 const EPISILON = 1e-3;
 
-const vertexGLSL = /* glsl */ `
-    attribute vec3 vertex_position;
-    attribute vec2 aUv0;
-
-    uniform mat4 matrix_model;
-    uniform mat4 matrix_viewProjection;
-
-    varying vec2 uv0;
-
-    void main(void) {
-        gl_Position = matrix_viewProjection * matrix_model * vec4(vertex_position, 1.0);
-        uv0 = aUv0;
-    }
-`;
-
-const fragmentGLSL = /* glsl */ `
-    uniform vec2 uHalfExtents;
-    uniform vec3 uColorX;
-    uniform vec3 uColorZ;
-    uniform int uResolution;
-
-    varying vec2 uv0;
-
-    // https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8#1e7c
-    float pristineGrid(in vec2 uv, in vec2 ddx, in vec2 ddy, vec2 lineWidth) {
-        vec2 uvDeriv = vec2(length(vec2(ddx.x, ddy.x)), length(vec2(ddx.y, ddy.y)));
-        bvec2 invertLine = bvec2(lineWidth.x > 0.5, lineWidth.y > 0.5);
-        vec2 targetWidth = vec2(
-            invertLine.x ? 1.0 - lineWidth.x : lineWidth.x,
-            invertLine.y ? 1.0 - lineWidth.y : lineWidth.y
-        );
-        vec2 drawWidth = clamp(targetWidth, uvDeriv, vec2(0.5));
-        vec2 lineAA = uvDeriv * 1.5;
-        vec2 gridUV = abs(fract(uv) * 2.0 - 1.0);
-        gridUV.x = invertLine.x ? gridUV.x : 1.0 - gridUV.x;
-        gridUV.y = invertLine.y ? gridUV.y : 1.0 - gridUV.y;
-        vec2 grid2 = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
-
-        grid2 *= clamp(targetWidth / drawWidth, 0.0, 1.0);
-        grid2 = mix(grid2, targetWidth, clamp(uvDeriv * 2.0 - 1.0, 0.0, 1.0));
-        grid2.x = invertLine.x ? 1.0 - grid2.x : grid2.x;
-        grid2.y = invertLine.y ? 1.0 - grid2.y : grid2.y;
-
-        return mix(grid2.x, 1.0, grid2.y);
-    }
-
-    void main(void) {
-        vec2 uv = uv0;
-
-        vec2 pos = (uv * 2.0 - 1.0) * uHalfExtents;
-        vec2 ddx = dFdx(pos);
-        vec2 ddy = dFdy(pos);
-
-        float epsilon = 1.0 / 255.0;
-
-        vec2 levelPos;
-        float levelSize;
-        float levelAlpha;
-
-        levelPos = pos * 0.1;
-        levelSize = 2.0 / 1000.0;
-        levelAlpha = pristineGrid(levelPos, ddx * 0.1, ddy * 0.1, vec2(levelSize));
-        if (levelAlpha > epsilon) {
-            vec3 color;
-            if (abs(levelPos.x) < levelSize) {
-                if (abs(levelPos.y) < levelSize) {
-                    color = vec3(1.0);
-                } else {
-                    color = uColorZ;
-                }
-            } else if (abs(levelPos.y) < levelSize) {
-                color = uColorX;
-            } else {
-                color = vec3(0.9);
-            }
-            gl_FragColor = vec4(color, levelAlpha);
-            return;
-        }
-
-        levelPos = pos;
-        levelSize = 1.0 / 100.0;
-        levelAlpha = pristineGrid(levelPos, ddx, ddy, vec2(levelSize));
-        if (levelAlpha > epsilon) {
-            if (uResolution < 1) {
-                discard;
-            }
-            gl_FragColor = vec4(vec3(0.7), levelAlpha);
-            return;
-        }
-
-        levelPos = pos * 10.0;
-        levelSize = 1.0 / 100.0;
-        levelAlpha = pristineGrid(levelPos, ddx * 10.0, ddy * 10.0, vec2(levelSize));
-        if (levelAlpha > epsilon) {
-            if (uResolution < 2) {
-                discard;
-            }
-            gl_FragColor = vec4(vec3(0.7), levelAlpha);
-            return;
-        }
-
-        discard;
-    }
-`;
-
 const vertexWGSL = /* wgsl */ `
     attribute vertex_position: vec3f;
     attribute aUv0: vec2f;
@@ -301,8 +196,6 @@ class Grid extends Script {
         // create shader material
         this._material = new ShaderMaterial({
             uniqueName: 'grid-shader',
-            vertexGLSL: vertexGLSL,
-            fragmentGLSL: fragmentGLSL,
             vertexWGSL: vertexWGSL,
             fragmentWGSL: fragmentWGSL,
             attributes: {

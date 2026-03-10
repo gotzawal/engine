@@ -28,9 +28,6 @@ const FILE_TYPE_LANGUAGES = {
     mjs: 'javascript',
     html: 'html',
     css: 'css',
-    shader: 'glsl',
-    vert: 'glsl',
-    frag: 'glsl',
     wgsl: 'wgsl',
     txt: 'text'
 };

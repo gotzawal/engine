@@ -2,8 +2,7 @@ import {
     SEMANTIC_ATTR8, SEMANTIC_ATTR9, SEMANTIC_ATTR12, SEMANTIC_ATTR11, SEMANTIC_ATTR14, SEMANTIC_ATTR15,
     SEMANTIC_BLENDINDICES, SEMANTIC_BLENDWEIGHT, SEMANTIC_COLOR, SEMANTIC_NORMAL, SEMANTIC_POSITION, SEMANTIC_TANGENT,
     SEMANTIC_TEXCOORD0, SEMANTIC_TEXCOORD1,
-    SHADERLANGUAGE_WGSL,
-    primitiveGlslToWgslTypeMap
+    SHADERLANGUAGE_WGSL
 } from '../../../platform/graphics/constants.js';
 import {
     LIGHTSHAPE_PUNCTUAL,
@@ -319,11 +318,10 @@ class LitShader {
         if (options.pixelSnap) vDefines.set('PIXELSNAP', true);
 
         // generate varyings code
+        const toWgslType = { 'float': 'f32', 'vec2': 'vec2f', 'vec3': 'vec3f', 'vec4': 'vec4f' };
         varyings.forEach((type, name) => {
             this.varyingsCode += `#define VARYING_${name.toUpperCase()}\n`;
-            this.varyingsCode += this.shaderLanguage === SHADERLANGUAGE_WGSL ?
-                `varying ${name}: ${primitiveGlslToWgslTypeMap.get(type)};\n` :
-                `varying ${type} ${name};\n`;
+            this.varyingsCode += `varying ${name}: ${toWgslType[type] ?? type};\n`;
         });
 
         // varyings code exposed as an include

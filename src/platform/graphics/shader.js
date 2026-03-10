@@ -18,9 +18,9 @@ let id = 0;
  * A shader is a program that is responsible for rendering graphical primitives on a device's
  * graphics processor. The shader is generated from a shader definition. This shader definition
  * specifies the code for processing vertices and fragments processed by the GPU. The language of
- * the code is GLSL (or more specifically ESSL, the OpenGL ES Shading Language). The shader
- * definition also describes how the PlayCanvas engine should map vertex buffer elements onto the
- * attributes specified in the vertex shader code.
+ * the code is WGSL (WebGPU Shading Language). The shader definition also describes how the
+ * PlayCanvas engine should map vertex buffer elements onto the attributes specified in the vertex
+ * shader code.
  *
  * @category Graphics
  */
@@ -66,12 +66,11 @@ class Shader {
      * @param {string[]} [definition.feedbackVaryings] - A list of shader output variable
      * names that will be captured when using transform feedback. This setting is only effective
      * if the useTransformFeedback property is enabled.
-     * @param {string} [definition.vshader] - Vertex shader source (GLSL code). Optional when
+     * @param {string} [definition.vshader] - Vertex shader source (WGSL code). Optional when
      * compute shader is specified.
-     * @param {string} [definition.fshader] - Fragment shader source (GLSL code). Optional when
+     * @param {string} [definition.fshader] - Fragment shader source (WGSL code). Optional when
      * useTransformFeedback or compute shader is specified.
-     * @param {string} [definition.cshader] - Compute shader source (WGSL code). Only supported on
-     * WebGPU platform.
+     * @param {string} [definition.cshader] - Compute shader source (WGSL code).
      * @param {string} [definition.computeEntryPoint] - The entry point function name for the compute
      * shader. Defaults to 'main'.
      * @param {Map<string, string>} [definition.vincludes] - A map containing key-value pairs of
@@ -88,7 +87,7 @@ class Shader {
      * @param {boolean} [definition.useTransformFeedback] - Specifies that this shader outputs
      * post-VS data to a buffer.
      * @param {string | string[]} [definition.fragmentOutputTypes] - Fragment shader output types,
-     * which default to vec4. Passing a string will set the output type for all color attachments.
+     * which default to vec4f. Passing a string will set the output type for all color attachments.
      * Passing an array will set the output type for each color attachment.
      * @param {string} [definition.shaderLanguage] - Specifies the shader language of vertex and
      * fragment shaders. Defaults to {@link SHADERLANGUAGE_WGSL}.
@@ -209,7 +208,7 @@ class Shader {
 
     /** @ignore */
     get label() {
-        return `Shader Id ${this.id} (${this.definition.shaderLanguage === SHADERLANGUAGE_WGSL ? 'WGSL' : 'GLSL'}) ${this.name}`;
+        return `Shader Id ${this.id} (WGSL) ${this.name}`;
     }
 
     /**
@@ -222,7 +221,7 @@ class Shader {
     }
 
     /**
-     * Called when the WebGL context was lost. It releases all context related resources.
+     * Called when the graphics context was lost. It releases all context related resources.
      *
      * @ignore
      */

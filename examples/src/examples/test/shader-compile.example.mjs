@@ -81,9 +81,9 @@ assetListLoader.load(() => {
 
         // do a small update to a chunk to generate unique shader each time, to avoid any shader compilation caching
         if (id) {
-            material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set('viewDirPS', `
-                    void getViewDir() {
-                        dViewDirW = normalize(view_position - vPositionW);
+            material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set('viewDirPS', `
+                    fn getViewDir() {
+                        dViewDirW = normalize(uniform.view_position - vPositionW);
                         dViewDirW.x += 0.00001 * ${Math.random()};
                     }
                 `);

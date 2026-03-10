@@ -10,7 +10,7 @@ import { Debug } from '../../core/debug.js';
  */
 class DrawCommands {
     /**
-     * Graphics device used to determine backend (WebGPU vs WebGL).
+     * Graphics device.
      *
      * @type {import('./graphics-device.js').GraphicsDevice}
      * @ignore
@@ -18,7 +18,7 @@ class DrawCommands {
     device;
 
     /**
-     * Size of single index in bytes for WebGL multi-draw (1, 2 or 4). 0 represents non-indexed draw.
+     * Size of single index in bytes for multi-draw (1, 2 or 4). 0 represents non-indexed draw.
      *
      * @type {number}
      * @ignore
@@ -85,7 +85,7 @@ class DrawCommands {
 
     /**
      * @param {import('./graphics-device.js').GraphicsDevice} device - The graphics device.
-     * @param {number} [indexSizeBytes] - Size of index in bytes for WebGL multi-draw (1, 2 or 4).
+     * @param {number} [indexSizeBytes] - Size of index in bytes for multi-draw (1, 2 or 4).
      * @ignore
      */
     constructor(device, indexSizeBytes = 0) {

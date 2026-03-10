@@ -167,7 +167,6 @@ class GSplatResolveSH {
         material.setDefine('SH_BANDS', gsplatInstance.resource.gsplatData.shBands.toString());
 
         const { shaderChunks } = material;
-        shaderChunks.glsl.delete('gsplatSogColorVS');
         shaderChunks.wgsl.delete('gsplatSogColorVS');
 
         material.update();

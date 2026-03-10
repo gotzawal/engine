@@ -5,7 +5,6 @@ import { hashCode } from '../../core/hash.js';
  * @typedef {object} ChunkValidation
  * @property {string} [message] - Deprecation message to display.
  * @property {function(string, string):void} [callback] - Validation callback receiving chunk name and code.
- * @property {string} [defaultCodeGLSL] - Default GLSL code. If matches, no warning.
  * @property {string} [defaultCodeWGSL] - Default WGSL code. If matches, no warning.
  */
 
@@ -53,7 +52,7 @@ class ShaderChunkMap extends Map {
         Debug.call(() => {
             const validation = this._validations?.get(name);
             if (validation) {
-                const isDefault = code === validation.defaultCodeGLSL || code === validation.defaultCodeWGSL;
+                const isDefault = code === validation.defaultCodeWGSL;
                 if (!isDefault) {
                     if (validation.message) {
                         Debug.deprecated(validation.message);

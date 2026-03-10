@@ -116,7 +116,7 @@ class QuadRender {
      * viewport is provided.
      * @param {number} [numInstances] - Number of instances to draw. When provided, renders
      * multiple quads using instanced drawing. Each instance can use the instance index
-     * (`gl_InstanceID` in GLSL, `pcInstanceIndex` in WGSL) to fetch per-quad data from
+     * (`pcInstanceIndex` in WGSL) to fetch per-quad data from
      * a texture or buffer, allowing each quad to be parameterized independently.
      */
     render(viewport, scissor, numInstances) {

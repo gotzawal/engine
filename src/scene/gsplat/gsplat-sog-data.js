@@ -398,7 +398,7 @@ class GSplatSogData {
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
             fragmentWGSL: wgslSogCentersPS,
-            fragmentOutputTypes: ['uvec4'],
+            fragmentOutputTypes: ['vec4u'],
             fragmentIncludes: new Map([['gsplatPackingPS', wgslGsplatPackingPS]])
         });
 
@@ -459,7 +459,7 @@ class GSplatSogData {
             attributes: { vertex_position: SEMANTIC_POSITION },
             vertexChunk: 'fullscreenQuadVS',
             fragmentWGSL: wgslGsplatSogReorderPS,
-            fragmentOutputTypes: ['uvec4', 'vec4'],
+            fragmentOutputTypes: ['vec4u', 'vec4f'],
             fragmentIncludes: new Map([['gsplatPackingPS', wgslGsplatPackingPS]]),
             fragmentDefines: (meta.version === 2) ? undefined : new Map([['REORDER_V1', '1']])
         });

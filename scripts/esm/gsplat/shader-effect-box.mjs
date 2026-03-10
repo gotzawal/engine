@@ -1,76 +1,6 @@
 import { Vec3, Color, FloatPacking, Texture, PIXELFORMAT_RGBA16U } from 'playcanvas';
 import { GsplatShaderEffect } from './gsplat-shader-effect.mjs';
 
-const shaderGLSL = /* glsl */`
-uniform highp usampler2D uLUT;
-uniform vec3 uAabbMin;
-uniform vec3 uAabbMax;
-uniform vec3 uDirection;
-
-// Global state for shader
-bool g_insideAABB;
-uvec4 g_lutValue;
-
-void modifySplatCenter(inout vec3 center) {
-    // Check if splat is inside AABB
-    g_insideAABB = all(greaterThanEqual(center, uAabbMin)) && all(lessThanEqual(center, uAabbMax));
-    
-    if (!g_insideAABB) {
-        return;
-    }
-    
-    // Normalize direction (with safety check)
-    float dirLen = length(uDirection);
-    if (dirLen < 0.001) {
-        g_insideAABB = false;
-        return;
-    }
-    vec3 absDir = abs(uDirection / dirLen);
-    
-    // Calculate texel coordinate (0-255 along sweep direction)
-    vec3 relPos = center - uAabbMin;
-    vec3 boxSize = uAabbMax - uAabbMin;
-    float boxLength = dot(boxSize, absDir);
-    float splatPos = dot(relPos, absDir);
-    float t = clamp(splatPos / boxLength, 0.0, 1.0);
-    int texelX = int(t * 255.0);
-    
-    // Fetch LUT texel
-    g_lutValue = texelFetch(uLUT, ivec2(texelX, 0), 0);
-}
-
-void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {
-    if (!g_insideAABB) return;
-    
-    // Unpack scale from alpha channel (unpack 16-bit uint to half-float)
-    float lutScale = unpackHalf2x16(g_lutValue.a).x;
-    
-    // If scale is 0, make invisible
-    if (lutScale < 0.01) {
-        scale = vec3(0.0);
-        return;
-    }
-    
-    // If scale is less than 1, progressively scale
-    if (lutScale < 1.0) {
-        scale *= lutScale;
-    }
-}
-
-void modifySplatColor(vec3 center, inout vec4 color) {
-    if (!g_insideAABB) return;
-    
-    // Unpack tint from RGB channels (unpack 16-bit uints to half-floats)
-    vec3 tint = vec3(
-        unpackHalf2x16(g_lutValue.r).x,
-        unpackHalf2x16(g_lutValue.g).x,
-        unpackHalf2x16(g_lutValue.b).x
-    );
-    
-    color.rgb *= tint;
-}
-`;
-
 const shaderWGSL = /* wgsl */`
 var uLUT: texture_2d<u32>;
 uniform uAabbMin: vec3f;
@@ -406,10 +336,6 @@ class GsplatBoxShaderEffect extends GsplatShaderEffect {
 
         // Unlock to upload to GPU
         this._lutTexture.unlock();
-    }
-
-    getShaderGLSL() {
-        return shaderGLSL;
     }
 
     getShaderWGSL() {

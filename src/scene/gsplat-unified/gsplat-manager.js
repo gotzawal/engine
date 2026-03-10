@@ -98,11 +98,6 @@ let _randomColorRaw = null;
  *      visibility-filtered. The last prefix sum element gives visibleCount.
  *   4. Render: the vertex shader reads compactedSplatIds[vertexId] → splatId.
  *
- * CPU sorting (WebGL):
- *   1. Sort on worker: same as the WebGPU CPU path, producing orderBuffer (texture).
- *   2. Render: the vertex shader reads orderBuffer[vertexId] → splatId directly.
- *      No culling or compaction is available on WebGL.
- *
  * @ignore
  */
 class GSplatManager {

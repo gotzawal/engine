@@ -599,14 +599,9 @@ class GSplatComponent extends Component {
      *
      * Calling this method automatically triggers a work buffer re-render.
      *
-     * @param {{ glsl?: string, wgsl?: string }|null} value - The modifier code for GLSL and/or WGSL.
+     * @param {{ wgsl?: string }|null} value - The modifier code in WGSL.
      * @example
      * entity.gsplat.setWorkBufferModifier({
-     *     glsl: `
-     *         void modifySplatCenter(inout vec3 center) {}
-     *         void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {}
-     *         void modifySplatColor(vec3 center, inout vec4 color) { color.rgb *= vec3(1.0, 0.0, 0.0); }
-     *     `,
      *     wgsl: `
      *         fn modifySplatCenter(center: ptr<function, vec3f>) {}
      *         fn modifySplatRotationScale(originalCenter: vec3f, modifiedCenter: vec3f, rotation: ptr<function, vec4f>, scale: ptr<function, vec3f>) {}

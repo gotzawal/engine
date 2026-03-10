@@ -23,7 +23,6 @@ export default [
                 'opentype': 'readonly',
                 'pc': 'readonly',
                 'TWEEN': 'readonly',
-                'twgsl': 'readonly',
                 'webkitAudioContext': 'readonly'
             }
         },

@@ -8,7 +8,7 @@ import { Texture } from '../../platform/graphics/texture.js';
 const _depthUniformName = 'uSceneDepthMap';
 
 /**
- * A render pass implementing grab of a depth buffer, used on WebGL 2 and WebGPU devices.
+ * A render pass implementing grab of a depth buffer.
  *
  * @ignore
  */

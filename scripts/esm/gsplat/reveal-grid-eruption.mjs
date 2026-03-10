@@ -1,127 +1,6 @@
 import { Vec3, Color } from 'playcanvas';
 import { GsplatShaderEffect } from './gsplat-shader-effect.mjs';
 
-const shaderGLSL = /* glsl */`
-uniform float uTime;
-uniform vec3 uCenter;
-uniform float uBlockCount;
-uniform float uBlockSize;
-uniform float uDelay;
-uniform float uDuration;
-uniform float uDotSize;
-uniform vec3 uMoveTint;
-uniform float uMoveTintIntensity;
-uniform vec3 uLandTint;
-uniform float uLandDuration;
-uniform float uEndRadius;
-
-// Shared globals (initialized once per vertex)
-float g_blockDist;
-float g_tStart;
-float g_tEnd;
-
-void initShared(vec3 center) {
-    // Determine which block this splat belongs to
-    vec3 offset = center - uCenter;
-    ivec3 blockIdx = ivec3(floor(offset / uBlockSize + vec3(uBlockCount * 0.5)));
-    
-    // Calculate block center position
-    vec3 blockCenter = (vec3(blockIdx) - vec3(uBlockCount * 0.5) + vec3(0.5)) * uBlockSize + uCenter;
-    
-    // Euclidean distance from center block
-    g_blockDist = length(blockCenter - uCenter);
-    g_tStart = g_blockDist * uDelay;
-    g_tEnd = g_tStart + uDuration;
-}
-
-void modifySplatCenter(inout vec3 center) {
-    vec3 originalCenter = center;
-    initShared(center);
-    
-    // Check if animation is complete (after landing transition)
-    float timeSinceLanding = uTime - g_tEnd;
-    if (timeSinceLanding >= 0.3) return; // Effect complete, no modifications
-    
-    // Early exit optimization during animation
-    if (g_blockDist > uEndRadius) return;
-    
-    // Before movement starts: position at center point
-    if (uTime < g_tStart) {
-        center = uCenter;
-        return;
-    }
-    
-    // During movement: lerp from center to original position
-    if (uTime < g_tEnd) {
-        float progress = (uTime - g_tStart) / uDuration;
-        center = mix(uCenter, originalCenter, progress);
-    }
-    // After movement: original position (no change needed)
-}
-
-void modifySplatRotationScale(vec3 originalCenter, vec3 modifiedCenter, inout vec4 rotation, inout vec3 scale) {
-    // Check if animation is complete (after landing transition)
-    float timeSinceLanding = uTime - g_tEnd;
-    if (timeSinceLanding >= 0.3) return; // Effect complete, no modifications
-    
-    // Early exit for distant splats during animation
-    if (g_blockDist > uEndRadius) {
-        scale = vec3(0.0);
-        return;
-    }
-    
-    // Before movement: invisible
-    if (uTime < g_tStart) {
-        scale = vec3(0.0);
-        return;
-    }
-    
-    // Store original scale for shape preservation
-    vec3 origScale = scale;
-    float origSize = gsplatGetSizeFromScale(scale);
-    
-    // During landing transition after movement
-    if (timeSinceLanding < 0.3) {
-        if (timeSinceLanding < 0.0) {
-            // During movement: small spherical dots
-            float targetSize = min(uDotSize, origSize);
-            gsplatMakeSpherical(scale, targetSize);
-        } else {
-            // Landing transition: lerp from dots to original over 0.3s
-            float t = timeSinceLanding * 3.333333; // normalize [0, 0.3] to [0, 1]
-            float size = mix(uDotSize, origSize, t);
-            
-            // Lerp between spherical (uniform) and original scale
-            vec3 sphericalScale = vec3(size);
-            scale = mix(sphericalScale, origScale, t);
-        }
-    }
-    // After transition: original shape/size (no-op)
-}
-
-void modifySplatColor(vec3 center, inout vec4 color) {
-    // Check if animation is complete
-    float timeSinceLanding = uTime - g_tEnd;
-    if (timeSinceLanding >= uLandDuration) return; // Effect complete, no modifications
-    
-    // Early exit for distant splats during animation
-    if (g_blockDist > uEndRadius) return;
-    
-    // Before movement: no change
-    if (uTime < g_tStart) return;
-    
-    if (timeSinceLanding < 0.0) {
-        // During movement: blend between original and moveTint
-        color.rgb = mix(color.rgb, uMoveTint, uMoveTintIntensity);
-    } else if (timeSinceLanding < uLandDuration) {
-        // Landing: apply landTint with fadeout
-        float fadeOut = 1.0 - (timeSinceLanding / uLandDuration);
-        color.rgb += uLandTint * fadeOut;
-    }
-    // After landing: original color (no change)
-}
-`;
-
 const shaderWGSL = /* wgsl */`
 uniform uTime: f32;
 uniform uCenter: vec3f;
@@ -350,10 +229,6 @@ class GsplatRevealGridEruption extends GsplatShaderEffect {
      * @range [0, 500]
      */
     endRadius = 25;
-
-    getShaderGLSL() {
-        return shaderGLSL;
-    }
 
     getShaderWGSL() {
         return shaderWGSL;

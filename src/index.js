@@ -1,7 +1,7 @@
 /**
  * Welcome to the PlayCanvas Engine API Reference. The PlayCanvas Engine is an open source framework
  * for building interactive 3D applications. It is written in JavaScript and is built on top of
- * standard browser APIs including WebGL, WebGPU, Web Audio and WebXR.
+ * standard browser APIs including WebGPU, Web Audio and WebXR.
  *
  * ### 🧑 Who Should Use This Manual?
  *
@@ -175,7 +175,6 @@ export { Skeleton } from './scene/animation/skeleton.js';
 // SCENE / GRAPHICS
 export { ComputeRadixSort } from './scene/graphics/compute-radix-sort.js';
 export { EnvLighting } from './scene/graphics/env-lighting.js';
-export { PostEffect } from './scene/graphics/post-effect.js';
 export { RenderPassColorGrab } from './scene/graphics/render-pass-color-grab.js';
 export { RenderPassRadixSort } from './scene/graphics/render-pass-radix-sort.js';
 export { RenderPassShaderQuad } from './scene/graphics/render-pass-shader-quad.js';
@@ -271,7 +270,6 @@ export { ModelComponent } from './framework/components/model/component.js';
 export { ModelComponentSystem } from './framework/components/model/system.js';
 export { ParticleSystemComponent } from './framework/components/particle-system/component.js';
 export { ParticleSystemComponentSystem } from './framework/components/particle-system/system.js';
-export { PostEffectQueue } from './framework/components/camera/post-effect-queue.js';
 export { RenderComponent } from './framework/components/render/component.js';
 export { RenderComponentSystem } from './framework/components/render/system.js';
 export * from './framework/components/rigid-body/constants.js';
