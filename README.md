@@ -6,6 +6,8 @@
 
 ## 1. 엔진 소스 받기
 
+환경에 nvm과 Node.js가 설치되어 있어야 한다.
+
 ```bash
 mkdir workspace && cd workspace
 
@@ -118,14 +120,12 @@ ENGINE_PATH=../build/playcanvas.dbg.mjs npm run develop
 
 ## 6. WebGPU 모드로 테스트
 
-examples 브라우저는 기본적으로 WebGL2로 실행된다. WebGPU로 강제하는 방법:
 
 **URL 파라미터:**
 ```
-http://localhost:5000/#/graphics/material-physical?deviceType=webgpu
+http://localhost:5555/
 ```
 
-**또는** examples 브라우저 UI 상단의 디바이스 드롭다운에서 `WebGPU` 선택.
 
 ---
 
