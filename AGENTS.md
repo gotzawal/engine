@@ -139,10 +139,9 @@ This is a **performance-critical** engine. Always consider:
 
 ### 7. Graphics API Considerations
 
-- **Multi-backend support**: Code must work with both WebGL2 and WebGPU
-- **Use abstraction layers**: Don't call WebGL/WebGPU APIs directly in high-level code
-- **Shader code**: Maintain both GLSL and WGSL versions
-  - GLSL: `src/scene/shader-lib/glsl/`
+- **WebGPU only**: The engine uses WebGPU as its graphics backend
+- **Use abstraction layers**: Don't call WebGPU APIs directly in high-level code
+- **Shader code**: WGSL only
   - WGSL: `src/scene/shader-lib/wgsl/`
 - **NullGraphicsDevice**: A dummy graphics device for headless/testing scenarios
   - When adding public API methods to `GraphicsDevice`, add stub implementations to `NullGraphicsDevice`

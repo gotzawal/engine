@@ -1144,7 +1144,6 @@ class AppBase extends EventHandler {
         stats.shaders = this.graphicsDevice._shaderSwitchesPerFrame;
         stats.shadowMapUpdates = this.renderer._shadowMapUpdates;
         stats.shadowMapTime = this.renderer._shadowMapTime;
-        stats.depthMapTime = this.renderer._depthMapTime;
         stats.forwardTime = this.renderer._forwardTime;
         const prims = this.graphicsDevice._primsPerFrame;
         stats.triangles = prims[PRIMITIVE_TRIANGLES] / 3 +
@@ -1174,27 +1173,19 @@ class AppBase extends EventHandler {
         this.renderer._skinTime = 0;
         this.renderer._morphTime = 0;
         this.renderer._shadowMapTime = 0;
-        this.renderer._depthMapTime = 0;
         this.renderer._forwardTime = 0;
 
         // Draw call stats
         stats = this.stats.drawCalls;
         stats.forward = this.renderer._forwardDrawCalls;
         stats.culled = this.renderer._numDrawCallsCulled;
-        stats.depth = 0;
         stats.shadow = this.renderer._shadowDrawCalls;
         stats.skinned = this.renderer._skinDrawCalls;
-        stats.immediate = 0;
-        stats.instanced = 0;
-        stats.removedByInstancing = 0;
         stats.misc = stats.total - (stats.forward + stats.shadow);
-        this.renderer._depthDrawCalls = 0;
         this.renderer._shadowDrawCalls = 0;
         this.renderer._forwardDrawCalls = 0;
         this.renderer._numDrawCallsCulled = 0;
         this.renderer._skinDrawCalls = 0;
-        this.renderer._immediateRendered = 0;
-        this.renderer._instancedDrawCalls = 0;
 
         this.stats.misc.renderTargetCreationTime = this.graphicsDevice.renderTargetCreationTime;
 

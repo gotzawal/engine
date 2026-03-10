@@ -9,8 +9,6 @@ function BasisWorker() {
         cTFPVRTC1_4_RGB: 8,                 // PVRTC1 rgb
         cTFPVRTC1_4_RGBA: 9,                // PVRTC1 rgba
         cTFASTC_4x4: 10,                    // ASTC
-        cTFATC_RGB: 11,                     // ATC rgb
-        cTFATC_RGBA_INTERPOLATED_ALPHA: 12, // ATC rgba
         // uncompressed (fallback) formats
         cTFRGBA32: 13,                      // rgba 8888
         cTFRGB565: 14,                      // rgb 565
@@ -24,7 +22,6 @@ function BasisWorker() {
         etc1: BASIS_FORMAT.cTFETC1,
         etc2: BASIS_FORMAT.cTFETC1,
         pvr: BASIS_FORMAT.cTFPVRTC1_4_RGB,
-        atc: BASIS_FORMAT.cTFATC_RGB,
         none: BASIS_FORMAT.cTFRGB565
     };
 
@@ -35,7 +32,6 @@ function BasisWorker() {
         etc1: BASIS_FORMAT.cTFRGBA4444,
         etc2: BASIS_FORMAT.cTFETC2,
         pvr: BASIS_FORMAT.cTFPVRTC1_4_RGBA,
-        atc: BASIS_FORMAT.cTFATC_RGBA_INTERPOLATED_ALPHA,
         none: BASIS_FORMAT.cTFRGBA4444
     };
 
@@ -49,8 +45,6 @@ function BasisWorker() {
         PVRTC_4BPP_RGB_1: 26,
         PVRTC_4BPP_RGBA_1: 27,
         ASTC_4x4: 28,
-        ATC_RGB: 29,
-        ATC_RGBA: 30,
         R8_G8_B8_A8: 7,
         R5_G6_B5: 3,
         R4_G4_B4_A4: 5
@@ -66,8 +60,6 @@ function BasisWorker() {
             case BASIS_FORMAT.cTFPVRTC1_4_RGB: return PIXEL_FORMAT.PVRTC_4BPP_RGB_1;
             case BASIS_FORMAT.cTFPVRTC1_4_RGBA: return PIXEL_FORMAT.PVRTC_4BPP_RGBA_1;
             case BASIS_FORMAT.cTFASTC_4x4: return PIXEL_FORMAT.ASTC_4x4;
-            case BASIS_FORMAT.cTFATC_RGB: return PIXEL_FORMAT.ATC_RGB;
-            case BASIS_FORMAT.cTFATC_RGBA_INTERPOLATED_ALPHA: return PIXEL_FORMAT.ATC_RGBA;
             case BASIS_FORMAT.cTFRGBA32: return PIXEL_FORMAT.R8_G8_B8_A8;
             case BASIS_FORMAT.cTFRGB565: return PIXEL_FORMAT.R5_G6_B5;
             case BASIS_FORMAT.cTFRGBA4444: return PIXEL_FORMAT.R4_G4_B4_A4;
@@ -177,11 +169,6 @@ function BasisWorker() {
                 return isPOT(width, height);
             // astc
             case BASIS_FORMAT.cTFASTC_4x4:
-                return true;
-            // atc
-            case BASIS_FORMAT.cTFATC_RGB:
-            case BASIS_FORMAT.cTFATC_RGBA_INTERPOLATED_ALPHA:
-                // TODO: remove atc support? ATC format is no longer standard.
                 return true;
         }
         return false;

@@ -29,7 +29,7 @@ export function shaderChunks({
         transform(source, shader) {
             if (!filter(shader)) return;
 
-            source = source.replace(/\/\* *(glsl|wgsl) *\*\/\s*(`.*?`)/gs, (match, type, code) => {
+            source = source.replace(/\/\* *wgsl *\*\/\s*(`.*?`)/gs, (match, code) => {
                 return code
                 .trim() // trim whitespace
                 .replace(/\r/g, '') // Remove carriage returns

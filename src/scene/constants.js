@@ -290,12 +290,6 @@ export const lightFalloffNames = {
 export const SHADOW_PCF3_32F = 0;
 
 /**
- * @deprecated
- * @ignore
- */
-export const SHADOW_PCF3 = 0; // alias for SHADOW_PCF3_32F for backwards compatibility
-
-/**
  * A shadow sampling technique using a 16-bit exponential variance shadow map that leverages
  * variance to approximate shadow boundaries, enabling soft shadows. Only supported when
  * {@link GraphicsDevice#textureHalfFloatRenderable} is true. Falls back to {@link SHADOW_PCF3_32F},
@@ -304,12 +298,6 @@ export const SHADOW_PCF3 = 0; // alias for SHADOW_PCF3_32F for backwards compati
  * @category Graphics
  */
 export const SHADOW_VSM_16F = 2;
-
-/**
- * @deprecated
- * @ignore
- */
-export const SHADOW_VSM16 = 2; // alias for SHADOW_VSM_16F for backwards compatibility
 
 /**
  * A shadow sampling technique using a 32-bit exponential variance shadow map that leverages
@@ -322,12 +310,6 @@ export const SHADOW_VSM16 = 2; // alias for SHADOW_VSM_16F for backwards compati
 export const SHADOW_VSM_32F = 3;
 
 /**
- * @deprecated
- * @ignore
- */
-export const SHADOW_VSM32 = 3; // alias for SHADOW_VSM_32F for backwards compatibility
-
-/**
  * A shadow sampling technique using 32bit shadow map that averages depth comparisons from a 5x5
  * grid of texels for softened shadow edges.
  *
@@ -336,24 +318,12 @@ export const SHADOW_VSM32 = 3; // alias for SHADOW_VSM_32F for backwards compati
 export const SHADOW_PCF5_32F = 4;
 
 /**
- * @deprecated
- * @ignore
- */
-export const SHADOW_PCF5 = 4;  // alias for SHADOW_PCF5_32F for backwards compatibility
-
-/**
  * A shadow sampling technique using a 32-bit shadow map that performs a single depth comparison for
  * sharp shadow edges.
  *
  * @category Graphics
  */
 export const SHADOW_PCF1_32F = 5;
-
-/**
- * @deprecated
- * @ignore
- */
-export const SHADOW_PCF1 = 5;  // alias for SHADOW_PCF1_32F for backwards compatibility
 
 /**
  * A shadow sampling technique using a 32-bit shadow map that adjusts filter size based on blocker

@@ -407,8 +407,5 @@ export { XrTrackedImage } from './framework/xr/xr-tracked-image.js';
 export { XrView } from './framework/xr/xr-view.js';
 export { XrViews } from './framework/xr/xr-views.js';
 
-// BACKWARDS COMPATIBILITY
-export * from './deprecated/deprecated.js';
-
 // EXTRAS
 export * from './extras/index.js';
