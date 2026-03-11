@@ -172,7 +172,6 @@ const setGizmoControls = () => {
         type: gizmoHandler.type,
         size: gizmoHandler.gizmo.size,
         snapIncrement: gizmoHandler.gizmo.snapIncrement,
-        colorAlpha: gizmoHandler.gizmo.colorAlpha,
         coordSpace: gizmoHandler.gizmo.coordSpace
     });
     skipObserverFire = false;

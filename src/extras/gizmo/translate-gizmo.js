@@ -356,24 +356,6 @@ class TranslateGizmo extends TransformGizmo {
     }
 
     /**
-     * @type {boolean}
-     * @deprecated Use {@link TranslateGizmo#flipPlanes} instead.
-     * @ignore
-     */
-    set flipShapes(value) {
-        this.flipPlanes = value;
-    }
-
-    /**
-     * @type {boolean}
-     * @deprecated Use {@link TranslateGizmo#flipPlanes} instead.
-     * @ignore
-     */
-    get flipShapes() {
-        return this.flipPlanes;
-    }
-
-    /**
      * @param {string} prop - The property to set.
      * @param {any} value - The value to set.
      * @private

@@ -201,9 +201,6 @@ class Material {
      */
     _shaderChunks = null;
 
-    // this is deprecated, keeping for backwards compatibility
-    _oldChunks = {};
-
     _dirtyShader = true;
 
     /** @protected */
@@ -286,17 +283,6 @@ class Material {
      */
     get shaderChunksVersion() {
         return this.shaderChunks.version;
-    }
-
-    set chunks(value) {
-        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set("chunkName", "chunkCode")');
-        this._oldChunks = value;
-    }
-
-    get chunks() {
-        Debug.deprecated('Material.chunks has been removed, please use Material.getShaderChunks instead. For example: material.getShaderChunks(pc.SHADERLANGUAGE_WGSL).set("chunkName", "chunkCode")');
-        Object.assign(this._oldChunks, Object.fromEntries(this.shaderChunks.wgsl));
-        return this._oldChunks;
     }
 
     /**
@@ -708,14 +694,6 @@ class Material {
      * should reflect those changes.
      */
     update() {
-
-        // handle deprecated chunks for backwards compatibility
-        if (Object.keys(this._oldChunks).length > 0) {
-            for (const [key, value] of Object.entries(this._oldChunks)) {
-                this.shaderChunks.wgsl.set(key, value);
-                delete this._oldChunks[key];
-            }
-        }
 
         // if the defines or chunks were modified, we need to rebuild the shaders
         if (this._definesDirty || this._shaderChunks?.isDirty()) {

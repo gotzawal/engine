@@ -73,9 +73,6 @@ assetListLoader.load(() => {
         cookiesEnabled: true
     });
 
-    // enabled clustered lighting. This is a temporary API and will change in the future
-    app.scene.clusteredLightingEnabled = true;
-
     // adjust default clustered lighting parameters to handle many lights
     const lighting = app.scene.lighting;
 
@@ -174,7 +171,7 @@ assetListLoader.load(() => {
 
         // don't generate mipmaps for the cookie cubemap if clustered lighting is used,
         // as only top levels are copied to the cookie atlas.
-        mipmaps: !app.scene.clusteredLightingEnabled
+        mipmaps: false
     });
     cubemapAsset.loadFaces = true;
     app.assets.add(cubemapAsset);
