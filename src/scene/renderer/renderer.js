@@ -490,11 +490,6 @@ class Renderer {
         this.device.setFrontFace(frontFace);
     }
 
-    setupCullMode(cullFaces, flipFactor, drawCall) {
-        Debug.deprecated('pc.Renderer.setupCullMode is deprecated. Use \'pc.Renderer.setupCullModeAndFrontFace(cullFaces, flipFactor, drawCall);\' format instead.');
-        this.setupCullModeAndFrontFace(cullFaces, flipFactor, drawCall);
-    }
-
     updateCameraFrustum(camera) {
 
         if (camera.xr && camera.xr.views.list.length) {

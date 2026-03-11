@@ -233,7 +233,7 @@ class StandardMaterialOptionsBuilder {
         options.thicknessTint = (stdMat.useDynamicRefraction && stdMat.thickness !== 1.0);
         options.specularEncoding = stdMat.specularMap?.encoding;
         options.sheenEncoding = stdMat.sheenMap?.encoding;
-        options.aoMapUv = stdMat.aoUvSet; // backwards compatibility
+        options.aoMapUv = stdMat.aoMapUv;
         options.aoDetail = !!stdMat.aoDetailMap;
         options.diffuseDetail = !!stdMat.diffuseDetailMap;
         options.normalDetail = !!stdMat.normalMap;
