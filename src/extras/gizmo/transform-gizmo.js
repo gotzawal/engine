@@ -10,11 +10,9 @@ import {
     COLOR_RED,
     COLOR_GREEN,
     COLOR_BLUE,
-    COLOR_GRAY,
-    color4from3
+    COLOR_GRAY
 } from './color.js';
 import { Gizmo } from './gizmo.js';
-import { Debug } from '../../core/debug.js';
 
 /**
  * @import { Shape } from './shape/shape.js'
@@ -309,125 +307,6 @@ class TransformGizmo extends Gizmo {
     }
 
     /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#setTheme} instead.
-     * @ignore
-     */
-    set xAxisColor(value) {
-        this.setTheme({
-            shapeBase: {
-                x: value
-            },
-            shapeHover: {
-                x: color4from3(value, this.colorAlpha)
-            },
-            guideBase: {
-                x: value
-            },
-            guideOcclusion: 1
-        });
-    }
-
-    /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#theme} instead.
-     * @ignore
-     */
-    get xAxisColor() {
-        return this._theme.shapeBase.x;
-    }
-
-    /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#setTheme} instead.
-     * @ignore
-     */
-    set yAxisColor(value) {
-        this.setTheme({
-            shapeBase: {
-                y: value
-            },
-            shapeHover: {
-                y: color4from3(value, this.colorAlpha)
-            },
-            guideBase: {
-                y: value
-            },
-            guideOcclusion: 1
-        });
-    }
-
-    /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#theme} instead.
-     * @ignore
-     */
-    get yAxisColor() {
-        return this._theme.shapeBase.y;
-    }
-
-    /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#setTheme} instead.
-     * @ignore
-     */
-    set zAxisColor(value) {
-        this.setTheme({
-            shapeBase: {
-                z: value
-            },
-            shapeHover: {
-                z: color4from3(value, this.colorAlpha)
-            },
-            guideBase: {
-                z: value
-            },
-            guideOcclusion: 1
-        });
-    }
-
-    /**
-     * @type {Color}
-     * @deprecated Use {@link TransformGizmo#theme} instead.
-     * @ignore
-     */
-    get zAxisColor() {
-        return this._theme.shapeBase.z;
-    }
-
-    /**
-     * @type {number}
-     * @deprecated Use {@link TransformGizmo#setTheme} instead.
-     * @ignore
-     */
-    set colorAlpha(value) {
-        this.setTheme({
-            shapeHover: {
-                x: color4from3(this._theme.shapeHover.x, value),
-                y: color4from3(this._theme.shapeHover.y, value),
-                z: color4from3(this._theme.shapeHover.z, value),
-                xyz: color4from3(this._theme.shapeHover.xyz, value),
-                f: color4from3(this._theme.shapeHover.f, value)
-            }
-        });
-    }
-
-    /**
-     * @type {number}
-     * @deprecated Use {@link TransformGizmo#theme} instead.
-     * @ignore
-     */
-    get colorAlpha() {
-        return (
-            this._theme.shapeHover.x.a +
-            this._theme.shapeHover.y.a +
-            this._theme.shapeHover.z.a +
-            this._theme.shapeHover.xyz.a +
-            this._theme.shapeHover.f.a
-        ) / 5;
-    }
-
-    /**
      * @type {boolean}
      * @protected
      */
@@ -698,10 +577,6 @@ class TransformGizmo extends Gizmo {
      * @param {boolean} enabled - The enabled state of shape.
      */
     enableShape(shapeAxis, enabled) {
-        if (shapeAxis === 'face') {
-            Debug.deprecated('"face" literal is deprecated use "f" literal instead');
-            shapeAxis = 'f';
-        }
         const shape = this._shapes[shapeAxis];
         if (!shape) {
             return;
@@ -716,10 +591,6 @@ class TransformGizmo extends Gizmo {
      * @returns {boolean} - Then enabled state of the shape
      */
     isShapeEnabled(shapeAxis) {
-        if (shapeAxis === 'face') {
-            Debug.deprecated('"face" literal is deprecated use "f" literal instead');
-            shapeAxis = 'f';
-        }
         const shape = this._shapes[shapeAxis];
         if (!shape) {
             return false;

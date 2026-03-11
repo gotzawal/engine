@@ -58,9 +58,6 @@ assetListLoader.load(() => {
     /** @type {pc.Entity|null} */
     let dirLight = null;
 
-    // enabled clustered lighting. This is a temporary API and will change in the future
-    app.scene.clusteredLightingEnabled = true;
-
     // adjust default clustered lighting parameters to handle many lights
     const lighting = app.scene.lighting;
 

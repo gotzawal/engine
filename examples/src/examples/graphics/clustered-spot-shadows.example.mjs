@@ -76,9 +76,6 @@ assetListLoader.load(() => {
     app.scene.skyboxIntensity = 0.1;
     app.scene.envAtlas = assets.helipad.resource;
 
-    // enabled clustered lighting. This is a temporary API and will change in the future
-    app.scene.clusteredLightingEnabled = true;
-
     // adjust default clustered lighting parameters to handle many lights
     const lighting = app.scene.lighting;
 

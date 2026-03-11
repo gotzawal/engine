@@ -418,16 +418,6 @@ class Scene extends EventHandler {
     }
 
     /**
-     * @deprecated Clustered lighting is now always enabled. This setter is a no-op.
-     * @type {boolean}
-     */
-    set clusteredLightingEnabled(value) {
-        if (!value) {
-            Debug.warnOnce('Clustered lighting is always enabled and cannot be disabled.');
-        }
-    }
-
-    /**
      * Gets whether clustered lighting is enabled. Always returns true.
      *
      * @type {boolean}

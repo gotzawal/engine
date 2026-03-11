@@ -81,8 +81,6 @@ assetListLoader.load(() => {
     app.scene.ambientLuminance = 0;
     app.scene.setSkybox(assets.helipad.resources);
 
-    // enable area lights which are disabled by default for clustered lighting
-    app.scene.clusteredLightingEnabled = false;
     app.scene.skyboxIntensity = 0.1;
 
     // set the loaded area light LUT data

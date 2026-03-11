@@ -1139,8 +1139,6 @@ function _defineMaterialProps() {
     _defineFloat('clearCoat', 0);
     _defineFloat('clearCoatGloss', 1);
     _defineFloat('clearCoatBumpiness', 1);
-    _defineFloat('aoUvSet', 0, null); // legacy
-
     _defineFloat('iridescence', 0);
     _defineFloat('iridescenceRefractionIndex', 1.0 / 1.5);
     _defineFloat('iridescenceThicknessMin', 0);

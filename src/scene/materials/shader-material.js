@@ -1,4 +1,3 @@
-import { Debug } from '../../core/debug.js';
 import { SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { ShaderProcessorOptions } from '../../platform/graphics/shader-processor-options.js';
 import { SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_SKIN } from '../constants.js';
@@ -74,12 +73,6 @@ class ShaderMaterial extends Material {
                 fragmentWGSL: value.fragmentWGSL
             };
 
-            // backward compatibility - convert old properties to new
-            if (value.vertexCode || value.fragmentCode || value.shaderLanguage) {
-                Debug.deprecated(`ShaderMaterial [${value.uniqueName}]: vertexCode, fragmentCode and shaderLanguage properties of ShaderDesc is deprecated. Use vertexWGSL or fragmentWGSL instead.`);
-                this._shaderDesc.vertexWGSL = value.vertexCode;
-                this._shaderDesc.fragmentWGSL = value.fragmentCode;
-            }
         }
 
         this.clearVariants();
