@@ -460,10 +460,7 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // mesh / mesh normal matrix — skip if using global transform buffer
-            if (drawCall._globalTransformSlot < 0) {
-                this.setMeshInstanceMatrices(drawCall, true);
-            }
+            this.setMeshInstanceMatrices(drawCall, true);
 
             this.setupMeshUniformBuffers(shaderInstance);
 
@@ -551,11 +548,12 @@ class ForwardRenderer extends Renderer {
         const forwardStartTime = now();
         // #endif
 
-        // upload all world transforms to the global GPU buffer (single writeBuffer)
-        this.updateGlobalTransforms(allDrawCalls);
-
-        // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
-        this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
+        // NOTE: global transform buffer upload and indirect draw setup are disabled for now.
+        // The view bind group integration needs a dedicated bind group or per-mesh scope
+        // approach instead of modifying the shared view bind group format.
+        // TODO: re-enable when bind group strategy is resolved.
+        // this.updateGlobalTransforms(allDrawCalls);
+        // this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);

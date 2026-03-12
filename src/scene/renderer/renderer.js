@@ -22,7 +22,7 @@ import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
-import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { BindGroupFormat, BindUniformBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
@@ -752,12 +752,10 @@ class Renderer {
                 // new BindTextureFormat('areaLightsLutTex2', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT)
             ];
 
-            // global transform storage buffer (read-only in vertex stage)
-            if (this.globalTransformBuffer) {
-                const gtbFormat = new BindStorageBufferFormat('globalTransforms', SHADERSTAGE_VERTEX, true);
-                gtbFormat.format = 'array<mat4x4<f32>>';
-                formats.push(gtbFormat);
-            }
+            // NOTE: global transform storage buffer is NOT added to the view bind group format
+            // here because it would change the layout for ALL shaders (including shadow passes,
+            // depth passes, etc.) and require the buffer to be bound everywhere. The storage
+            // buffer will be bound via a dedicated bind group or per-mesh scope in a future update.
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them

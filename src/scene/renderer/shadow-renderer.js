@@ -354,10 +354,7 @@ class ShadowRenderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // mesh / mesh normal matrix — skip if using global transform buffer
-            if (meshInstance._globalTransformSlot < 0) {
-                renderer.setMeshInstanceMatrices(meshInstance);
-            }
+            renderer.setMeshInstanceMatrices(meshInstance);
 
             renderer.setupMeshUniformBuffers(shaderInstance);
 
