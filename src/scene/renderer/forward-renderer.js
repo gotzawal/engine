@@ -460,11 +460,7 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // Skip per-object matrix upload when using global transform buffer
-            // (transform comes from storage buffer indexed by instance_index)
-            if (drawCall._globalTransformSlot < 0) {
-                this.setMeshInstanceMatrices(drawCall, true);
-            }
+            this.setMeshInstanceMatrices(drawCall, true);
 
             this.setupMeshUniformBuffers(shaderInstance);
 
@@ -519,14 +515,16 @@ class ForwardRenderer extends Renderer {
         // #endif
 
         // GPU frustum culling + global transform buffer + indirect draw (WebGPU only)
-        if (this.gpuCulling && allDrawCalls.length > 0) {
-            this.gpuCulling.setup(allDrawCalls, camera, this.globalTransformBuffer);
-
-            // Set scope value so mesh bind groups auto-resolve the storage buffer
-            if (this.globalTransformsId && this.globalTransformBuffer) {
-                this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
-            }
-        }
+        // NOTE: disabled — compute culling is not yet production-ready; enabling it causes
+        // all indirect draw instanceCounts to stay 0 if the compute shader fails, resulting
+        // in a blank screen.  The infrastructure (GpuCulling, GlobalTransformBuffer) remains
+        // available for future activation.
+        // if (this.gpuCulling && allDrawCalls.length > 0) {
+        //     this.gpuCulling.setup(allDrawCalls, camera, this.globalTransformBuffer);
+        //     if (this.globalTransformsId && this.globalTransformBuffer) {
+        //         this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
+        //     }
+        // }
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);

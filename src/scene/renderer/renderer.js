@@ -203,13 +203,11 @@ class Renderer {
         this.viewBindGroupFormat = null;
 
         // global transform buffer for batched GPU uploads (WebGPU only)
-        this.globalTransformBuffer = graphicsDevice.isWebGPU ? new GlobalTransformBuffer(graphicsDevice) : null;
-        if (this.globalTransformBuffer) {
-            graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
-        }
-
-        // GPU frustum culling (WebGPU only, requires global transform buffer)
-        this.gpuCulling = this.globalTransformBuffer ? new GpuCulling(graphicsDevice) : null;
+        // NOTE: disabled — the global transform buffer and GPU culling infrastructure is not
+        // yet production-ready. Activating it causes draw calls to skip per-object matrix
+        // uploads and rely on a compute shader that may silently fail, producing blank output.
+        this.globalTransformBuffer = null;
+        this.gpuCulling = null;
 
         // timing
         this._skinTime = 0;
@@ -234,7 +232,7 @@ class Renderer {
 
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
-        this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
+        this.globalTransformsId = null;
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
