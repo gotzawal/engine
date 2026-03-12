@@ -24,6 +24,7 @@ import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
 import { BindGroupFormat, BindUniformBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
+import { GpuCulling } from './gpu-culling.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -206,6 +207,9 @@ class Renderer {
         if (this.globalTransformBuffer) {
             graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
         }
+
+        // GPU frustum culling (WebGPU only, requires global transform buffer)
+        this.gpuCulling = this.globalTransformBuffer ? new GpuCulling(graphicsDevice) : null;
 
         // timing
         this._skinTime = 0;
@@ -752,10 +756,10 @@ class Renderer {
                 // new BindTextureFormat('areaLightsLutTex2', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT)
             ];
 
-            // NOTE: global transform storage buffer is NOT added to the view bind group format
-            // here because it would change the layout for ALL shaders (including shadow passes,
-            // depth passes, etc.) and require the buffer to be bound everywhere. The storage
-            // buffer will be bound via a dedicated bind group or per-mesh scope in a future update.
+            // NOTE: the global transform storage buffer (globalTransforms) is NOT in the view
+            // bind group. Instead, shaders with GLOBAL_TRANSFORM_BUFFER define declare
+            // `var<storage, read> globalTransforms` which the shader processor auto-detects
+            // and adds to the mesh bind group. The scope value is set before rendering.
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them

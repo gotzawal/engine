@@ -354,7 +354,10 @@ class ShadowRenderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            renderer.setMeshInstanceMatrices(meshInstance);
+            // Skip per-object matrix upload when using global transform buffer
+            if (meshInstance._globalTransformSlot < 0) {
+                renderer.setMeshInstanceMatrices(meshInstance);
+            }
 
             renderer.setupMeshUniformBuffers(shaderInstance);
 

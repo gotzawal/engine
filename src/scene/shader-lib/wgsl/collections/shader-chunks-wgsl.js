@@ -45,6 +45,7 @@ import gammaPS from '../chunks/common/frag/gamma.js';
 import glossPS from '../chunks/standard/frag/gloss.js';
 import quadVS from '../chunks/common/vert/quad.js';
 import indirectCoreCS from '../chunks/common/comp/indirect-core.js';
+import frustumCullCS from '../chunks/common/comp/frustum-cull.js';
 import immediateLinePS from '../chunks/internal/frag/immediateLine.js';
 import immediateLineVS from '../chunks/internal/vert/immediateLine.js';
 import iridescenceDiffractionPS from '../chunks/lit/frag/iridescenceDiffraction.js';
@@ -208,6 +209,7 @@ const shaderChunksWGSL = {
     glossPS,
     quadVS,
     indirectCoreCS,
+    frustumCullCS,
     immediateLinePS,
     immediateLineVS,
     iridescenceDiffractionPS,

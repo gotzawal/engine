@@ -460,7 +460,11 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            this.setMeshInstanceMatrices(drawCall, true);
+            // Skip per-object matrix upload when using global transform buffer
+            // (transform comes from storage buffer indexed by instance_index)
+            if (drawCall._globalTransformSlot < 0) {
+                this.setMeshInstanceMatrices(drawCall, true);
+            }
 
             this.setupMeshUniformBuffers(shaderInstance);
 
@@ -508,52 +512,21 @@ class ForwardRenderer extends Renderer {
         }
     }
 
-    /**
-     * Set up indirect draw commands for mesh instances that use the global transform buffer,
-     * encoding the transform slot index in the firstInstance field.
-     *
-     * @param {import('../camera.js').Camera} camera - The camera.
-     * @param {MeshInstance[]} drawCalls - The draw calls.
-     * @ignore
-     */
-    setupGlobalTransformIndirectDraws(camera, drawCalls) {
-        const gtb = this.globalTransformBuffer;
-        if (!gtb) return;
-
-        const device = this.device;
-        for (let i = 0; i < drawCalls.length; i++) {
-            const drawCall = drawCalls[i];
-            const slot = drawCall._globalTransformSlot;
-            if (slot < 0) continue;
-
-            // ensure this draw call has an indirect draw slot
-            if (!drawCall.getDrawCommands(camera)) {
-                const indirectSlot = device.getIndirectDrawSlot();
-                drawCall.setIndirect(camera, indirectSlot);
-            }
-
-            // write indirect draw args with firstInstance = transform slot
-            const cmds = drawCall.getDrawCommands(camera);
-            if (cmds && cmds.impl) {
-                const meta = drawCall.getIndirectMetaData();
-                cmds.impl.add(0, meta[0], 1, meta[1], meta[2], slot);
-                cmds.impl.update(1);
-            }
-        }
-    }
-
     renderForward(camera, renderTarget, allDrawCalls, sortedLights, pass, drawCallback, layer, flipFaces, viewBindGroups) {
 
         // #if _PROFILER
         const forwardStartTime = now();
         // #endif
 
-        // NOTE: global transform buffer upload and indirect draw setup are disabled for now.
-        // The view bind group integration needs a dedicated bind group or per-mesh scope
-        // approach instead of modifying the shared view bind group format.
-        // TODO: re-enable when bind group strategy is resolved.
-        // this.updateGlobalTransforms(allDrawCalls);
-        // this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
+        // GPU frustum culling + global transform buffer + indirect draw (WebGPU only)
+        if (this.gpuCulling && allDrawCalls.length > 0) {
+            this.gpuCulling.setup(allDrawCalls, camera, this.globalTransformBuffer);
+
+            // Set scope value so mesh bind groups auto-resolve the storage buffer
+            if (this.globalTransformsId && this.globalTransformBuffer) {
+                this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
+            }
+        }
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
