@@ -574,11 +574,6 @@ class ForwardRenderer extends Renderer {
         // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
         this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
 
-        // GPU frustum culling — zero instanceCount for objects outside frustum
-        if (this.gpuFrustumCuller && this.gpuFrustumCuller.indirectDrawCount > 0) {
-            this.gpuFrustumCuller.dispatch(camera);
-        }
-
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
 

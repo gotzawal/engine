@@ -224,13 +224,59 @@ class RenderPassForward extends RenderPass {
     }
 
     before() {
-        const { renderActions } = this;
+        const { renderActions, renderer } = this;
+
+        // GPU frustum culling compute dispatch — must happen before the render pass starts,
+        // because a compute pass cannot run inside an active render pass.
+        // Buffer uploads (queue.writeBuffer) in renderForward() are guaranteed by WebGPU to
+        // complete before any command buffer execution, so the compute shader reads valid data.
+        const culler = renderer.gpuFrustumCuller;
+        if (culler) {
+            this._dispatchGpuFrustumCulling(culler, renderActions);
+        }
 
         // onPreRender events
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
             if (ra.firstCameraUse) {
                 this.scene.fire(EVENT_PRERENDER, ra.camera);
+            }
+        }
+    }
+
+    /**
+     * Collect draw calls from all render actions, prepare indirect draw data, and dispatch
+     * the GPU frustum culling compute shader.
+     *
+     * @param {import('./gpu-frustum-culler.js').GpuFrustumCuller} culler - The GPU frustum culler.
+     * @param {RenderAction[]} renderActions - The render actions for this pass.
+     * @private
+     */
+    _dispatchGpuFrustumCulling(culler, renderActions) {
+        const { renderer } = this;
+
+        // collect all visible draw calls across all layers/sublayers and prepare GPU data
+        for (let i = 0; i < renderActions.length; i++) {
+            const ra = renderActions[i];
+            if (!ra.camera) continue;
+
+            const layer = ra.layer;
+            const visible = ra.transparent ?
+                layer.culledInstances.transparent :
+                layer.culledInstances.opaque;
+
+            // upload transforms + bounding spheres
+            renderer.updateGlobalTransforms(visible);
+
+            // allocate indirect draw slots and write draw args
+            renderer.setupGlobalTransformIndirectDraws(ra.camera, visible);
+        }
+
+        // dispatch compute for the primary camera's frustum
+        if (culler.indirectDrawCount > 0) {
+            const primaryCamera = renderActions[0]?.camera?.camera;
+            if (primaryCamera) {
+                culler.dispatch(primaryCamera);
             }
         }
     }
