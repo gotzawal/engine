@@ -652,6 +652,15 @@ class ForwardRenderer extends Renderer {
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         lightClusters.activate();
 
+        // GPU cluster lighting: dispatch compute and activate storage buffers
+        const gpuCluster = this.worldClustersAllocator._gpuCluster;
+        if (gpuCluster && layer?.clusteredLightsSet) {
+            this.worldClustersAllocator.updateGpuClusters(
+                layer.clusteredLightsSet, camera, scene.lighting
+            );
+            this.worldClustersAllocator.activateGpuClusters();
+        }
+
         // debug rendering of clusters
         if (layer) {
             if (!this.clustersDebugRendered && scene.lighting.debugLayer === layer.id) {

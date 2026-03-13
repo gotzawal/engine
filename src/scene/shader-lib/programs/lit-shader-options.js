@@ -81,6 +81,8 @@ class LitShaderOptions {
 
     clusteredLightingAreaLightsEnabled = false;
 
+    gpuClusterLightingEnabled = false;
+
     vertexColors = false;
 
     useVertexColorGamma = false;

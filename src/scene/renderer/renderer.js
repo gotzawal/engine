@@ -186,6 +186,9 @@ class Renderer {
         // TODO: allocate only when the scene has clustered lighting enabled
         this.worldClustersAllocator = new WorldClustersAllocator(graphicsDevice);
 
+        // Notify scene that GPU compute cluster lighting is available
+        scene._gpuClusterLightingEnabled = !!this.worldClustersAllocator._gpuCluster;
+
         // texture atlas managing shadow map / cookie texture atlassing for omni and spot lights
         this.lightTextureAtlas = new LightTextureAtlas(graphicsDevice);
 

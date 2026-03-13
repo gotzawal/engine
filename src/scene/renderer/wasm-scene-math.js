@@ -329,6 +329,8 @@ class WasmSceneMath {
         const oldLocal = this.localMatrices;
         const oldParent = this.parentIndices;
         const oldWorld = this.worldMatrices;
+        const oldDirtyList = this._dirtyList;
+        const oldDirtyCount = this._dirtyCount;
 
         this.capacity = newCapacity;
         this._maxDirtyCapacity = newCapacity;
@@ -338,6 +340,10 @@ class WasmSceneMath {
         if (oldLocal) this.localMatrices.set(oldLocal);
         if (oldParent) this.parentIndices.set(oldParent);
         if (oldWorld) this.worldMatrices.set(oldWorld);
+        if (oldDirtyList) {
+            this._dirtyList.set(oldDirtyList.subarray(0, oldDirtyCount));
+            this._dirtyCount = oldDirtyCount;
+        }
     }
 
     /**
