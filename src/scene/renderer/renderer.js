@@ -217,7 +217,6 @@ class Renderer {
         this.wasmSceneMath = null;
         if (this.globalTransformBuffer) {
             this.wasmSceneMath = new WasmSceneMath();
-            this.globalTransformBuffer.setWasmSceneMath(this.wasmSceneMath);
         }
 
         // timing
@@ -881,7 +880,6 @@ class Renderer {
 
         const device = this.device;
         const culler = this.gpuFrustumCuller;
-        const wasm = this.wasmSceneMath;
 
         for (let i = 0; i < drawCalls.length; i++) {
             const dc = drawCalls[i];
@@ -893,15 +891,11 @@ class Renderer {
 
             const slot = dc.ensureGlobalTransformSlot(device);
             if (slot >= 0) {
+                // getWorldTransform() returns cached matrix. When WASM sync is active,
+                // syncHierarchyWasm + computeBatch + writeBack already computed and cached
+                // the world transform, so this is a no-computation cache hit.
                 const worldMat = dc.node.getWorldTransform();
-
-                // When WASM is available, write to WASM worldMatrices buffer for zero-copy
-                // GPU upload. Otherwise write to the standard staging buffer.
-                if (wasm) {
-                    wasm.setWorldMatrix(slot, worldMat.data);
-                } else {
-                    gtb.updateSlot(slot, worldMat.data);
-                }
+                gtb.updateSlot(slot, worldMat.data);
 
                 // update bounding sphere for GPU frustum culling
                 if (culler) {
@@ -910,11 +904,6 @@ class Renderer {
                     culler.updateSphere(slot, c.x, c.y, c.z, aabb.halfExtents.length());
                 }
             }
-        }
-
-        // Mark dirty for upload when using WASM zero-copy buffer
-        if (wasm) {
-            gtb.dirty = true;
         }
 
         // single upload to GPU

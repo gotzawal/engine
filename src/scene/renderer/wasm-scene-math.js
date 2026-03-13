@@ -53,6 +53,13 @@ class WasmSceneMath {
     /** @type {boolean} */
     ready = false;
 
+    // Slot allocator (mirrors GlobalTransformBuffer pattern)
+    /** @type {number[]} */
+    _freeSlots = [];
+
+    /** @type {number} */
+    _nextSlot = 0;
+
     /**
      * Create a new WasmSceneMath instance.
      *
@@ -118,6 +125,69 @@ class WasmSceneMath {
 
         this._dirtyCount = 0;
         this._maxDirtyCapacity = capacity;
+    }
+
+    /**
+     * Allocate a slot for a graph node's transform in the WASM buffers.
+     *
+     * @returns {number} The allocated slot index.
+     */
+    allocateSlot() {
+        if (this._freeSlots.length > 0) {
+            return this._freeSlots.pop();
+        }
+        const slot = this._nextSlot;
+        this._nextSlot++;
+        if (slot >= this.capacity) {
+            this._resize(this.capacity * 2);
+        }
+        return slot;
+    }
+
+    /**
+     * Free a previously allocated slot, returning it to the pool.
+     *
+     * @param {number} slotId - The slot index to free.
+     */
+    freeSlot(slotId) {
+        if (slotId >= 0) {
+            this._freeSlots.push(slotId);
+        }
+    }
+
+    /**
+     * Write back computed world matrices from WASM buffer into GraphNode.worldTransform.
+     * This ensures other engine systems (physics, audio, etc.) that read worldTransform
+     * get the correct values.
+     *
+     * @param {import('../../scene/graph-node.js').GraphNode} root - The root of the scene graph.
+     */
+    writeBackWorldTransforms(root) {
+        this._writeBackNode(root);
+    }
+
+    /**
+     * @param {import('../../scene/graph-node.js').GraphNode} node - Current node.
+     * @private
+     */
+    _writeBackNode(node) {
+        if (!node._enabled) return;
+
+        const slot = node._wasmSlot;
+        if (slot >= 0) {
+            const offset = slot * 16;
+            const data = node.worldTransform.data;
+            const src = this.worldMatrices;
+            // Copy 16 floats from WASM buffer to node's worldTransform
+            for (let i = 0; i < 16; i++) {
+                data[i] = src[offset + i];
+            }
+        }
+
+        const children = node._children;
+        for (let i = 0, len = children.length; i < len; i++) {
+            this._writeBackNode(children[i]);
+        }
     }
 
     /**

@@ -412,6 +412,109 @@ describe('WasmSceneMath', function () {
 
     });
 
+    describe('#allocateSlot', function () {
+
+        it('should return sequential slot indices', function () {
+            const wasm = new WasmSceneMath(16);
+            expect(wasm.allocateSlot()).to.equal(0);
+            expect(wasm.allocateSlot()).to.equal(1);
+            expect(wasm.allocateSlot()).to.equal(2);
+            wasm.destroy();
+        });
+
+        it('should reuse freed slots', function () {
+            const wasm = new WasmSceneMath(16);
+            const s0 = wasm.allocateSlot(); // 0
+            const s1 = wasm.allocateSlot(); // 1
+            wasm.freeSlot(s0);
+            const s2 = wasm.allocateSlot(); // should reuse 0
+            expect(s2).to.equal(0);
+            wasm.destroy();
+        });
+
+        it('should auto-resize when capacity exceeded', function () {
+            const wasm = new WasmSceneMath(2);
+            wasm.allocateSlot(); // 0
+            wasm.allocateSlot(); // 1
+            wasm.allocateSlot(); // 2 — triggers resize
+            expect(wasm.capacity).to.be.greaterThanOrEqual(3);
+            wasm.destroy();
+        });
+
+    });
+
+    describe('#writeBackWorldTransforms', function () {
+
+        it('should copy world matrices from WASM buffer to node.worldTransform', function () {
+            const wasm = new WasmSceneMath(4);
+
+            // Create mock nodes with _wasmSlot and worldTransform
+            const mockNode = {
+                _enabled: true,
+                _wasmSlot: 0,
+                worldTransform: { data: new Float32Array(16) },
+                _children: []
+            };
+
+            // Write a known matrix into WASM world buffer at slot 0
+            const mat = new Float32Array([2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 5, 6, 7, 1]);
+            wasm.worldMatrices.set(mat, 0);
+
+            wasm.writeBackWorldTransforms(mockNode);
+
+            expect(mockNode.worldTransform.data[0]).to.equal(2);
+            expect(mockNode.worldTransform.data[5]).to.equal(3);
+            expect(mockNode.worldTransform.data[12]).to.equal(5);
+            expect(mockNode.worldTransform.data[15]).to.equal(1);
+            wasm.destroy();
+        });
+
+        it('should recurse through children', function () {
+            const wasm = new WasmSceneMath(4);
+
+            const child = {
+                _enabled: true,
+                _wasmSlot: 1,
+                worldTransform: { data: new Float32Array(16) },
+                _children: []
+            };
+            const parent = {
+                _enabled: true,
+                _wasmSlot: 0,
+                worldTransform: { data: new Float32Array(16) },
+                _children: [child]
+            };
+
+            // Write different matrices for parent (slot 0) and child (slot 1)
+            wasm.worldMatrices[0] = 10;  // parent m[0]
+            wasm.worldMatrices[16] = 20; // child m[0]
+
+            wasm.writeBackWorldTransforms(parent);
+
+            expect(parent.worldTransform.data[0]).to.equal(10);
+            expect(child.worldTransform.data[0]).to.equal(20);
+            wasm.destroy();
+        });
+
+        it('should skip disabled nodes', function () {
+            const wasm = new WasmSceneMath(4);
+
+            const node = {
+                _enabled: false,
+                _wasmSlot: 0,
+                worldTransform: { data: new Float32Array(16) },
+                _children: []
+            };
+
+            wasm.worldMatrices[0] = 99;
+            wasm.writeBackWorldTransforms(node);
+
+            expect(node.worldTransform.data[0]).to.equal(0); // not overwritten
+            wasm.destroy();
+        });
+
+    });
+
     describe('#destroy', function () {
 
         it('should null all buffers', function () {

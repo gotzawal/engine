@@ -1064,7 +1064,17 @@ class AppBase extends EventHandler {
         // #endif
 
         this.fire('prerender');
-        this.root.syncHierarchy();
+
+        // Use WASM SIMD batch path for hierarchy sync when available
+        const wasmMath = this.renderer?.wasmSceneMath;
+        if (wasmMath) {
+            wasmMath.clearDirtyList();
+            this.root.syncHierarchyWasm(wasmMath);
+            wasmMath.computeBatch();
+            wasmMath.writeBackWorldTransforms(this.root);
+        } else {
+            this.root.syncHierarchy();
+        }
 
         if (this._batcher) {
             this._batcher.updateAll();
