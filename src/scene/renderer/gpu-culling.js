@@ -190,14 +190,13 @@ class GpuCulling {
             const dc = drawCalls[i];
             if (!this.isEligible(dc)) continue;
 
-            // Ensure global transform slot
-            const transformSlot = dc.ensureGlobalTransformSlot(device);
+            // Use the pre-assigned global transform slot (assigned in _prepareGlobalTransformSlots)
+            const transformSlot = dc._globalTransformSlot;
+            if (transformSlot < 0) continue;
 
             // Upload world transform
-            if (transformSlot >= 0) {
-                const worldMat = dc.node.getWorldTransform();
-                globalTransformBuffer.updateSlot(transformSlot, worldMat.data);
-            }
+            const worldMat = dc.node.getWorldTransform();
+            globalTransformBuffer.updateSlot(transformSlot, worldMat.data);
 
             // AABB: use world-space bounding sphere (same as CPU _isVisible)
             const aabb = dc.aabb; // triggers world-space AABB computation
@@ -226,7 +225,8 @@ class GpuCulling {
         // 3. Upload staging data to GPU
         this.aabbBuffer.write(0, this.aabbStaging, 0, gi * FLOATS_PER_AABB);
         this.meshMetaBuffer.write(0, this.meshMetaStaging, 0, gi * UINTS_PER_META);
-        globalTransformBuffer.upload();
+        // Note: globalTransformBuffer.upload() is called by the caller (renderForward)
+        // after setup() to avoid redundant uploads across multiple layer/transparency passes
 
         // 4. Allocate consecutive indirect draw slots
         const baseSlot = device.getIndirectDrawSlot(gi);
@@ -258,7 +258,7 @@ class GpuCulling {
         for (let j = 0; j < gi; j++) {
             const dcIndex = this.indexMapping[j];
             const dc = drawCalls[dcIndex];
-            dc.setIndirect(camera.node?.camera ?? null, baseSlot + j);
+            dc.setIndirect(camera, baseSlot + j);
         }
     }
 

@@ -203,11 +203,11 @@ class Renderer {
         this.viewBindGroupFormat = null;
 
         // global transform buffer for batched GPU uploads (WebGPU only)
-        // NOTE: disabled — the global transform buffer and GPU culling infrastructure is not
-        // yet production-ready. Activating it causes draw calls to skip per-object matrix
-        // uploads and rely on a compute shader that may silently fail, producing blank output.
-        this.globalTransformBuffer = null;
-        this.gpuCulling = null;
+        this.globalTransformBuffer = graphicsDevice.isWebGPU ? new GlobalTransformBuffer(graphicsDevice) : null;
+        if (this.globalTransformBuffer) {
+            graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
+        }
+        this.gpuCulling = this.globalTransformBuffer ? new GpuCulling(graphicsDevice) : null;
 
         // timing
         this._skinTime = 0;
@@ -232,7 +232,7 @@ class Renderer {
 
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
-        this.globalTransformsId = null;
+        this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
@@ -1132,6 +1132,13 @@ class Renderer {
                     // cull mesh instances
                     const culledInstances = layer.getCulledInstances(camera.camera);
                     this.cull(camera.camera, layer.meshInstances, culledInstances);
+
+                    // [Phase 3] Assign global transform slots to eligible objects early,
+                    // so _shaderDefs are set before renderForwardPrepareMaterials()
+                    if (this.globalTransformBuffer) {
+                        this._prepareGlobalTransformSlots(culledInstances.opaque);
+                        this._prepareGlobalTransformSlots(culledInstances.transparent);
+                    }
                 }
             }
 
@@ -1152,6 +1159,23 @@ class Renderer {
         // #if _PROFILER
         this._cullTime += now() - cullTime;
         // #endif
+    }
+
+    /**
+     * Assign global transform slots to eligible draw calls so that _shaderDefs are finalized
+     * before shader variant selection in renderForwardPrepareMaterials().
+     *
+     * @param {MeshInstance[]} drawCalls - The culled draw call list.
+     * @private
+     */
+    _prepareGlobalTransformSlots(drawCalls) {
+        const device = this.device;
+        for (let i = 0; i < drawCalls.length; i++) {
+            const dc = drawCalls[i];
+            if (this.gpuCulling?.isEligible(dc)) {
+                dc.ensureGlobalTransformSlot(device);
+            }
+        }
     }
 
     /**

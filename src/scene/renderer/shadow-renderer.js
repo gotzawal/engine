@@ -298,6 +298,11 @@ class ShadowRenderer {
         const shadowPass = this.getShadowPass(light);
         const cameraShaderParams = camera.shaderParams;
 
+        // Ensure globalTransforms storage buffer is bound for shadow pass
+        if (renderer.globalTransformsId && renderer.globalTransformBuffer) {
+            renderer.globalTransformsId.setValue(renderer.globalTransformBuffer.storageBuffer);
+        }
+
         // reverse face culling when shadow map has flipY set to true which cases reversed winding order
         const flipFactor = camera.renderTarget.flipY ? -1 : 1;
 
@@ -354,7 +359,9 @@ class ShadowRenderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            renderer.setMeshInstanceMatrices(meshInstance);
+            if (meshInstance._globalTransformSlot < 0) {
+                renderer.setMeshInstanceMatrices(meshInstance);
+            }
 
             renderer.setupMeshUniformBuffers(shaderInstance);
 
