@@ -16,6 +16,19 @@ export default /* wgsl */`
 var clusterWorldTexture: texture_2d<u32>;
 var lightsTexture: texture_2d<uff>;
 
+#ifdef GPU_CLUSTER_LIGHTING
+// GPU compute cluster lighting storage buffers
+var<storage, read> gpuLightGrid: array<vec2u>;
+var<storage, read> gpuLightIndices: array<u32>;
+
+uniform gpuClusterNumTilesX: i32;
+uniform gpuClusterNumTilesY: i32;
+uniform gpuClusterNumSlicesZ: i32;
+uniform gpuClusterCameraNear: f32;
+uniform gpuClusterCameraFar: f32;
+uniform gpuClusterTilePixelSize: i32;
+#endif
+
 #ifdef CLUSTER_SHADOWS
     // TODO: when VSM shadow is supported, this may need a different sampler type
     var shadowAtlasTexture: texture_depth_2d;
@@ -584,6 +597,54 @@ fn addClusteredLights(
         return;
     }
 
+#ifdef GPU_CLUSTER_LIGHTING
+    // GPU compute cluster path: view-space log-depth grid with StorageBuffer light grid
+    let linearDepth = length(vPositionW - uniform.view_position);
+
+    let tileX = u32(vPosition.x) / u32(uniform.gpuClusterTilePixelSize);
+    let tileY = u32(vPosition.y) / u32(uniform.gpuClusterTilePixelSize);
+    let sliceZ = u32(
+        log(linearDepth / uniform.gpuClusterCameraNear) *
+        f32(uniform.gpuClusterNumSlicesZ) /
+        log(uniform.gpuClusterCameraFar / uniform.gpuClusterCameraNear)
+    );
+    let clampedSlice = clamp(sliceZ, 0u, u32(uniform.gpuClusterNumSlicesZ) - 1u);
+
+    let clusterIdx = tileX +
+        tileY * u32(uniform.gpuClusterNumTilesX) +
+        clampedSlice * u32(uniform.gpuClusterNumTilesX) * u32(uniform.gpuClusterNumTilesY);
+
+    let grid = gpuLightGrid[clusterIdx];
+    let gridOffset = grid.x;
+    let gridCount = grid.y;
+
+    for (var li: u32 = 0u; li < gridCount; li++) {
+        let lightIndex = gpuLightIndices[gridOffset + li];
+
+        evaluateClusterLight(
+            i32(lightIndex) + 1, // +1 because light index 0 is reserved for 'no light' in texture path
+            worldNormal,
+            viewDir,
+            reflectionDir,
+#if defined(LIT_CLEARCOAT)
+            clearcoatReflectionDir,
+#endif
+            gloss,
+            specularity,
+            geometricNormal,
+            tbn,
+#if defined(LIT_IRIDESCENCE)
+            iridescenceFresnel,
+#endif
+            clearcoat_worldNormal,
+            clearcoat_gloss,
+            sheen_gloss,
+            iridescence_intensity
+        );
+    }
+#else
+    // CPU texture-based cluster path (original)
+
     // world space position to 3d integer cell cordinates in the cluster structure
     let cellCoords: vec3i = vec3i(floor((vPositionW - uniform.clusterBoundsMin) * uniform.clusterCellsCountByBoundsSize));
 
@@ -629,4 +690,5 @@ fn addClusteredLights(
             );
         }
     }
+#endif
 }`;

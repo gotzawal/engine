@@ -69,8 +69,9 @@ class LightsBuffer {
         this.shadowsEnabled = false;
         this.areaLightsEnabled = false;
 
-        // using 8 bit index so this is maximum supported number of lights
-        this.maxLights = 255;
+        // using 8 bit index so this is maximum supported number of lights for the texture path
+        // GPU cluster lighting path supports up to 4096 via StorageBuffer
+        this.maxLights = device.isWebGPU ? 4096 : 255;
 
         // float texture
         const pixelsPerLightFloat = TextureIndexFloat.COUNT;

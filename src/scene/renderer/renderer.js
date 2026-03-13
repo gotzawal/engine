@@ -25,6 +25,7 @@ import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/unif
 import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
+import { WasmSceneMath } from './wasm-scene-math.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -211,6 +212,13 @@ class Renderer {
         // GPU frustum culler (WebGPU only, requires compute support)
         this.gpuFrustumCuller = (this.globalTransformBuffer && graphicsDevice.supportsCompute) ?
             new GpuFrustumCuller(graphicsDevice) : null;
+
+        // WASM SIMD batch matrix computation (optional, WebGPU only)
+        this.wasmSceneMath = null;
+        if (this.globalTransformBuffer) {
+            this.wasmSceneMath = new WasmSceneMath();
+            this.globalTransformBuffer.setWasmSceneMath(this.wasmSceneMath);
+        }
 
         // timing
         this._skinTime = 0;
@@ -873,6 +881,8 @@ class Renderer {
 
         const device = this.device;
         const culler = this.gpuFrustumCuller;
+        const wasm = this.wasmSceneMath;
+
         for (let i = 0; i < drawCalls.length; i++) {
             const dc = drawCalls[i];
 
@@ -884,7 +894,14 @@ class Renderer {
             const slot = dc.ensureGlobalTransformSlot(device);
             if (slot >= 0) {
                 const worldMat = dc.node.getWorldTransform();
-                gtb.updateSlot(slot, worldMat.data);
+
+                // When WASM is available, write to WASM worldMatrices buffer for zero-copy
+                // GPU upload. Otherwise write to the standard staging buffer.
+                if (wasm) {
+                    wasm.setWorldMatrix(slot, worldMat.data);
+                } else {
+                    gtb.updateSlot(slot, worldMat.data);
+                }
 
                 // update bounding sphere for GPU frustum culling
                 if (culler) {
@@ -893,6 +910,11 @@ class Renderer {
                     culler.updateSphere(slot, c.x, c.y, c.z, aabb.halfExtents.length());
                 }
             }
+        }
+
+        // Mark dirty for upload when using WASM zero-copy buffer
+        if (wasm) {
+            gtb.dirty = true;
         }
 
         // single upload to GPU
