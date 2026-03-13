@@ -1,4 +1,4 @@
-// @config DESCRIPTION Demonstrates GPU-based frustum culling using a compute shader and indirect draw calls. Toggle GPU culling and indirect draw to compare CPU vs GPU rendering paths.
+// @config DESCRIPTION Demonstrates GPU-based frustum culling using a compute shader and indirect draw calls. Use the GPU Pipeline panel (in CONTROLS) to toggle GPU culling and indirect draw across all examples. This example creates up to 50,000 objects to stress-test the pipeline.
 // @config WEBGPU_ONLY
 import { data } from 'examples/observer';
 import { deviceType, rootPath } from 'examples/utils';
@@ -22,6 +22,9 @@ const gfxOptions = {
 
 const device = await pc.createGraphicsDevice(canvas, gfxOptions);
 device.maxPixelRatio = Math.min(window.devicePixelRatio, 2);
+
+// Allow enough indirect draw slots for the max object count
+device.maxIndirectDrawCount = 65536;
 
 const createOptions = new pc.AppOptions();
 createOptions.graphicsDevice = device;
@@ -55,11 +58,17 @@ assetListLoader.load(() => {
     const camera = new pc.Entity('Camera');
     camera.addComponent('camera', {
         toneMapping: pc.TONEMAP_ACES,
-        farClip: 200
+        farClip: 500
     });
     app.root.addChild(camera);
-    camera.setLocalPosition(0, 15, 40);
-    camera.lookAt(0, 0, 0);
+
+    // Pre-create shared meshes to avoid duplicating geometry
+    const meshes = [
+        pc.Mesh.fromGeometry(device, new pc.BoxGeometry()),
+        pc.Mesh.fromGeometry(device, new pc.SphereGeometry({ latitudeBands: 8, longitudeBands: 8 })),
+        pc.Mesh.fromGeometry(device, new pc.ConeGeometry({ capSegments: 8 })),
+        pc.Mesh.fromGeometry(device, new pc.CylinderGeometry({ capSegments: 8 }))
+    ];
 
     // Materials
     const materials = [];
@@ -69,7 +78,9 @@ assetListLoader.load(() => {
         new pc.Color(0.3, 0.3, 1),
         new pc.Color(1, 1, 0.3),
         new pc.Color(1, 0.3, 1),
-        new pc.Color(0.3, 1, 1)
+        new pc.Color(0.3, 1, 1),
+        new pc.Color(1, 0.6, 0.2),
+        new pc.Color(0.5, 0.8, 0.3)
     ];
     for (const color of colors) {
         const mat = new pc.StandardMaterial();
@@ -81,10 +92,10 @@ assetListLoader.load(() => {
         materials.push(mat);
     }
 
-    // Create objects spread out so many are outside the frustum
+    // Create a large number of objects spread across a wide area
     const entities = [];
-    const objectCount = 200;
-    const spread = 60;
+    const DEFAULT_COUNT = 10000;
+    const spread = 300;
 
     function createObjects(count) {
         // Remove old objects
@@ -93,21 +104,26 @@ assetListLoader.load(() => {
         }
         entities.length = 0;
 
-        const types = ['box', 'sphere', 'cone', 'cylinder', 'capsule'];
         for (let i = 0; i < count; i++) {
-            const entity = new pc.Entity(`Object_${i}`);
+            const entity = new pc.Entity();
+
+            // Use shared mesh via MeshInstance for efficiency
+            const mesh = meshes[i % meshes.length];
+            const material = materials[i % materials.length];
+            const meshInstance = new pc.MeshInstance(mesh, material);
+
             entity.addComponent('render', {
-                type: types[i % types.length],
-                material: materials[i % materials.length]
+                meshInstances: [meshInstance],
+                type: 'asset'
             });
 
-            // Spread objects in a large area so many are off-screen
+            // Spread objects in a large volume
             const x = (Math.random() - 0.5) * spread;
-            const y = (Math.random() - 0.5) * spread * 0.5;
+            const y = (Math.random() - 0.5) * spread * 0.3;
             const z = (Math.random() - 0.5) * spread;
             entity.setLocalPosition(x, y, z);
 
-            const scale = 0.5 + Math.random() * 1.5;
+            const scale = 0.3 + Math.random() * 0.7;
             entity.setLocalScale(scale, scale, scale);
 
             app.root.addChild(entity);
@@ -115,40 +131,31 @@ assetListLoader.load(() => {
         }
     }
 
-    createObjects(objectCount);
+    createObjects(DEFAULT_COUNT);
 
     // Set initial data values
     data.set('data', {
-        gpuCulling: true,
-        indirectDraw: true,
-        objectCount: objectCount
+        objectCount: DEFAULT_COUNT
     });
 
-    let prevObjectCount = objectCount;
+    let prevObjectCount = DEFAULT_COUNT;
 
     // Update loop
     let angle = 0;
     app.on('update', (dt) => {
-        angle += dt * 0.3;
+        angle += dt * 0.15;
 
         // Orbit camera
-        const radius = 40;
+        const radius = 100;
         camera.setLocalPosition(
             radius * Math.sin(angle),
-            15,
+            40,
             radius * Math.cos(angle)
         );
         camera.lookAt(0, 0, 0);
 
-        // Apply UI toggles
-        const renderer = app.renderer;
-        if (renderer) {
-            renderer.gpuCullingEnabled = data.get('data.gpuCulling') ?? true;
-            renderer.indirectDrawEnabled = data.get('data.indirectDraw') ?? true;
-        }
-
         // Recreate objects if count changed
-        const newCount = Math.round(data.get('data.objectCount') ?? objectCount);
+        const newCount = Math.round(data.get('data.objectCount') ?? DEFAULT_COUNT);
         if (newCount !== prevObjectCount) {
             createObjects(newCount);
             prevObjectCount = newCount;

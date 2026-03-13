@@ -68,7 +68,37 @@ class ExampleLoader {
             fire('updateActiveDevice', { deviceType: this._app?.graphicsDevice?.deviceType });
         }
 
+        // Apply GPU pipeline settings from localStorage
+        this._applyGpuPipelineSettings();
+
+        // Listen for runtime GPU pipeline toggle changes from the parent frame
+        window.addEventListener('gpuPipelineChange', (/** @type {CustomEvent} */ e) => {
+            this._applyGpuPipelineSettings(e.detail);
+        });
+
         this._allowRestart = true;
+    }
+
+    /**
+     * Apply GPU pipeline settings (frustum culling, indirect draw) to the renderer.
+     *
+     * @param {{ gpuCulling?: boolean, indirectDraw?: boolean }} [overrides] - Optional overrides
+     * from a runtime event. Falls back to localStorage values.
+     * @private
+     */
+    _applyGpuPipelineSettings(overrides) {
+        const renderer = this._app?.renderer;
+        if (!renderer) return;
+
+        const gpuCulling = overrides?.gpuCulling ?? (localStorage.getItem('gpuCullingEnabled') !== 'false');
+        const indirectDraw = overrides?.indirectDraw ?? (localStorage.getItem('indirectDrawEnabled') !== 'false');
+
+        if ('gpuCullingEnabled' in renderer) {
+            renderer.gpuCullingEnabled = gpuCulling;
+        }
+        if ('indirectDrawEnabled' in renderer) {
+            renderer.indirectDrawEnabled = indirectDraw;
+        }
     }
 
     /**
