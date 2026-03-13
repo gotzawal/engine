@@ -31,6 +31,6 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     indirectDrawBuffer[slot].instanceCount = select(0u, 1u, visible);
     indirectDrawBuffer[slot].firstIndex = meshData.y;
     indirectDrawBuffer[slot].baseVertex = i32(meshData.z);
-    indirectDrawBuffer[slot].firstInstance = meshData.w;
+    indirectDrawBuffer[slot].firstInstance = 0u;
 }
 `;
