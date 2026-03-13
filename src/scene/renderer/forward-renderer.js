@@ -652,12 +652,9 @@ class ForwardRenderer extends Renderer {
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         lightClusters.activate();
 
-        // GPU cluster lighting: dispatch compute and activate storage buffers
-        const gpuCluster = this.worldClustersAllocator._gpuCluster;
-        if (gpuCluster && layer?.clusteredLightsSet) {
-            this.worldClustersAllocator.updateGpuClusters(
-                layer.clusteredLightsSet, camera, scene.lighting
-            );
+        // GPU cluster lighting: activate storage buffer uniforms for forward shader
+        // (compute dispatch happens in RenderPassForward.before(), outside the render pass)
+        if (this.worldClustersAllocator._gpuCluster) {
             this.worldClustersAllocator.activateGpuClusters();
         }
 

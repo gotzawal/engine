@@ -235,6 +235,13 @@ class RenderPassForward extends RenderPass {
             this._dispatchGpuFrustumCulling(culler, renderActions);
         }
 
+        // GPU cluster lighting compute dispatch — must happen before the render pass starts,
+        // because a compute pass cannot run inside an active render pass.
+        const gpuCluster = renderer.worldClustersAllocator?._gpuCluster;
+        if (gpuCluster) {
+            this._dispatchGpuClusterLighting(renderActions);
+        }
+
         // onPreRender events
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
@@ -279,6 +286,27 @@ class RenderPassForward extends RenderPass {
             const primaryCamera = renderActions[0]?.camera?.camera;
             if (primaryCamera) {
                 culler.dispatch(primaryCamera);
+            }
+        }
+    }
+
+    /**
+     * Dispatch GPU cluster lighting compute shader for the first camera with clustered lights.
+     *
+     * @param {RenderAction[]} renderActions - The render actions for this pass.
+     * @private
+     */
+    _dispatchGpuClusterLighting(renderActions) {
+        for (let i = 0; i < renderActions.length; i++) {
+            const ra = renderActions[i];
+            if (!ra.camera) continue;
+            const layer = ra.layer;
+            if (layer?.clusteredLightsSet) {
+                const camera = ra.camera.camera;
+                this.renderer.worldClustersAllocator.updateGpuClusters(
+                    layer.clusteredLightsSet, camera, this.scene.lighting
+                );
+                break;
             }
         }
     }
