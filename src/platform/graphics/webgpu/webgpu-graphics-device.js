@@ -129,6 +129,14 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     mipmapRenderer;
 
     /**
+     * When recording into a GPURenderBundleEncoder, this holds the encoder.  Otherwise null.
+     *
+     * @type {GPURenderBundleEncoder|null}
+     * @private
+     */
+    _bundleEncoder = null;
+
+    /**
      * Render pipeline currently set on the device.
      *
      * @type {GPURenderPipeline|null}
@@ -630,17 +638,74 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     }
 
     /**
+     * Returns the active encoder — either a GPURenderBundleEncoder (when recording a bundle)
+     * or the current GPURenderPassEncoder.
+     *
+     * @type {GPURenderPassEncoder|GPURenderBundleEncoder|null}
+     * @ignore
+     */
+    get activeEncoder() {
+        return this._bundleEncoder ?? this.passEncoder;
+    }
+
+    /**
+     * Begin recording draw commands into a GPURenderBundleEncoder.
+     *
+     * @param {GPURenderBundleEncoderDescriptor} descriptor - Descriptor for the bundle encoder.
+     * @returns {GPURenderBundleEncoder} The bundle encoder.
+     * @ignore
+     */
+    startBundleEncoder(descriptor) {
+        Debug.assert(!this._bundleEncoder, 'A bundle encoder is already active.');
+        const wgpu = this.wgpu;
+        this._bundleEncoder = wgpu.createRenderBundleEncoder(descriptor);
+        // reset cached pipeline so that the bundle records fresh pipeline bindings
+        this.pipeline = null;
+        return this._bundleEncoder;
+    }
+
+    /**
+     * Finish recording the current GPURenderBundleEncoder and return the resulting bundle.
+     *
+     * @returns {GPURenderBundle} The finished render bundle.
+     * @ignore
+     */
+    finishBundleEncoder() {
+        Debug.assert(this._bundleEncoder, 'No bundle encoder is active.');
+        const bundle = this._bundleEncoder.finish();
+        this._bundleEncoder = null;
+        // reset cached pipeline so that subsequent pass encoding re-binds correctly
+        this.pipeline = null;
+        return bundle;
+    }
+
+    /**
+     * Execute one or more pre-recorded render bundles on the current render pass.
+     *
+     * @param {GPURenderBundle[]} bundles - Array of render bundles to execute.
+     * @ignore
+     */
+    executeBundles(bundles) {
+        Debug.assert(this.passEncoder, 'executeBundles requires an active render pass.');
+        this.passEncoder.executeBundles(bundles);
+        // after executeBundles the render pass state is reset, invalidate cached state
+        this.pipeline = null;
+    }
+
+    /**
      * @param {number} index - Index of the bind group slot
      * @param {BindGroup} bindGroup - Bind group to attach
      * @param {number[]} [offsets] - Byte offsets for all uniform buffers in the bind group.
      */
     setBindGroup(index, bindGroup, offsets) {
 
+        const encoder = this.activeEncoder;
+
         // TODO: this condition should be removed, it's here to handle fake grab pass, which should be refactored instead
-        if (this.passEncoder) {
+        if (encoder) {
 
             // set it on the device
-            this.passEncoder.setBindGroup(index, bindGroup.impl.bindGroup, offsets ?? bindGroup.uniformBufferOffsets);
+            encoder.setBindGroup(index, bindGroup.impl.bindGroup, offsets ?? bindGroup.uniformBufferOffsets);
 
             // store the active formats, used by the pipeline creation
             this.bindGroupFormats[index] = bindGroup.format.impl;
@@ -653,16 +718,17 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         const { interleaved, elements } = format;
         const elementCount = elements.length;
         const vbBuffer = vertexBuffer.impl.buffer;
+        const encoder = this.activeEncoder;
 
         if (interleaved) {
             // for interleaved buffers, we use a single vertex buffer, and attributes are specified using the layout
-            this.passEncoder.setVertexBuffer(slot, vbBuffer);
+            encoder.setVertexBuffer(slot, vbBuffer);
             return 1;
         }
 
         // non-interleaved - vertex buffer per attribute
         for (let i = 0; i < elementCount; i++) {
-            this.passEncoder.setVertexBuffer(slot + i, vbBuffer, elements[i].offset);
+            encoder.setVertexBuffer(slot + i, vbBuffer, elements[i].offset);
         }
 
         return elementCount;
@@ -694,7 +760,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
 
             WebgpuDebug.validate(this);
 
-            const passEncoder = this.passEncoder;
+            const passEncoder = this.activeEncoder;
             Debug.assert(passEncoder);
 
             let pipeline = this.pipeline;
@@ -818,7 +884,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
             const ref = this.stencilFront.ref;
             if (this.stencilRef !== ref) {
                 this.stencilRef = ref;
-                this.passEncoder.setStencilReference(ref);
+                this.activeEncoder?.setStencilReference(ref);
             }
         } else {
             this.stencilEnabled = false;
@@ -829,7 +895,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         const c = this.blendColor;
         if (r !== c.r || g !== c.g || b !== c.b || a !== c.a) {
             c.set(r, g, b, a);
-            this.passEncoder.setBlendConstant(c);
+            this.activeEncoder?.setBlendConstant(c);
         }
     }
 
@@ -1373,11 +1439,11 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
 
     // #if _DEBUG
     pushMarker(name) {
-        this.passEncoder?.pushDebugGroup(name);
+        this.activeEncoder?.pushDebugGroup(name);
     }
 
     popMarker() {
-        this.passEncoder?.popDebugGroup();
+        this.activeEncoder?.popDebugGroup();
     }
     // #endif
 }

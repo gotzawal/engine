@@ -13,6 +13,8 @@ import {
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
 import { RenderPassForward } from './render-pass-forward.js';
+import { RenderBundleCache } from './render-bundle-cache.js';
+import { DrawCallGrouper } from './draw-call-group.js';
 
 import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 
@@ -87,6 +89,26 @@ class ForwardRenderer extends Renderer {
         this._materialSwitches = 0;
         this._forwardTime = 0;
         this._sortTime = 0;
+
+        /**
+         * Whether opaque render bundles are enabled. When true, eligible opaque draw calls
+         * are grouped by pipeline state and recorded into GPURenderBundles for efficient replay.
+         *
+         * @type {boolean}
+         */
+        this.renderBundlesEnabled = false;
+
+        /**
+         * @type {RenderBundleCache}
+         * @private
+         */
+        this._bundleCache = new RenderBundleCache();
+
+        /**
+         * @type {DrawCallGrouper}
+         * @private
+         */
+        this._drawCallGrouper = new DrawCallGrouper();
 
         // Uniforms
         const scope = device.scope;
@@ -577,14 +599,208 @@ class ForwardRenderer extends Renderer {
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
 
-        // render mesh instances
-        this.renderForwardInternal(camera, preparedCalls, sortedLights, pass, drawCallback, flipFaces, viewBindGroups);
+        // XR multiview uses setViewport per view which is incompatible with render bundles
+        const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
+        if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
+            // bundle-accelerated path: group eligible opaque draw calls and replay cached bundles
+            this.renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups);
+        } else {
+            // legacy per-draw-call path
+            this.renderForwardInternal(camera, preparedCalls, sortedLights, pass, drawCallback, flipFaces, viewBindGroups);
+        }
 
         _drawCallList.clear();
 
         // #if _PROFILER
         this._forwardTime += now() - forwardStartTime;
         // #endif
+    }
+
+    /**
+     * Bundle-accelerated rendering path for opaque draw calls.  Groups eligible draw calls by
+     * pipeline state and replays cached GPURenderBundles.  Non-bundleable draw calls (skinned,
+     * morphed) fall through to the standard per-draw path.
+     *
+     * @param {Camera} camera - The camera.
+     * @param {RenderTarget|undefined} renderTarget - The render target.
+     * @param {object} preparedCalls - Prepared draw calls from renderForwardPrepareMaterials.
+     * @param {object} sortedLights - Sorted lights arrays.
+     * @param {number} pass - The shader pass.
+     * @param {boolean} flipFaces - Whether to flip faces.
+     * @param {BindGroup[]} viewBindGroups - View-level bind groups.
+     * @private
+     */
+    renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups) {
+        const device = this.device;
+        const bundleCache = this._bundleCache;
+        const grouper = this._drawCallGrouper;
+
+        // group draw calls by pipeline state
+        const groups = grouper.groupDrawCalls(preparedCalls);
+
+        // determine render target for bundle descriptor
+        const rt = renderTarget || device.backBuffer;
+        /** @type {import('../../platform/graphics/webgpu/webgpu-render-target.js').WebgpuRenderTarget} */
+        const wrt = rt.impl;
+
+        // bundle descriptor must match the current render pass attachments
+        const bundleDesc = wrt.getRenderBundleDescriptor();
+
+        // collect bundles to execute and unbundled indices
+        const bundlesToExecute = [];
+        const unbundledIndices = [];
+
+        for (const [key, group] of groups) {
+            if (group.indices.length === 0) continue;
+
+            let bundle = null;
+            if (!group.needsRebundle) {
+                bundle = bundleCache.get(key);
+            }
+
+            if (!bundle) {
+                // record a new bundle for this group
+                device.startBundleEncoder(bundleDesc);
+
+                for (let g = 0; g < group.indices.length; g++) {
+                    const idx = group.indices[g];
+                    this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+                }
+
+                bundle = device.finishBundleEncoder();
+                bundleCache.set(key, bundle);
+                group.needsRebundle = false;
+            }
+
+            bundlesToExecute.push(bundle);
+        }
+
+        // execute all cached bundles in one batch
+        if (bundlesToExecute.length > 0) {
+            device.executeBundles(bundlesToExecute);
+        }
+
+        // collect indices for non-bundleable draw calls (skinned, morphed, etc.)
+        const { drawCalls } = preparedCalls;
+        for (let i = 0; i < drawCalls.length; i++) {
+            if (!DrawCallGrouper.isBundleable(drawCalls[i])) {
+                unbundledIndices.push(i);
+            }
+        }
+
+        // render non-bundleable draw calls via the legacy per-draw path
+        if (unbundledIndices.length > 0) {
+            for (let u = 0; u < unbundledIndices.length; u++) {
+                const idx = unbundledIndices[u];
+                this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+            }
+        }
+    }
+
+    /**
+     * Render a single draw call at the given index in the prepared calls list.
+     * Extracted from renderForwardInternal to allow reuse by both the legacy and bundle paths.
+     *
+     * @param {GraphicsDevice} device - The graphics device.
+     * @param {object} preparedCalls - Prepared draw calls.
+     * @param {number} i - Index into the prepared calls arrays.
+     * @param {Camera} camera - The camera.
+     * @param {object} sortedLights - Sorted lights.
+     * @param {number} pass - The shader pass.
+     * @param {boolean} flipFaces - Whether to flip faces.
+     * @param {BindGroup[]} viewBindGroups - View-level bind groups.
+     * @private
+     */
+    _renderSingleDrawCall(device, preparedCalls, i, camera, sortedLights, pass, flipFaces, viewBindGroups) {
+        const passFlag = 1 << pass;
+        const flipFactor = flipFaces ? -1 : 1;
+
+        /** @type {MeshInstance} */
+        const drawCall = preparedCalls.drawCalls[i];
+        const newMaterial = preparedCalls.isNewMaterial[i];
+        const lightMaskChanged = preparedCalls.lightMaskChanged[i];
+        const shaderInstance = preparedCalls.shaderInstances[i];
+        const material = drawCall.material;
+        const lightMask = drawCall.mask;
+
+        if (shaderInstance.shader.failed) return;
+
+        if (newMaterial) {
+            const asyncCompile = false;
+            device.setShader(shaderInstance.shader, asyncCompile);
+            material.setParameters(device);
+
+            if (lightMaskChanged) {
+                this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);
+            }
+
+            this.alphaTestId.setValue(material.alphaTest);
+            device.setBlendState(material.blendState);
+            device.setDepthState(material.depthState);
+            device.setAlphaToCoverage(material.alphaToCoverage);
+        }
+
+        DebugGraphics.pushGpuMarker(device, `Node: ${drawCall.node.name}, Material: ${material.name}`);
+
+        this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+
+        const stencilFront = drawCall.stencilFront ?? material.stencilFront;
+        const stencilBack = drawCall.stencilBack ?? material.stencilBack;
+        device.setStencilState(stencilFront, stencilBack);
+
+        drawCall.setParameters(device, passFlag);
+        device.scope.resolve('meshInstanceId').setValue(drawCall.id);
+
+        const mesh = drawCall.mesh;
+        this.setVertexBuffers(device, mesh);
+        this.setMorphing(device, drawCall.morphInstance);
+        this.setSkinning(device, drawCall);
+
+        const instancingData = drawCall.instancingData;
+        if (instancingData) {
+            device.setVertexBuffer(instancingData.vertexBuffer);
+        }
+
+        this.setMeshInstanceMatrices(drawCall, true);
+
+        const indirectData = drawCall.getDrawCommands(camera);
+        this.setupMeshUniformBuffers(shaderInstance);
+
+        const style = drawCall.renderStyle;
+        const indexBuffer = mesh.indexBuffer[style];
+
+        // multiview XR rendering
+        const viewList = camera.xr?.session && camera.xr.views.list.length ? camera.xr.views.list : null;
+
+        if (viewList) {
+            for (let v = 0; v < viewList.length; v++) {
+                const view = viewList[v];
+                device.setViewport(view.viewport.x, view.viewport.y, view.viewport.z, view.viewport.w);
+
+                if (device.supportsUniformBuffers) {
+                    const viewBindGroup = viewBindGroups[v];
+                    device.setBindGroup(BINDGROUP_VIEW, viewBindGroup);
+                } else {
+                    this.setupViewUniforms(view, v);
+                }
+
+                const first = v === 0;
+                const last = v === viewList.length - 1;
+                device.draw(mesh.primitive[style], indexBuffer, instancingData?.count, indirectData, first, last);
+                this._forwardDrawCalls++;
+            }
+        } else {
+            device.draw(mesh.primitive[style], indexBuffer, instancingData?.count, indirectData);
+            this._forwardDrawCalls++;
+        }
+
+        // Unset meshInstance overrides back to material values if next draw call will use the same material
+        const preparedCallsCount = preparedCalls.drawCalls.length;
+        if (i < preparedCallsCount - 1 && !preparedCalls.isNewMaterial[i + 1]) {
+            material.setParameters(device, drawCall.parameters);
+        }
+
+        DebugGraphics.popGpuMarker(device);
     }
 
     /**
