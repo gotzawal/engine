@@ -9,24 +9,10 @@
 환경에 nvm과 Node.js가 설치되어 있어야 한다.
 
 ```bash
-mkdir workspace && cd workspace
-
-# 전체 히스토리가 필요 없으면 --depth 1 (속도 빠름)
-git clone --depth 1 https://github.com/playcanvas/engine.git
-
 cd engine
 npm install
 ```
 
-포크해서 자기 저장소로 관리하려면:
-
-```bash
-# GitHub에서 playcanvas/engine 포크 후
-git clone https://github.com/<내-계정>/engine.git
-cd engine
-git remote add upstream https://github.com/playcanvas/engine.git
-npm install
-```
 
 ---
 
@@ -102,11 +88,10 @@ workspace/
 ### 기본 실행
 
 ```bash
-cd engine/examples
 npm run develop
 ```
 
-`http://localhost:5000` 접속. 좌측 사이드바에서 카테고리별 examples를 선택한다.
+`http://localhost:5555` 접속. 좌측 사이드바에서 카테고리별 examples를 선택한다.
 
 ### 디버그 빌드로 실행 (권장)
 
