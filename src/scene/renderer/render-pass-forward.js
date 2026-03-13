@@ -306,7 +306,7 @@ class RenderPassForward extends RenderPass {
             const ra = renderActions[i];
             if (!ra.camera) continue;
             const layer = ra.layer;
-            if (layer?.clusteredLightsSet) {
+            if (layer?.hasClusteredLights) {
                 const camera = ra.camera.camera;
                 this.renderer.worldClustersAllocator.updateGpuClusters(
                     layer.clusteredLightsSet, camera, this.scene.lighting

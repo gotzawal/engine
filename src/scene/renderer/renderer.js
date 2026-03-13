@@ -25,7 +25,6 @@ import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/unif
 import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
-import { WasmSceneMath } from './wasm-scene-math.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -216,16 +215,6 @@ class Renderer {
         this.gpuFrustumCuller = (this.globalTransformBuffer && graphicsDevice.supportsCompute) ?
             new GpuFrustumCuller(graphicsDevice) : null;
 
-        // WASM SIMD batch matrix computation (optional, WebGPU only)
-        this.wasmSceneMath = null;
-        if (this.globalTransformBuffer) {
-            try {
-                this.wasmSceneMath = new WasmSceneMath();
-            } catch (e) {
-                Debug.warn('WasmSceneMath initialization failed, falling back to JS path:', e);
-                this.wasmSceneMath = null;
-            }
-        }
 
         // timing
         this._skinTime = 0;
@@ -899,9 +888,6 @@ class Renderer {
 
             const slot = dc.ensureGlobalTransformSlot(device);
             if (slot >= 0) {
-                // getWorldTransform() returns cached matrix. When WASM sync is active,
-                // syncHierarchyWasm + computeBatch + writeBack already computed and cached
-                // the world transform, so this is a no-computation cache hit.
                 const worldMat = dc.node.getWorldTransform();
                 gtb.updateSlot(slot, worldMat.data);
 

@@ -3,7 +3,6 @@ import { BUFFERUSAGE_COPY_SRC, BUFFERUSAGE_COPY_DST } from '../../platform/graph
 
 /**
  * @import { GraphicsDevice } from '../../platform/graphics/graphics-device.js'
- * @import { WasmSceneMath } from './wasm-scene-math.js'
  */
 
 const FLOATS_PER_MATRIX = 16;
@@ -37,14 +36,6 @@ class GlobalTransformBuffer {
 
     /** @type {boolean} */
     dirty = false;
-
-    /**
-     * Optional WASM scene math module for batch matrix computation.
-     * When set, its worldMatrices buffer is used directly as the staging buffer (zero-copy).
-     *
-     * @type {WasmSceneMath|null}
-     */
-    wasmSceneMath = null;
 
     /**
      * @param {GraphicsDevice} device - The graphics device.
@@ -102,28 +93,16 @@ class GlobalTransformBuffer {
 
     /**
      * Upload the staging buffer to the GPU. Should be called once per frame after all transforms
-     * have been updated. When WASM is active, uploads the WASM world matrices buffer directly.
+     * have been updated.
      */
     upload() {
         if (this.dirty && this.storageBuffer) {
             const usedFloats = this.nextSlot * FLOATS_PER_MATRIX;
             if (usedFloats > 0) {
-                // When WASM is active, use its worldMatrices buffer directly (zero-copy)
-                const source = (this.wasmSceneMath && this.wasmSceneMath.worldMatrices) ?
-                    this.wasmSceneMath.worldMatrices : this.stagingBuffer;
-                this.storageBuffer.write(0, source, 0, usedFloats);
+                this.storageBuffer.write(0, this.stagingBuffer, 0, usedFloats);
             }
             this.dirty = false;
         }
-    }
-
-    /**
-     * Attach a WasmSceneMath instance for batch matrix computation.
-     *
-     * @param {WasmSceneMath} wasmSceneMath - The WASM scene math instance.
-     */
-    setWasmSceneMath(wasmSceneMath) {
-        this.wasmSceneMath = wasmSceneMath;
     }
 
     /**

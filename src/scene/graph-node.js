@@ -204,14 +204,6 @@ class GraphNode extends EventHandler {
      */
     _frozen = false;
 
-    /**
-     * WASM transform buffer slot index. Assigned during syncHierarchyWasm() for batch
-     * SIMD matrix computation. -1 means not allocated.
-     *
-     * @type {number}
-     * @ignore
-     */
-    _wasmSlot = -1;
 
     /**
      * @type {Mat4}
@@ -1608,62 +1600,6 @@ class GraphNode extends EventHandler {
         const children = this._children;
         for (let i = 0, len = children.length; i < len; i++) {
             children[i].syncHierarchy();
-        }
-    }
-
-    /**
-     * WASM-accelerated version of syncHierarchy. Collects dirty nodes' local transforms
-     * and parent topology into WASM buffers, then computeBatch() performs all mat4 multiplications
-     * using SIMD128 in a single batch call.
-     *
-     * @param {import('../scene/renderer/wasm-scene-math.js').WasmSceneMath} wasmMath - The WASM scene math instance.
-     * @ignore
-     */
-    syncHierarchyWasm(wasmMath) {
-        if (!this._enabled) {
-            return;
-        }
-
-        if (this._frozen) {
-            return;
-        }
-        this._frozen = true;
-
-        // Allocate WASM slot if not yet assigned
-        if (this._wasmSlot === -1) {
-            this._wasmSlot = wasmMath.allocateSlot();
-            this._dirtyWorld = true;  // Force world matrix computation for newly allocated slot
-        }
-
-        if (this._dirtyLocal || this._dirtyWorld) {
-            // Compute local matrix from TRS if dirty
-            if (this._dirtyLocal) {
-                this.localTransform.setTRS(this.localPosition, this.localRotation, this.localScale);
-                this._dirtyLocal = false;
-            }
-
-            if (this._dirtyWorld) {
-                if (this.scaleCompensation) {
-                    // scaleCompensation requires complex JS logic — compute in JS, write result
-                    this._sync();
-                    wasmMath.setWorldMatrix(this._wasmSlot, this.worldTransform.data);
-                } else {
-                    // Feed local matrix and parent topology to WASM for batch computation
-                    wasmMath.setLocalMatrix(this._wasmSlot, this.localTransform.data);
-                    const parentSlot = this._parent ? this._parent._wasmSlot : -1;
-                    wasmMath.setParentIndex(this._wasmSlot, parentSlot >= 0 ? parentSlot : 0xFFFFFFFF);
-                    wasmMath.markDirty(this._wasmSlot);
-                }
-
-                this._dirtyWorld = false;
-                this._dirtyNormal = true;
-                this._worldScaleSign = 0;
-            }
-        }
-
-        const children = this._children;
-        for (let i = 0, len = children.length; i < len; i++) {
-            children[i].syncHierarchyWasm(wasmMath);
         }
     }
 
