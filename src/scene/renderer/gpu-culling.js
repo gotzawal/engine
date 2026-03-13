@@ -59,6 +59,17 @@ class GpuCulling {
     /** @type {Float32Array} */
     frustumPlanesData = new Float32Array(24); // 6 planes × 4 floats
 
+    /**
+     * CPU-side staging for indirect draw parameters. Written as fallback before compute dispatch
+     * so that drawIndexedIndirect always has valid data even if the compute shader fails.
+     *
+     * @type {Uint32Array|null}
+     */
+    indirectStaging = null;
+
+    /** @type {Int32Array|null} */
+    indirectStagingI32 = null;
+
     /** @type {number} */
     capacity = 0;
 
@@ -135,6 +146,11 @@ class GpuCulling {
         this.meshMetaStagingI32 = new Int32Array(this.meshMetaStaging.buffer);
         this.meshMetaBuffer = new StorageBuffer(this.device, metaBytes, BUFFERUSAGE_COPY_DST | BUFFERUSAGE_COPY_SRC);
 
+        // Indirect draw staging (5 u32 per object: indexCount, instanceCount, firstIndex, baseVertex, firstInstance)
+        const indirectBytes = newCap * 5;
+        this.indirectStaging = new Uint32Array(indirectBytes);
+        this.indirectStagingI32 = new Int32Array(this.indirectStaging.buffer);
+
         this.capacity = newCap;
     }
 
@@ -161,8 +177,10 @@ class GpuCulling {
      * @param {MeshInstance[]} drawCalls - All draw calls for this render pass.
      * @param {Camera} camera - The camera for frustum extraction.
      * @param {GlobalTransformBuffer} globalTransformBuffer - The global transform buffer.
+     * @param {boolean} [assignIndirect] - Whether to assign indirect draw slots to mesh instances.
+     * When false, the compute shader still runs but results are not used for rendering.
      */
-    setup(drawCalls, camera, globalTransformBuffer) {
+    setup(drawCalls, camera, globalTransformBuffer, assignIndirect = true) {
         const device = this.device;
         const count = drawCalls.length;
 
@@ -243,7 +261,23 @@ class GpuCulling {
         }
         const baseSlot = device.getIndirectDrawSlot(gi);
 
-        // 5. Extract frustum planes
+        // 5. Write CPU-initialized indirect draw parameters as fallback.
+        // This ensures drawIndexedIndirect always has valid data even if the compute shader
+        // fails to compile or execute. The compute shader will overwrite these values
+        // (setting instanceCount=0 for culled objects). queue.writeBuffer runs before
+        // command buffer execution, so the compute shader's writes take precedence.
+        for (let j = 0; j < gi; j++) {
+            const mo = j * UINTS_PER_META;
+            const io = (baseSlot + j) * 5;
+            this.indirectStaging[io + 0] = this.meshMetaStaging[mo + 0]; // indexCount
+            this.indirectStaging[io + 1] = 1;                            // instanceCount (visible)
+            this.indirectStaging[io + 2] = this.meshMetaStaging[mo + 1]; // firstIndex
+            this.indirectStagingI32[io + 3] = this.meshMetaStagingI32[mo + 2]; // baseVertex (signed)
+            this.indirectStaging[io + 4] = 0;                            // firstInstance
+        }
+        device.indirectDrawBuffer.write(baseSlot * 5 * 4, this.indirectStaging, baseSlot * 5, gi * 5);
+
+        // 6. Extract frustum planes
         const planes = camera.frustum.planes;
         for (let p = 0; p < 6; p++) {
             const plane = planes[p];
@@ -253,7 +287,7 @@ class GpuCulling {
             this.frustumPlanesData[p * 4 + 3] = plane.distance;
         }
 
-        // 6. Set compute parameters
+        // 7. Set compute parameters
         this.compute.setParameter('frustumPlanes[0]', this.frustumPlanesData);
         this.compute.setParameter('objectCount', gi);
         this.compute.setParameter('indirectOffset', baseSlot);
@@ -261,19 +295,19 @@ class GpuCulling {
         this.compute.setParameter('meshMeta', this.meshMetaBuffer);
         this.compute.setParameter('indirectDrawBuffer', device.indirectDrawBuffer);
 
-        // 7. Dispatch compute shader
+        // 8. Dispatch compute shader
         const workgroupCount = Math.ceil(gi / WORKGROUP_SIZE);
         this.compute.setupDispatch(workgroupCount);
         device.computeDispatch([this.compute], 'FrustumCull');
 
-        // 8. Assign indirect draw slots to eligible draw calls
-        // DEBUG: Skip setIndirect to diagnose if indirect draw path causes invisible objects.
-        // Compute shader runs but results are not used — normal drawIndexed path used instead.
-        // for (let j = 0; j < gi; j++) {
-        //     const dcIndex = this.indexMapping[j];
-        //     const dc = drawCalls[dcIndex];
-        //     dc.setIndirect(camera, baseSlot + j);
-        // }
+        // 9. Assign indirect draw slots to eligible draw calls
+        if (assignIndirect) {
+            for (let j = 0; j < gi; j++) {
+                const dcIndex = this.indexMapping[j];
+                const dc = drawCalls[dcIndex];
+                dc.setIndirect(camera, baseSlot + j);
+            }
+        }
     }
 
     destroy() {

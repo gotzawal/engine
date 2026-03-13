@@ -209,6 +209,26 @@ class Renderer {
         }
         this.gpuCulling = this.globalTransformBuffer ? new GpuCulling(graphicsDevice) : null;
 
+        /**
+         * When true, GPU frustum culling is enabled (WebGPU only). The compute shader tests each
+         * object's bounding sphere against the camera frustum and sets instanceCount=0 for culled
+         * objects via indirect draw.
+         *
+         * @type {boolean}
+         * @ignore
+         */
+        this.gpuCullingEnabled = !!this.gpuCulling;
+
+        /**
+         * When true, indirect draw commands are used for rendering eligible objects (WebGPU only).
+         * This allows the GPU to control draw parameters. When false, the standard drawIndexed
+         * path is used regardless of GPU culling.
+         *
+         * @type {boolean}
+         * @ignore
+         */
+        this.indirectDrawEnabled = !!this.gpuCulling;
+
         // timing
         this._skinTime = 0;
         this._morphTime = 0;

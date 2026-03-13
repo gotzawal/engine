@@ -22,8 +22,15 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let radius = sphere.w;
 
     // Frustum culling: test bounding sphere against 6 planes
-    // DEBUG: temporarily force all visible to diagnose indirect draw issues
     var visible = true;
+    for (var p = 0u; p < 6u; p = p + 1u) {
+        let plane = uniforms.frustumPlanes[p];
+        let dist = dot(plane.xyz, center) + plane.w;
+        if (dist < -radius) {
+            visible = false;
+            break;
+        }
+    }
 
     let meshData = meshMeta[idx];
     let slot = uniforms.indirectOffset + idx;

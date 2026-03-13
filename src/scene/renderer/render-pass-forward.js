@@ -236,7 +236,7 @@ class RenderPassForward extends RenderPass {
 
         // [Phase 3] GPU frustum culling compute dispatch — must run before the render pass
         // starts, since WebGPU does not allow compute passes inside render passes.
-        if (renderer.gpuCulling) {
+        if (renderer.gpuCulling && renderer.gpuCullingEnabled) {
             this._dispatchGpuCulling();
         }
     }
@@ -262,7 +262,7 @@ class RenderPassForward extends RenderPass {
             const visible = transparent ? culledInstances.transparent : culledInstances.opaque;
 
             if (visible && visible.length > 0) {
-                gpuCulling.setup(visible, camera.camera, globalTransformBuffer);
+                gpuCulling.setup(visible, camera.camera, globalTransformBuffer, renderer.indirectDrawEnabled);
             }
         }
 
