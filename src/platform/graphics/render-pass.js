@@ -357,6 +357,17 @@ class RenderPass {
         }
     }
 
+    /**
+     * Whether this pass needs to dispatch compute work in before(), which requires
+     * no active render pass. Prevents frame-graph from merging this pass with a
+     * preceding pass (which would leave an active render pass during before()).
+     *
+     * @type {boolean}
+     */
+    get requiresComputeBeforeStart() {
+        return false;
+    }
+
     before() {
     }
 

@@ -990,6 +990,8 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
 
     startComputePass(name) {
 
+        Debug.assert(!this.insideRenderPass, 'ComputePass cannot be started while inside another pass.');
+
         // upload textures that need it, to avoid them being uploaded during the pass
         this._uploadDirtyTextures();
 
@@ -1008,7 +1010,6 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         this.passEncoder = commandEncoder.beginComputePass(computePassDesc);
         DebugHelper.setLabel(this.passEncoder, `ComputePass-${name}`);
 
-        Debug.assert(!this.insideRenderPass, 'ComputePass cannot be started while inside another pass.');
         this.insideRenderPass = true;
     }
 

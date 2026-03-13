@@ -223,6 +223,11 @@ class RenderPassForward extends RenderPass {
         this.updateClears();
     }
 
+    get requiresComputeBeforeStart() {
+        return !!(this.renderer.gpuFrustumCuller ||
+                  this.renderer.worldClustersAllocator?._gpuCluster);
+    }
+
     before() {
         const { renderActions, renderer } = this;
 

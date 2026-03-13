@@ -122,6 +122,12 @@ class FrameGraph {
                 continue;
             }
 
+            // do not merge if the second pass needs compute dispatch in before()
+            // (compute pass cannot run while a render pass is active)
+            if (secondPass.requiresComputeBeforeStart) {
+                continue;
+            }
+
             // merge the passes
             firstPass._skipEnd = true;
             secondPass._skipStart = true;
