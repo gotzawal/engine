@@ -460,12 +460,8 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // Always upload CPU matrices (matrix_model) — the vertex shader uses these
-            // regardless of GPU culling. GPU culling only controls instanceCount (0/1)
-            // via indirect draw to perform frustum culling on the GPU.
             this.setMeshInstanceMatrices(drawCall, true);
 
-            // Get indirect draw commands (set by GPU culling if eligible, null otherwise)
             const indirectData = drawCall.getDrawCommands(camera);
 
             this.setupMeshUniformBuffers(shaderInstance);
@@ -517,13 +513,6 @@ class ForwardRenderer extends Renderer {
         // #if _PROFILER
         const forwardStartTime = now();
         // #endif
-
-        // GPU culling is dispatched in RenderPassForward.before() (compute pass must run
-        // outside the render pass).  Here we only bind the storage buffer scope so that
-        // shaders can read globalTransforms during this layer's draw calls.
-        if (this.globalTransformsId && this.globalTransformBuffer) {
-            this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
-        }
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);

@@ -314,7 +314,6 @@ class LitShader {
         }
 
         if (options.useInstancing) vDefines.set('INSTANCING', true);
-        if (options.useGlobalTransformBuffer) vDefines.set('GLOBAL_TRANSFORM_BUFFER', true);
         if (options.screenSpace) vDefines.set('SCREENSPACE', true);
         if (options.pixelSnap) vDefines.set('PIXELSNAP', true);
 

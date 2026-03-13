@@ -7,7 +7,6 @@ import { useParams } from 'react-router-dom';
 import { CodeEditorMobile } from './code-editor/CodeEditorMobile.mjs';
 import { DeviceSelector } from './DeviceSelector.mjs';
 import { ErrorBoundary } from './ErrorBoundary.mjs';
-import { GpuPipelineSelector } from './GpuPipelineSelector.mjs';
 import { MIN_DESKTOP_WIDTH } from '../constants.mjs';
 import { iframe } from '../iframe.mjs';
 import { jsx, fragment } from '../jsx.mjs';
@@ -245,14 +244,6 @@ class Example extends TypedComponent {
         });
     }
 
-    renderGpuPipelineSelector() {
-        const { showDeviceSelector } = this.state;
-        if (!showDeviceSelector) {
-            return null;
-        }
-        return jsx(GpuPipelineSelector);
-    }
-
     renderControls() {
         const { exampleLoaded, controls, observer } = this.state;
         const ready = exampleLoaded && controls && observer && iframe.ready;
@@ -332,7 +323,6 @@ class Example extends TypedComponent {
                     collapsed
                 },
                 this.renderDeviceSelector(),
-                this.renderGpuPipelineSelector(),
                 jsx(
                     Container,
                     {
@@ -396,7 +386,6 @@ class Example extends TypedComponent {
                     collapsed
                 },
                 this.renderDeviceSelector(),
-                this.renderGpuPipelineSelector(),
                 this.renderControls()
             ),
             this.renderDescription()

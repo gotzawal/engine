@@ -12,7 +12,7 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADOW_CASCADE_ALL
+    SHADOW_CASCADE_ALL
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
 import { getDefaultMaterial } from './materials/default-material.js';
@@ -355,14 +355,6 @@ class MeshInstance {
      * @ignore
      */
     meshMetaData = null;
-
-    /**
-     * Slot index in the global transform buffer, or -1 if not allocated.
-     *
-     * @type {number}
-     * @ignore
-     */
-    _globalTransformSlot = -1;
 
     /**
      * @type {Record<string, {scopeId: ScopeId|null, data: any, passFlags: number}>}
@@ -1013,36 +1005,6 @@ class MeshInstance {
      */
     get instancingCount() {
         return this.instancingData ? this.instancingData.count : 0;
-    }
-
-    /**
-     * Ensure this mesh instance has a slot in the global transform buffer. Returns the slot index,
-     * or -1 if the global transform buffer is not available.
-     *
-     * @param {import('../platform/graphics/graphics-device.js').GraphicsDevice} device - The graphics device.
-     * @returns {number} The slot index, or -1.
-     * @ignore
-     */
-    ensureGlobalTransformSlot(device) {
-        if (this._globalTransformSlot === -1 && device.globalTransformBuffer) {
-            this._globalTransformSlot = device.globalTransformBuffer.allocateSlot();
-            this._shaderDefs |= SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
-        }
-        return this._globalTransformSlot;
-    }
-
-    /**
-     * Free the global transform buffer slot if allocated.
-     *
-     * @param {import('../platform/graphics/graphics-device.js').GraphicsDevice} device - The graphics device.
-     * @ignore
-     */
-    freeGlobalTransformSlot(device) {
-        if (this._globalTransformSlot >= 0 && device?.globalTransformBuffer) {
-            device.globalTransformBuffer.freeSlot(this._globalTransformSlot);
-            this._globalTransformSlot = -1;
-            this._shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
-        }
     }
 
     destroy() {

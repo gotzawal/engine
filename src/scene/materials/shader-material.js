@@ -1,6 +1,6 @@
 import { SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { ShaderProcessorOptions } from '../../platform/graphics/shader-processor-options.js';
-import { SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_SKIN, SHADERDEF_GLOBAL_TRANSFORM_BUFFER } from '../constants.js';
+import { SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_SKIN } from '../constants.js';
 import { getProgramLibrary } from '../shader-lib/get-program-library.js';
 import { shaderGeneratorShader } from '../shader-lib/programs/shader-generator-shader.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
@@ -106,7 +106,6 @@ class ShaderMaterial extends Material {
             defines: ShaderUtils.getCoreDefines(this, params),
             skin: (objDefs & SHADERDEF_SKIN) !== 0,
             useInstancing: (objDefs & SHADERDEF_INSTANCING) !== 0,
-            useGlobalTransformBuffer: (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0,
             useMorphPosition: (objDefs & SHADERDEF_MORPH_POSITION) !== 0,
             useMorphNormal: (objDefs & SHADERDEF_MORPH_NORMAL) !== 0,
             useMorphTextureBasedInt: (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0,

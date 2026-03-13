@@ -23,8 +23,6 @@ import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
 import { BindGroupFormat, BindUniformBufferFormat } from '../../platform/graphics/bind-group-format.js';
-import { GlobalTransformBuffer } from './global-transform-buffer.js';
-import { GpuCulling } from './gpu-culling.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -202,33 +200,6 @@ class Renderer {
         this.viewUniformFormat = null;
         this.viewBindGroupFormat = null;
 
-        // global transform buffer for batched GPU uploads (WebGPU only)
-        this.globalTransformBuffer = graphicsDevice.isWebGPU ? new GlobalTransformBuffer(graphicsDevice) : null;
-        if (this.globalTransformBuffer) {
-            graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
-        }
-        this.gpuCulling = this.globalTransformBuffer ? new GpuCulling(graphicsDevice) : null;
-
-        /**
-         * When true, GPU frustum culling is enabled (WebGPU only). The compute shader tests each
-         * object's bounding sphere against the camera frustum and sets instanceCount=0 for culled
-         * objects via indirect draw.
-         *
-         * @type {boolean}
-         * @ignore
-         */
-        this.gpuCullingEnabled = !!this.gpuCulling;
-
-        /**
-         * When true, indirect draw commands are used for rendering eligible objects (WebGPU only).
-         * This allows the GPU to control draw parameters. When false, the standard drawIndexed
-         * path is used regardless of GPU culling.
-         *
-         * @type {boolean}
-         * @ignore
-         */
-        this.indirectDrawEnabled = !!this.gpuCulling;
-
         // timing
         this._skinTime = 0;
         this._morphTime = 0;
@@ -252,7 +223,6 @@ class Renderer {
 
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
-        this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
@@ -773,11 +743,6 @@ class Renderer {
                 // new BindTextureFormat('areaLightsLutTex1', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT),
                 // new BindTextureFormat('areaLightsLutTex2', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT)
             ];
-
-            // NOTE: the global transform storage buffer (globalTransforms) is NOT in the view
-            // bind group. Instead, shaders with GLOBAL_TRANSFORM_BUFFER define declare
-            // `var<storage, read> globalTransforms` which the shader processor auto-detects
-            // and adds to the mesh bind group. The scope value is set before rendering.
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them
