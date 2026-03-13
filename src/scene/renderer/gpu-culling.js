@@ -267,11 +267,13 @@ class GpuCulling {
         device.computeDispatch([this.compute], 'FrustumCull');
 
         // 8. Assign indirect draw slots to eligible draw calls
-        for (let j = 0; j < gi; j++) {
-            const dcIndex = this.indexMapping[j];
-            const dc = drawCalls[dcIndex];
-            dc.setIndirect(camera, baseSlot + j);
-        }
+        // DEBUG: Skip setIndirect to diagnose if indirect draw path causes invisible objects.
+        // Compute shader runs but results are not used — normal drawIndexed path used instead.
+        // for (let j = 0; j < gi; j++) {
+        //     const dcIndex = this.indexMapping[j];
+        //     const dc = drawCalls[dcIndex];
+        //     dc.setIndirect(camera, baseSlot + j);
+        // }
     }
 
     destroy() {
