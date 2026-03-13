@@ -1,5 +1,6 @@
 // @config ENGINE performance
 import { deviceType, rootPath } from 'examples/utils';
+import { data } from 'examples/observer';
 import * as pc from 'playcanvas';
 
 const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('application-canvas'));
@@ -50,6 +51,23 @@ app.on('destroy', () => {
 const assetListLoader = new pc.AssetListLoader(Object.values(assets), app.assets);
 assetListLoader.load(() => {
     app.start();
+
+    // Initialize cluster mode selector
+    data.set('settings', {
+        clusterMode: app.scene._gpuClusterLightingEnabled ? 'gpu' : 'cpu'
+    });
+
+    data.on('*:set', (/** @type {string} */ path, /** @type {string} */ value) => {
+        if (path === 'settings.clusterMode') {
+            app.scene._gpuClusterLightingEnabled = (value === 'gpu');
+            // Trigger shader recompilation by clearing all material variants
+            app.scene.layers.layerList.forEach((layer) => {
+                layer.meshInstances.forEach((mi) => {
+                    mi.material?.clearVariants?.();
+                });
+            });
+        }
+    });
 
     /** @type {Array<pc.Entity>} */
     const pointLightList = [];

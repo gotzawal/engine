@@ -654,7 +654,7 @@ class ForwardRenderer extends Renderer {
 
         // GPU cluster lighting: activate storage buffer uniforms for forward shader
         // (compute dispatch happens in RenderPassForward.before(), outside the render pass)
-        if (this.worldClustersAllocator._gpuCluster) {
+        if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
             this.worldClustersAllocator.activateGpuClusters();
         }
 

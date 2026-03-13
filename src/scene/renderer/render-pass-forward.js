@@ -243,7 +243,7 @@ class RenderPassForward extends RenderPass {
         // GPU cluster lighting compute dispatch — must happen before the render pass starts,
         // because a compute pass cannot run inside an active render pass.
         const gpuCluster = renderer.worldClustersAllocator?._gpuCluster;
-        if (gpuCluster) {
+        if (gpuCluster && this.scene._gpuClusterLightingEnabled) {
             this._dispatchGpuClusterLighting(renderActions);
         }
 
