@@ -224,7 +224,7 @@ class RenderPassForward extends RenderPass {
     }
 
     before() {
-        const { renderActions } = this;
+        const { renderActions, renderer } = this;
 
         // onPreRender events
         for (let i = 0; i < renderActions.length; i++) {
@@ -233,6 +233,41 @@ class RenderPassForward extends RenderPass {
                 this.scene.fire(EVENT_PRERENDER, ra.camera);
             }
         }
+
+        // [Phase 3] GPU frustum culling compute dispatch — must run before the render pass
+        // starts, since WebGPU does not allow compute passes inside render passes.
+        if (renderer.gpuCulling) {
+            this._dispatchGpuCulling();
+        }
+    }
+
+    /**
+     * Dispatch GPU frustum culling compute shader for all enabled render actions.
+     * This must be called before the render pass starts (in before(), not execute()).
+     *
+     * @private
+     */
+    _dispatchGpuCulling() {
+        const { layerComposition, renderActions, renderer } = this;
+        const gpuCulling = renderer.gpuCulling;
+        const globalTransformBuffer = renderer.globalTransformBuffer;
+
+        for (let i = 0; i < renderActions.length; i++) {
+            const ra = renderActions[i];
+            const { layer, transparent, camera } = ra;
+
+            if (!camera || !layerComposition.isEnabled(layer, transparent)) continue;
+
+            const culledInstances = layer.getCulledInstances(camera.camera);
+            const visible = transparent ? culledInstances.transparent : culledInstances.opaque;
+
+            if (visible && visible.length > 0) {
+                gpuCulling.setup(visible, camera.camera, globalTransformBuffer);
+            }
+        }
+
+        // Single upload after all setup() calls to avoid redundant GPU writes
+        globalTransformBuffer.upload();
     }
 
     execute() {

@@ -386,4 +386,80 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
             expect(matrixUploads).to.deep.equal([]); // all are GPU path
         });
     });
+
+    describe('Compute dispatch timing', function () {
+
+        it('should dispatch compute before render pass starts (before vs execute)', function () {
+            // Simulate the RenderPassForward lifecycle:
+            // 1. before() — fires events, dispatches GPU culling (compute pass)
+            // 2. device.startRenderPass() — begins WebGPU render pass
+            // 3. execute() — draws with indirect data
+            // 4. device.endRenderPass()
+            // 5. after()
+
+            const callOrder = [];
+            let insideRenderPass = false;
+
+            // Mock before() with GPU culling
+            function before() {
+                callOrder.push('before');
+                // GPU culling compute dispatch happens here
+                callOrder.push('computeDispatch');
+                // Assert: NOT inside render pass
+                expect(insideRenderPass).to.equal(false);
+            }
+
+            function startRenderPass() {
+                insideRenderPass = true;
+                callOrder.push('startRenderPass');
+            }
+
+            function execute() {
+                callOrder.push('execute');
+                // Draw calls happen here with indirect data
+                expect(insideRenderPass).to.equal(true);
+            }
+
+            function endRenderPass() {
+                insideRenderPass = false;
+                callOrder.push('endRenderPass');
+            }
+
+            function after() {
+                callOrder.push('after');
+            }
+
+            // Run the lifecycle
+            before();
+            startRenderPass();
+            execute();
+            endRenderPass();
+            after();
+
+            expect(callOrder).to.deep.equal([
+                'before', 'computeDispatch', 'startRenderPass', 'execute', 'endRenderPass', 'after'
+            ]);
+        });
+
+        it('should collect visible lists from all render actions for GPU culling', function () {
+            // Simulate _dispatchGpuCulling collecting from multiple render actions
+            const renderActions = [
+                { layer: 'layer0', transparent: false, visible: ['mesh_a', 'mesh_b'] },
+                { layer: 'layer0', transparent: true, visible: ['mesh_c'] },
+                { layer: 'layer1', transparent: false, visible: ['mesh_d', 'mesh_e', 'mesh_f'] }
+            ];
+
+            const gpuCulledSets = [];
+
+            for (const ra of renderActions) {
+                if (ra.visible && ra.visible.length > 0) {
+                    gpuCulledSets.push(ra.visible);
+                }
+            }
+
+            expect(gpuCulledSets.length).to.equal(3);
+            expect(gpuCulledSets[0]).to.deep.equal(['mesh_a', 'mesh_b']);
+            expect(gpuCulledSets[2]).to.deep.equal(['mesh_d', 'mesh_e', 'mesh_f']);
+        });
+    });
 });

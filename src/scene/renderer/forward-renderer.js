@@ -516,13 +516,11 @@ class ForwardRenderer extends Renderer {
         const forwardStartTime = now();
         // #endif
 
-        // GPU frustum culling + global transform buffer + indirect draw (WebGPU only)
-        if (this.gpuCulling && allDrawCalls.length > 0) {
-            this.gpuCulling.setup(allDrawCalls, camera, this.globalTransformBuffer);
-            this.globalTransformBuffer.upload();
-            if (this.globalTransformsId) {
-                this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
-            }
+        // GPU culling is dispatched in RenderPassForward.before() (compute pass must run
+        // outside the render pass).  Here we only bind the storage buffer scope so that
+        // shaders can read globalTransforms during this layer's draw calls.
+        if (this.globalTransformsId && this.globalTransformBuffer) {
+            this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
         }
 
         // run first pass over draw calls and handle material / shader updates
