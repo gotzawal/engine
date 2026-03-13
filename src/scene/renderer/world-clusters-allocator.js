@@ -1,4 +1,4 @@
-import { DebugHelper } from '../../core/debug.js';
+import { Debug, DebugHelper } from '../../core/debug.js';
 import { WorldClusters } from '../lighting/world-clusters.js';
 import { GpuClusterLighting } from '../lighting/gpu-cluster-lighting.js';
 
@@ -65,7 +65,12 @@ class WorldClustersAllocator {
 
         // Create GPU cluster lighting if the device supports compute
         if (this.gpuClusteringSupported) {
-            this._gpuCluster = new GpuClusterLighting(graphicsDevice);
+            try {
+                this._gpuCluster = new GpuClusterLighting(graphicsDevice);
+            } catch (e) {
+                Debug.warn('GpuClusterLighting initialization failed, falling back to CPU clusters:', e);
+                this._gpuCluster = null;
+            }
         }
     }
 

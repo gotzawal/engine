@@ -216,7 +216,12 @@ class Renderer {
         // WASM SIMD batch matrix computation (optional, WebGPU only)
         this.wasmSceneMath = null;
         if (this.globalTransformBuffer) {
-            this.wasmSceneMath = new WasmSceneMath();
+            try {
+                this.wasmSceneMath = new WasmSceneMath();
+            } catch (e) {
+                Debug.warn('WasmSceneMath initialization failed, falling back to JS path:', e);
+                this.wasmSceneMath = null;
+            }
         }
 
         // timing

@@ -12,7 +12,7 @@ class WasmSceneMath {
     /** @type {WebAssembly.Instance|null} */
     _instance = null;
 
-    /** @type {WebAssembly.Memory|null} */
+    /** @type {ArrayBuffer|null} */
     _memory = null;
 
     /** @type {number} */
@@ -104,11 +104,10 @@ class WasmSceneMath {
         const dirtySize = capacity * BYTES_PER_U32;
         const totalBytes = localSize + parentSize + worldSize + dirtySize;
 
-        // Allocate WebAssembly.Memory (page-aligned, 64KB pages)
-        const pages = Math.ceil(totalBytes / 65536);
-        this._memory = new WebAssembly.Memory({ initial: pages, maximum: pages * 4 });
+        // Use plain ArrayBuffer (CSP-safe, no WebAssembly.Memory needed for JS fallback path)
+        this._memory = new ArrayBuffer(totalBytes);
 
-        const buffer = this._memory.buffer;
+        const buffer = this._memory;
 
         this._localOffset = 0;
         this._parentOffset = localSize;

@@ -1632,6 +1632,7 @@ class GraphNode extends EventHandler {
         // Allocate WASM slot if not yet assigned
         if (this._wasmSlot === -1) {
             this._wasmSlot = wasmMath.allocateSlot();
+            this._dirtyWorld = true;  // Force world matrix computation for newly allocated slot
         }
 
         if (this._dirtyLocal || this._dirtyWorld) {
