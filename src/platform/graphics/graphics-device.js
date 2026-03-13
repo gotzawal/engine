@@ -137,7 +137,7 @@ class GraphicsDevice extends EventHandler {
      *
      * @type {number}
      */
-    maxIndirectDrawCount = 1024;
+    maxIndirectDrawCount = 8192;
 
     /**
      * The maximum number of indirect compute dispatches that can be used within a single frame.

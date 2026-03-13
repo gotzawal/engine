@@ -460,13 +460,13 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // Skip CPU matrix upload only when the draw call has a valid indirect draw
-            // entry (meaning GPU culling set up firstInstance = transformSlot). If indirect
-            // data is missing (e.g. compute shader failed), fall back to CPU matrices.
+            // Always upload CPU matrices (matrix_model) — the vertex shader uses these
+            // regardless of GPU culling. GPU culling only controls instanceCount (0/1)
+            // via indirect draw to perform frustum culling on the GPU.
+            this.setMeshInstanceMatrices(drawCall, true);
+
+            // Get indirect draw commands (set by GPU culling if eligible, null otherwise)
             const indirectData = drawCall.getDrawCommands(camera);
-            if (drawCall._globalTransformSlot < 0 || !indirectData) {
-                this.setMeshInstanceMatrices(drawCall, true);
-            }
 
             this.setupMeshUniformBuffers(shaderInstance);
 

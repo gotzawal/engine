@@ -1,14 +1,18 @@
 import { expect } from 'chai';
 
-import { SHADERDEF_SKIN, SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GLOBAL_TRANSFORM_BUFFER } from '../../../src/scene/constants.js';
+import { SHADERDEF_SKIN, SHADERDEF_BATCH, SHADERDEF_INSTANCING } from '../../../src/scene/constants.js';
 
 /**
- * Phase 3 integration tests: GPU Buffer Layout Pipeline activation.
- * Tests the data flow changes made in Phase 3 without requiring a GPU context.
+ * Phase 3 integration tests: GPU Culling Pipeline activation.
+ *
+ * Architecture: GPU culling sets instanceCount=0/1 via indirect draw to perform
+ * frustum culling on the GPU. The vertex shader still uses standard matrix_model
+ * uniform — SHADERDEF_GLOBAL_TRANSFORM_BUFFER is NOT set on mesh instances.
+ * CPU matrix upload always happens for all draw calls.
  */
-describe('Phase 3: GPU Buffer Layout Pipeline', function () {
+describe('Phase 3: GPU Culling Pipeline', function () {
 
-    describe('Step 1: _prepareGlobalTransformSlots', function () {
+    describe('GpuCulling.setup slot allocation', function () {
 
         function isEligible(dc) {
             if (dc._skinInstance || dc.instancingData || dc.gsplatInstance) return false;
@@ -18,58 +22,56 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
             return true;
         }
 
-        function prepareGlobalTransformSlots(drawCalls, globalTransformBuffer) {
-            let slotCounter = 0;
+        // Simulates how GpuCulling.setup() allocates transform slots inline
+        function setupSlots(drawCalls, globalTransformBuffer) {
+            let slotCounter = globalTransformBuffer._nextSlot || 0;
+            let gi = 0;
             for (let i = 0; i < drawCalls.length; i++) {
                 const dc = drawCalls[i];
-                if (isEligible(dc)) {
-                    if (dc._globalTransformSlot === -1 && globalTransformBuffer) {
-                        dc._globalTransformSlot = slotCounter++;
-                        dc._shaderDefs |= SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
-                    }
+                if (!isEligible(dc)) continue;
+
+                // Allocate slot if not yet assigned (same as gpu-culling.js setup())
+                let transformSlot = dc._globalTransformSlot;
+                if (transformSlot < 0 && globalTransformBuffer) {
+                    transformSlot = slotCounter++;
+                    dc._globalTransformSlot = transformSlot;
                 }
+                gi++;
             }
-            return slotCounter;
+            globalTransformBuffer._nextSlot = slotCounter;
+            return gi;
         }
 
-        it('should assign transform slots to eligible draw calls', function () {
+        it('should assign transform slots to eligible draw calls without setting shader defs', function () {
             const drawCalls = [
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 },
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 },
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 }
             ];
 
-            const allocated = prepareGlobalTransformSlots(drawCalls, {});
+            const count = setupSlots(drawCalls, { _nextSlot: 0 });
 
-            expect(allocated).to.equal(3);
+            expect(count).to.equal(3);
             expect(drawCalls[0]._globalTransformSlot).to.equal(0);
             expect(drawCalls[1]._globalTransformSlot).to.equal(1);
             expect(drawCalls[2]._globalTransformSlot).to.equal(2);
-        });
 
-        it('should set SHADERDEF_GLOBAL_TRANSFORM_BUFFER on eligible draw calls', function () {
-            const drawCalls = [
-                { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 }
-            ];
-
-            prepareGlobalTransformSlots(drawCalls, {});
-
-            expect(drawCalls[0]._shaderDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER).to.not.equal(0);
+            // SHADERDEF_GLOBAL_TRANSFORM_BUFFER must NOT be set
+            for (const dc of drawCalls) {
+                expect(dc._shaderDefs).to.equal(0);
+            }
         });
 
         it('should skip non-eligible draw calls', function () {
             const drawCalls = [
-                // eligible
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 },
-                // skinned - not eligible
                 { _skinInstance: {}, instancingData: null, gsplatInstance: null, _shaderDefs: SHADERDEF_SKIN, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 },
-                // eligible
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: -1 }
             ];
 
-            const allocated = prepareGlobalTransformSlots(drawCalls, {});
+            const count = setupSlots(drawCalls, { _nextSlot: 0 });
 
-            expect(allocated).to.equal(2);
+            expect(count).to.equal(2);
             expect(drawCalls[0]._globalTransformSlot).to.equal(0);
             expect(drawCalls[1]._globalTransformSlot).to.equal(-1); // unchanged
             expect(drawCalls[2]._globalTransformSlot).to.equal(1);
@@ -80,37 +82,15 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, _globalTransformSlot: 42 }
             ];
 
-            const allocated = prepareGlobalTransformSlots(drawCalls, {});
+            const gtb = { _nextSlot: 0 };
+            setupSlots(drawCalls, gtb);
 
-            expect(allocated).to.equal(0); // no new allocations
             expect(drawCalls[0]._globalTransformSlot).to.equal(42); // preserved
+            expect(gtb._nextSlot).to.equal(0); // no new allocations
         });
     });
 
-    describe('Step 2: GpuCulling.setup skips unassigned slots', function () {
-
-        it('should skip draw calls without transform slot', function () {
-            // Simulate the setup loop logic
-            const drawCalls = [
-                { _globalTransformSlot: 0, eligible: true },
-                { _globalTransformSlot: -1, eligible: true }, // no slot assigned
-                { _globalTransformSlot: 2, eligible: true }
-            ];
-
-            const processed = [];
-            for (let i = 0; i < drawCalls.length; i++) {
-                const dc = drawCalls[i];
-                if (!dc.eligible) continue;
-                const transformSlot = dc._globalTransformSlot;
-                if (transformSlot < 0) continue;
-                processed.push(i);
-            }
-
-            expect(processed).to.deep.equal([0, 2]);
-        });
-    });
-
-    describe('Step 3: setIndirect camera key fix', function () {
+    describe('setIndirect camera key fix', function () {
 
         it('should use camera directly as key (not camera.camera)', function () {
             const cameraObject = { id: 'cam1', frustum: {} };
@@ -128,10 +108,8 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
             const camera = { id: 'cam1' };
             const drawCommands = new Map();
 
-            // setIndirect stores with key = camera
             drawCommands.set(camera, { slotIndex: 5 });
 
-            // getDrawCommands looks up with same camera
             const result = drawCommands.get(camera) ?? drawCommands.get(null);
             expect(result).to.not.be.undefined;
             expect(result.slotIndex).to.equal(5);
@@ -142,16 +120,14 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
             const otherCamera = { id: 'cam2' };
             const drawCommands = new Map();
 
-            // Set shared entry with null key
             drawCommands.set(null, { slotIndex: 10 });
 
-            // Look up with different camera
             const result = drawCommands.get(otherCamera) ?? drawCommands.get(null);
             expect(result.slotIndex).to.equal(10);
         });
     });
 
-    describe('Step 4: Renderer initialization', function () {
+    describe('Renderer initialization', function () {
 
         it('should create GlobalTransformBuffer for WebGPU devices', function () {
             const isWebGPU = true;
@@ -166,46 +142,54 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
         });
 
         it('should create GpuCulling only when globalTransformBuffer exists', function () {
-            // WebGPU case
             const gtb1 = { type: 'GlobalTransformBuffer' };
             const gc1 = gtb1 ? { type: 'GpuCulling' } : null;
             expect(gc1).to.not.be.null;
 
-            // Non-WebGPU case
             const gtb2 = null;
             const gc2 = gtb2 ? { type: 'GpuCulling' } : null;
             expect(gc2).to.be.null;
         });
     });
 
-    describe('Step 6: Transform skip guard', function () {
+    describe('Matrix upload: always upload for all draw calls', function () {
 
-        it('should skip matrix upload for objects with global transform slot', function () {
+        it('should always upload matrices regardless of GPU culling status', function () {
             const drawCalls = [
                 { _globalTransformSlot: 5, name: 'gpu-eligible' },
                 { _globalTransformSlot: -1, name: 'cpu-path' },
                 { _globalTransformSlot: 0, name: 'gpu-eligible-slot0' }
             ];
 
+            // New behavior: always upload matrices for ALL draw calls
             const matrixUploads = [];
             for (const dc of drawCalls) {
-                if (dc._globalTransformSlot < 0) {
-                    matrixUploads.push(dc.name);
-                }
+                matrixUploads.push(dc.name); // always upload
             }
 
-            expect(matrixUploads).to.deep.equal(['cpu-path']);
+            expect(matrixUploads).to.deep.equal(['gpu-eligible', 'cpu-path', 'gpu-eligible-slot0']);
         });
 
-        it('should handle slot 0 correctly (not falsy)', function () {
-            // Important: slot 0 is valid, should NOT upload matrices
-            const dc = { _globalTransformSlot: 0 };
-            const shouldUpload = dc._globalTransformSlot < 0;
-            expect(shouldUpload).to.equal(false);
+        it('should use indirect draw for GPU-culled objects (instanceCount=0/1)', function () {
+            // GPU culling sets instanceCount via indirect draw buffer
+            // The vertex shader still uses matrix_model, NOT globalTransforms
+            const drawCalls = [
+                { _globalTransformSlot: 0, indirectSlot: 0, name: 'visible' },
+                { _globalTransformSlot: 1, indirectSlot: 1, name: 'culled' },
+                { _globalTransformSlot: -1, indirectSlot: null, name: 'cpu-only' }
+            ];
+
+            // Simulate: all get matrix_model uploaded
+            const matrixUploaded = drawCalls.map(dc => dc.name);
+            expect(matrixUploaded.length).to.equal(3);
+
+            // Only GPU-eligible ones get indirect draw
+            const indirectDraw = drawCalls.filter(dc => dc.indirectSlot !== null);
+            expect(indirectDraw.length).to.equal(2);
         });
     });
 
-    describe('Step 8: Upload separation', function () {
+    describe('Upload separation', function () {
 
         it('should track dirty state and only upload once', function () {
             let dirty = false;
@@ -222,18 +206,37 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
                 }
             }
 
-            // Simulate multiple setup() calls writing transforms
             updateSlot(); // layer 0 opaque
             updateSlot(); // layer 0 transparent
             updateSlot(); // layer 1 opaque
 
-            // Single upload call after all setup() calls
             upload();
             expect(uploadCount).to.equal(1);
 
-            // Second upload is no-op
             upload();
             expect(uploadCount).to.equal(1);
+        });
+    });
+
+    describe('Indirect draw slot exhaustion', function () {
+
+        it('should skip GPU culling when slots are exhausted', function () {
+            const maxSlots = 1024;
+            let nextIndex = 900; // already used 900
+
+            const gi = 50; // need 50 more
+
+            const remaining = maxSlots - nextIndex;
+            const canAllocate = gi <= remaining;
+
+            expect(canAllocate).to.equal(true); // 50 <= 124
+
+            // Now exhaust
+            nextIndex = 1020;
+            const remaining2 = maxSlots - nextIndex;
+            const canAllocate2 = gi <= remaining2;
+
+            expect(canAllocate2).to.equal(false); // 50 > 4, skip GPU culling
         });
     });
 
@@ -249,19 +252,12 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
 
         it('should correctly partition draw calls into GPU and CPU paths', function () {
             const drawCalls = [
-                // GPU eligible
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, name: 'static-box' },
-                // CPU: skinned
                 { _skinInstance: {}, instancingData: null, gsplatInstance: null, _shaderDefs: SHADERDEF_SKIN, isVisibleFunc: null, cull: true, name: 'skinned-char' },
-                // CPU: instanced
                 { _skinInstance: null, instancingData: { vertexBuffer: {} }, gsplatInstance: null, _shaderDefs: SHADERDEF_INSTANCING, isVisibleFunc: null, cull: true, name: 'instanced-grass' },
-                // GPU eligible
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, name: 'static-wall' },
-                // CPU: gsplat
                 { _skinInstance: null, instancingData: null, gsplatInstance: {}, _shaderDefs: 0, isVisibleFunc: null, cull: true, name: 'gsplat' },
-                // CPU: custom visibility
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: () => true, cull: true, name: 'custom-vis' },
-                // GPU eligible
                 { _skinInstance: null, instancingData: null, gsplatInstance: null, _shaderDefs: 0, isVisibleFunc: null, cull: true, name: 'static-floor' }
             ];
 
@@ -308,34 +304,28 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
                 });
             }
 
-            // 2. _prepareGlobalTransformSlots (Step 1)
+            // 2. GpuCulling.setup allocates slots inline (no separate _prepareGlobalTransformSlots)
             const FLOATS_PER_MATRIX = 16;
+            const FLOATS_PER_AABB = 4;
             const stagingBuffer = new Float32Array(10 * FLOATS_PER_MATRIX);
+            const aabbStaging = new Float32Array(5 * FLOATS_PER_AABB);
             let nextSlot = 0;
             let dirty = false;
-
-            for (const dc of drawCalls) {
-                if (dc._globalTransformSlot === -1) {
-                    dc._globalTransformSlot = nextSlot++;
-                    dc._shaderDefs |= SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
-                }
-            }
-
-            // Verify all got slots
-            expect(drawCalls[0]._globalTransformSlot).to.equal(0);
-            expect(drawCalls[4]._globalTransformSlot).to.equal(4);
-            expect(nextSlot).to.equal(5);
-
-            // 3. GpuCulling.setup simulation (Step 2)
-            const FLOATS_PER_AABB = 4;
-            const aabbStaging = new Float32Array(5 * FLOATS_PER_AABB);
             let gi = 0;
             const indexMapping = [];
 
             for (let i = 0; i < drawCalls.length; i++) {
                 const dc = drawCalls[i];
-                const transformSlot = dc._globalTransformSlot;
-                if (transformSlot < 0) continue;
+
+                // Allocate slot inline (as gpu-culling.js does)
+                let transformSlot = dc._globalTransformSlot;
+                if (transformSlot < 0) {
+                    transformSlot = nextSlot++;
+                    dc._globalTransformSlot = transformSlot;
+                }
+
+                // SHADERDEF_GLOBAL_TRANSFORM_BUFFER is NOT set
+                expect(dc._shaderDefs).to.equal(0);
 
                 // Write transform
                 const worldMat = dc.node.getWorldTransform();
@@ -354,10 +344,13 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
                 gi++;
             }
 
+            // Verify slots assigned
+            expect(drawCalls[0]._globalTransformSlot).to.equal(0);
+            expect(drawCalls[4]._globalTransformSlot).to.equal(4);
             expect(gi).to.equal(5);
             expect(dirty).to.equal(true);
 
-            // 4. Upload (Step 8) — only once
+            // 3. Upload once
             let uploadCount = 0;
             if (dirty) {
                 uploadCount++;
@@ -365,47 +358,35 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
             }
             expect(uploadCount).to.equal(1);
 
-            // 5. Verify transform data at correct slots
+            // 4. Verify transform data at correct slots
             for (let i = 0; i < 5; i++) {
                 const offset = i * FLOATS_PER_MATRIX;
-                expect(stagingBuffer[offset]).to.equal(i); // fill(i)
+                expect(stagingBuffer[offset]).to.equal(i);
             }
 
-            // 6. Verify AABB data
-            expect(aabbStaging[0]).to.equal(0);  // mesh_0 center.x
-            expect(aabbStaging[4]).to.equal(10); // mesh_1 center.x
-            expect(aabbStaging[16]).to.equal(40); // mesh_4 center.x
+            // 5. Verify AABB data
+            expect(aabbStaging[0]).to.equal(0);
+            expect(aabbStaging[4]).to.equal(10);
+            expect(aabbStaging[16]).to.equal(40);
 
-            // 7. Transform skip guard (Step 6)
+            // 6. Matrix upload always happens for ALL draw calls
             const matrixUploads = [];
             for (const dc of drawCalls) {
-                if (dc._globalTransformSlot < 0) {
-                    matrixUploads.push(dc.name);
-                }
+                matrixUploads.push(dc.name); // always upload
             }
-            expect(matrixUploads).to.deep.equal([]); // all are GPU path
+            expect(matrixUploads.length).to.equal(5); // all draw calls
         });
     });
 
     describe('Compute dispatch timing', function () {
 
         it('should dispatch compute before render pass starts (before vs execute)', function () {
-            // Simulate the RenderPassForward lifecycle:
-            // 1. before() — fires events, dispatches GPU culling (compute pass)
-            // 2. device.startRenderPass() — begins WebGPU render pass
-            // 3. execute() — draws with indirect data
-            // 4. device.endRenderPass()
-            // 5. after()
-
             const callOrder = [];
             let insideRenderPass = false;
 
-            // Mock before() with GPU culling
             function before() {
                 callOrder.push('before');
-                // GPU culling compute dispatch happens here
                 callOrder.push('computeDispatch');
-                // Assert: NOT inside render pass
                 expect(insideRenderPass).to.equal(false);
             }
 
@@ -416,7 +397,6 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
 
             function execute() {
                 callOrder.push('execute');
-                // Draw calls happen here with indirect data
                 expect(insideRenderPass).to.equal(true);
             }
 
@@ -429,7 +409,6 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
                 callOrder.push('after');
             }
 
-            // Run the lifecycle
             before();
             startRenderPass();
             execute();
@@ -442,7 +421,6 @@ describe('Phase 3: GPU Buffer Layout Pipeline', function () {
         });
 
         it('should collect visible lists from all render actions for GPU culling', function () {
-            // Simulate _dispatchGpuCulling collecting from multiple render actions
             const renderActions = [
                 { layer: 'layer0', transparent: false, visible: ['mesh_a', 'mesh_b'] },
                 { layer: 'layer0', transparent: true, visible: ['mesh_c'] },

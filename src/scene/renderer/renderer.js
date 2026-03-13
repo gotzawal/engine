@@ -1132,13 +1132,6 @@ class Renderer {
                     // cull mesh instances
                     const culledInstances = layer.getCulledInstances(camera.camera);
                     this.cull(camera.camera, layer.meshInstances, culledInstances);
-
-                    // [Phase 3] Assign global transform slots to eligible objects early,
-                    // so _shaderDefs are set before renderForwardPrepareMaterials()
-                    if (this.globalTransformBuffer) {
-                        this._prepareGlobalTransformSlots(culledInstances.opaque);
-                        this._prepareGlobalTransformSlots(culledInstances.transparent);
-                    }
                 }
             }
 
@@ -1159,23 +1152,6 @@ class Renderer {
         // #if _PROFILER
         this._cullTime += now() - cullTime;
         // #endif
-    }
-
-    /**
-     * Assign global transform slots to eligible draw calls so that _shaderDefs are finalized
-     * before shader variant selection in renderForwardPrepareMaterials().
-     *
-     * @param {MeshInstance[]} drawCalls - The culled draw call list.
-     * @private
-     */
-    _prepareGlobalTransformSlots(drawCalls) {
-        const device = this.device;
-        for (let i = 0; i < drawCalls.length; i++) {
-            const dc = drawCalls[i];
-            if (this.gpuCulling?.isEligible(dc)) {
-                dc.ensureGlobalTransformSlot(device);
-            }
-        }
     }
 
     /**

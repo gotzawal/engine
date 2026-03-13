@@ -190,11 +190,18 @@ class GpuCulling {
             const dc = drawCalls[i];
             if (!this.isEligible(dc)) continue;
 
-            // Use the pre-assigned global transform slot (assigned in _prepareGlobalTransformSlots)
-            const transformSlot = dc._globalTransformSlot;
-            if (transformSlot < 0) continue;
+            // Allocate a transform slot for this draw call (without changing _shaderDefs).
+            // The slot is used internally by the compute shader metadata only.
+            // We do NOT set SHADERDEF_GLOBAL_TRANSFORM_BUFFER — the vertex shader keeps
+            // using the standard matrix_model uniform so that shadow, outline, post-process
+            // and other non-forward passes continue to work correctly.
+            let transformSlot = dc._globalTransformSlot;
+            if (transformSlot < 0 && device.globalTransformBuffer) {
+                transformSlot = device.globalTransformBuffer.allocateSlot();
+                dc._globalTransformSlot = transformSlot;
+            }
 
-            // Upload world transform
+            // Upload world transform to staging buffer
             const worldMat = dc.node.getWorldTransform();
             globalTransformBuffer.updateSlot(transformSlot, worldMat.data);
 
@@ -209,12 +216,12 @@ class GpuCulling {
             this.aabbStaging[ao + 3] = radius;
 
             // Mesh metadata
-            const meta = dc.getIndirectMetaData();
+            const meshInfo = dc.getIndirectMetaData();
             const mo = gi * UINTS_PER_META;
-            this.meshMetaStaging[mo + 0] = meta[0]; // indexCount
-            this.meshMetaStaging[mo + 1] = meta[1]; // firstIndex
-            this.meshMetaStagingI32[mo + 2] = meta[2]; // baseVertex (signed)
-            this.meshMetaStaging[mo + 3] = transformSlot >= 0 ? transformSlot : 0; // transformSlot
+            this.meshMetaStaging[mo + 0] = meshInfo[0]; // indexCount
+            this.meshMetaStaging[mo + 1] = meshInfo[1]; // firstIndex
+            this.meshMetaStagingI32[mo + 2] = meshInfo[2]; // baseVertex (signed)
+            this.meshMetaStaging[mo + 3] = transformSlot; // transformSlot
 
             this.indexMapping.push(i);
             gi++;
@@ -228,7 +235,12 @@ class GpuCulling {
         // Note: globalTransformBuffer.upload() is called by the caller (renderForward)
         // after setup() to avoid redundant uploads across multiple layer/transparency passes
 
-        // 4. Allocate consecutive indirect draw slots
+        // 4. Allocate consecutive indirect draw slots (skip if insufficient capacity)
+        const remaining = device.maxIndirectDrawCount - (device._indirectDrawNextIndex ?? 0);
+        if (gi > remaining) {
+            this.objectCount = 0;
+            return;
+        }
         const baseSlot = device.getIndirectDrawSlot(gi);
 
         // 5. Extract frustum planes
