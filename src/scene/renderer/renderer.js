@@ -22,7 +22,8 @@ import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
-import { BindGroupFormat, BindUniformBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -200,6 +201,12 @@ class Renderer {
         this.viewUniformFormat = null;
         this.viewBindGroupFormat = null;
 
+        // global transform buffer for batched GPU uploads (WebGPU only)
+        this.globalTransformBuffer = graphicsDevice.isWebGPU ? new GlobalTransformBuffer(graphicsDevice) : null;
+        if (this.globalTransformBuffer) {
+            graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
+        }
+
         // timing
         this._skinTime = 0;
         this._morphTime = 0;
@@ -223,6 +230,7 @@ class Renderer {
 
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
+        this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
@@ -744,6 +752,13 @@ class Renderer {
                 // new BindTextureFormat('areaLightsLutTex2', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT)
             ];
 
+            // global transform storage buffer (read-only in vertex stage)
+            if (this.globalTransformBuffer) {
+                const gtbFormat = new BindStorageBufferFormat('globalTransforms', SHADERSTAGE_VERTEX, true);
+                gtbFormat.format = 'array<mat4x4<f32>>';
+                formats.push(gtbFormat);
+            }
+
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them
             // if (isClustered) {
@@ -833,6 +848,42 @@ class Renderer {
         this.modelMatrixId.setValue(modelMatrix.data);
         if (setNormalMatrix) {
             this.normalMatrixId.setValue(meshInstance.node.normalMatrix.data);
+        }
+    }
+
+    /**
+     * Update global transform buffer with world matrices from all draw calls, and upload to GPU.
+     * Allocates slots lazily for eligible objects (non-skinned, non-batched, non-instanced).
+     *
+     * @param {import('../mesh-instance.js').MeshInstance[]} drawCalls - The draw calls to process.
+     * @ignore
+     */
+    updateGlobalTransforms(drawCalls) {
+        const gtb = this.globalTransformBuffer;
+        if (!gtb) return;
+
+        const device = this.device;
+        for (let i = 0; i < drawCalls.length; i++) {
+            const dc = drawCalls[i];
+
+            // skip objects that use skin, batch, or custom instancing — they have their own paths
+            if (dc._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
+                continue;
+            }
+
+            const slot = dc.ensureGlobalTransformSlot(device);
+            if (slot >= 0) {
+                const worldMat = dc.node.getWorldTransform();
+                gtb.updateSlot(slot, worldMat.data);
+            }
+        }
+
+        // single upload to GPU
+        gtb.upload();
+
+        // set storage buffer for view bind group resolution
+        if (this.globalTransformsId) {
+            this.globalTransformsId.setValue(gtb.storageBuffer);
         }
     }
 

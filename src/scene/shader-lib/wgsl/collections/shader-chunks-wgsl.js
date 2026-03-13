@@ -139,6 +139,7 @@ import tonemappingNeutralPS from '../chunks/common/frag/tonemapping/tonemappingN
 import tonemappingNonePS from '../chunks/common/frag/tonemapping/tonemappingNone.js';
 import transformVS from '../chunks/common/vert/transform.js';
 import transformCoreVS from '../chunks/common/vert/transformCore.js';
+import transformGlobalBufferVS from '../chunks/common/vert/transformGlobalBuffer.js';
 import transformInstancingVS from '../chunks/common/vert/transformInstancing.js';
 import transmissionPS from '../chunks/standard/frag/transmission.js';
 import twoSidedLightingPS from '../chunks/lit/frag/twoSidedLighting.js';
@@ -309,6 +310,7 @@ const shaderChunksWGSL = {
     tonemappingNonePS,
     transformVS,
     transformCoreVS,
+    transformGlobalBufferVS,
     transformInstancingVS,
     transmissionPS,
     twoSidedLightingPS,

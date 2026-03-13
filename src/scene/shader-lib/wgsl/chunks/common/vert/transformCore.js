@@ -48,6 +48,10 @@ export default /* wgsl */`
 
         #include "transformInstancingVS"
 
+    #elif defined(GLOBAL_TRANSFORM_BUFFER)
+
+        #include "transformGlobalBufferVS"
+
     #else
 
         fn getModelMatrix() -> mat4x4f {

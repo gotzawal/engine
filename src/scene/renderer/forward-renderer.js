@@ -30,6 +30,7 @@ import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
  */
 
 const _noLights = [[], [], []];
+const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
 
 const _drawCallList = {
@@ -508,11 +509,58 @@ class ForwardRenderer extends Renderer {
         }
     }
 
+    /**
+     * Set up indirect draw commands for mesh instances that use the global transform buffer,
+     * encoding the transform slot index in the firstInstance field.
+     *
+     * @param {import('../camera.js').Camera} camera - The camera.
+     * @param {import('../mesh-instance.js').MeshInstance[]} drawCalls - The draw calls.
+     * @ignore
+     */
+    setupGlobalTransformIndirectDraws(camera, drawCalls) {
+        const gtb = this.globalTransformBuffer;
+        if (!gtb) return;
+
+        const device = this.device;
+        const indirectBuffer = device.indirectDrawBuffer;
+        const tempArgs = _indirectArgs;
+
+        for (let i = 0; i < drawCalls.length; i++) {
+            const drawCall = drawCalls[i];
+            const slot = drawCall._globalTransformSlot;
+            if (slot < 0) continue;
+
+            // already has user-configured indirect/multi-draw — don't overwrite
+            if (drawCall.getDrawCommands(camera)) continue;
+
+            // allocate a slot in the device's shared indirect draw buffer
+            const indirectSlot = device.getIndirectDrawSlot();
+
+            // write draw args: [indexCount, instanceCount, firstIndex, baseVertex, firstInstance]
+            const prim = drawCall.mesh.primitive[drawCall.renderStyle];
+            tempArgs[0] = prim.count;
+            tempArgs[1] = 1;
+            tempArgs[2] = prim.base;
+            tempArgs[3] = prim.baseVertex ?? 0;
+            tempArgs[4] = slot; // firstInstance encodes the transform slot
+            indirectBuffer.write(indirectSlot * 20, tempArgs, 0, 5);
+
+            // wire the mesh instance to use this indirect slot
+            drawCall.setIndirect(camera, indirectSlot);
+        }
+    }
+
     renderForward(camera, renderTarget, allDrawCalls, sortedLights, pass, drawCallback, layer, flipFaces, viewBindGroups) {
 
         // #if _PROFILER
         const forwardStartTime = now();
         // #endif
+
+        // upload all world transforms to the global GPU buffer (single writeBuffer)
+        this.updateGlobalTransforms(allDrawCalls);
+
+        // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
+        this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
