@@ -1209,7 +1209,8 @@ class MeshInstance {
      * @param {number} [count] - Optional number of consecutive slots to use. Defaults to 1.
      */
     setIndirect(camera, slot, count = 1) {
-        const key = camera ?? null;
+        // Normalize key: CameraComponent → Camera, Camera → Camera, null → null
+        const key = camera?.camera ?? camera ?? null;
 
         // disable when slot is -1
         if (slot === -1) {

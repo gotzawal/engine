@@ -92,16 +92,20 @@ describe('Phase 3: GPU Culling Pipeline', function () {
 
     describe('setIndirect camera key fix', function () {
 
-        it('should use camera directly as key (not camera.camera)', function () {
+        it('should normalize camera key for both Camera and CameraComponent', function () {
             const cameraObject = { id: 'cam1', frustum: {} };
 
-            // New behavior: key = camera ?? null
-            const key = cameraObject ?? null;
-            expect(key).to.equal(cameraObject);
+            // Camera object (no .camera property) → key is the Camera itself
+            const keyFromCamera = cameraObject?.camera ?? cameraObject ?? null;
+            expect(keyFromCamera).to.equal(cameraObject);
 
-            // Old behavior would have been: camera?.camera ?? null = null (wrong)
-            const oldKey = cameraObject?.camera ?? null;
-            expect(oldKey).to.equal(null); // this was the bug
+            // CameraComponent (has .camera = Camera) → key is normalized to Camera
+            const cameraComponent = { camera: cameraObject, entity: {} };
+            const keyFromComponent = cameraComponent?.camera ?? cameraComponent ?? null;
+            expect(keyFromComponent).to.equal(cameraObject);
+
+            // Both resolve to the same Camera key → Map lookups match
+            expect(keyFromCamera).to.equal(keyFromComponent);
         });
 
         it('should allow getDrawCommands to find the correct entry', function () {

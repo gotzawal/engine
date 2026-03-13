@@ -872,41 +872,6 @@ class Renderer {
     }
 
     /**
-     * Update global transform buffer with world matrices from all draw calls, and upload to GPU.
-     *
-     * @param {MeshInstance[]} drawCalls - The draw calls to process.
-     * @ignore
-     */
-    updateGlobalTransforms(drawCalls) {
-        const gtb = this.globalTransformBuffer;
-        if (!gtb) return;
-
-        const device = this.device;
-        for (let i = 0; i < drawCalls.length; i++) {
-            const dc = drawCalls[i];
-
-            // skip objects that use skin, batch, or custom instancing — they have their own paths
-            if (dc._skinInstance || dc.instancingData || (dc._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING))) {
-                continue;
-            }
-
-            const slot = dc.ensureGlobalTransformSlot(device);
-            if (slot >= 0) {
-                const worldMat = dc.node.getWorldTransform();
-                gtb.updateSlot(slot, worldMat.data);
-            }
-        }
-
-        // single upload to GPU
-        gtb.upload();
-
-        // set storage buffer for view bind group resolution
-        if (this.globalTransformsId) {
-            this.globalTransformsId.setValue(gtb.storageBuffer);
-        }
-    }
-
-    /**
      * @param {Camera} camera - The camera used for culling.
      * @param {MeshInstance[]} drawCalls - Draw calls to cull.
      * @param {CulledInstances} culledInstances - Stores culled instances.
@@ -924,25 +889,15 @@ class Renderer {
         const doCull = camera.frustumCulling;
         const count = drawCalls.length;
 
-        // When GPU culling + indirect draw are both enabled, skip CPU frustum test for
-        // GPU-eligible objects. The GPU compute shader handles culling via instanceCount=0/1,
-        // so these objects must always be in the visible list for the GPU to process them.
-        const gpuCullActive = this.gpuCullingEnabled && this.indirectDrawEnabled && !!this.gpuCulling;
-
+        // CPU frustum culling always runs for ALL objects, including GPU-eligible ones.
+        // This keeps the visible list small (good for sort + render setup performance).
+        // GPU culling adds an additional layer via indirect draw (instanceCount 0/1),
+        // catching any objects that the CPU cull let through at the frustum boundary.
         for (let i = 0; i < count; i++) {
             const drawCall = drawCalls[i];
             if (drawCall.visible) {
 
-                let visible;
-                if (gpuCullActive && drawCall.cull && !drawCall._skinInstance &&
-                    !drawCall.instancingData && !drawCall.gsplatInstance &&
-                    !drawCall.isVisibleFunc &&
-                    !(drawCall._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING))) {
-                    // GPU-eligible: skip CPU frustum test, GPU will cull via indirect draw
-                    visible = true;
-                } else {
-                    visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
-                }
+                const visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
 
                 if (visible) {
                     drawCall.visibleThisFrame = true;
