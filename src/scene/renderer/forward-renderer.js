@@ -545,8 +545,8 @@ class ForwardRenderer extends Renderer {
             tempArgs[4] = slot; // firstInstance encodes the transform slot
             indirectBuffer.write(indirectSlot * 20, tempArgs, 0, 5);
 
-            // wire the mesh instance to use this indirect slot
-            drawCall.setIndirect(camera, indirectSlot);
+            // wire the mesh instance to use this indirect slot (null = all cameras)
+            drawCall.setIndirect(null, indirectSlot);
         }
     }
 

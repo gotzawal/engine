@@ -748,7 +748,16 @@ class MeshInstance {
      */
     getShaderInstance(shaderPass, lightHash, scene, cameraShaderParams, viewUniformFormat, viewBindGroupFormat, sortedLights) {
 
-        const shaderDefs = this._shaderDefs;
+        let shaderDefs = this._shaderDefs;
+
+        // Strip GLOBAL_TRANSFORM_BUFFER for passes whose viewBindGroupFormat lacks the storage buffer
+        // (e.g. shadow pass uses its own format without globalTransforms)
+        if (shaderDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) {
+            const hasGTB = viewBindGroupFormat?.storageBufferFormats?.some(f => f.name === 'globalTransforms');
+            if (!hasGTB) {
+                shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+            }
+        }
 
         // unique hash for the required shader
         lookupHashes[0] = shaderPass;

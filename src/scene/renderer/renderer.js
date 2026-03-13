@@ -231,6 +231,10 @@ class Renderer {
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
         this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
+        // Set storage buffer scope value immediately so bind groups are never created with null
+        if (this.globalTransformsId) {
+            this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
+        }
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
