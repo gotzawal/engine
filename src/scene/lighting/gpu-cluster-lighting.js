@@ -141,6 +141,7 @@ class GpuClusterLighting {
         this._gpuClusterViewMatId = scope.resolve('gpuClusterViewMat');
         this._gpuClusterScreenSizeId = scope.resolve('gpuClusterScreenSize');
         this._gpuClusterTilePixelSizeId = scope.resolve('gpuClusterTilePixelSize');
+        this._numClusteredLightsId = scope.resolve('numClusteredLights');
     }
 
     _createComputeShaders() {
@@ -269,8 +270,10 @@ class GpuClusterLighting {
      * @param {Set<Light>|Light[]} lights - The lights to process.
      * @param {Mat4} viewMatrix - The camera view matrix for transforming to view space.
      */
-    collectLights(lights, viewMatrix) {
+    collectLights(lights, viewMatrix, lightingParams) {
         const staging = this.lightVolumeStagingData;
+        const lightsBuffer = this.lightsBuffer;
+        lightsBuffer.areaLightsEnabled = lightingParams ? lightingParams.areaLightsEnabled : false;
         let lightIndex = 0;
 
         const processLight = (light) => {
@@ -315,6 +318,10 @@ class GpuClusterLighting {
                 staging[offset + 7] = -2.0;
             }
 
+            // Add light data to LightsBuffer texture for fragment shader consumption
+            // +1 because light index 0 is reserved for 'no light' in the texture path
+            lightsBuffer.addLightData(light, lightIndex + 1);
+
             lightIndex++;
         };
 
@@ -325,9 +332,6 @@ class GpuClusterLighting {
         }
 
         this.activeLightCount = lightIndex;
-
-        // Also collect lights into LightsBuffer for the forward shader (texture-based data)
-        this.lightsBuffer._usedLightCount = 0;
     }
 
     /**
@@ -416,7 +420,8 @@ class GpuClusterLighting {
         const viewMat = camera.node ? camera.node.getWorldTransform().clone().invert() : new Mat4();
 
         // Collect and encode light data
-        this.collectLights(lights, viewMat);
+        this.collectLights(lights, viewMat, lightingParams);
+        this.lightsBuffer.uploadTextures();
         this.uploadLightVolumes();
 
         // Dispatch bounds compute (only when camera/screen changes)
@@ -448,6 +453,9 @@ class GpuClusterLighting {
         this._gpuClusterCameraFarId.setValue(this._lastCameraFar);
         this._gpuClusterTilePixelSizeId.setValue(this.tilePixelSize);
         this._gpuClusterScreenSizeId?.setValue([this._lastScreenWidth, this._lastScreenHeight]);
+
+        // Set numClusteredLights uniform (+1 because index 0 is reserved for 'no light')
+        this._numClusteredLightsId.setValue(this.activeLightCount + 1);
 
         // Also activate the lights buffer (texture-based light data for forward shader)
         this.lightsBuffer.updateUniforms();
