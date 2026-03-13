@@ -460,7 +460,11 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            if (drawCall._globalTransformSlot < 0) {
+            // Skip CPU matrix upload only when the draw call has a valid indirect draw
+            // entry (meaning GPU culling set up firstInstance = transformSlot). If indirect
+            // data is missing (e.g. compute shader failed), fall back to CPU matrices.
+            const indirectData = drawCall.getDrawCommands(camera);
+            if (drawCall._globalTransformSlot < 0 || !indirectData) {
                 this.setMeshInstanceMatrices(drawCall, true);
             }
 
@@ -470,8 +474,6 @@ class ForwardRenderer extends Renderer {
             const indexBuffer = mesh.indexBuffer[style];
 
             drawCallback?.(drawCall, i);
-
-            const indirectData = drawCall.getDrawCommands(camera);
 
             if (viewList) {
                 for (let v = 0; v < viewList.length; v++) {

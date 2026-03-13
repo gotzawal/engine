@@ -31,12 +31,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
         }
     }
 
-    let meta = meshMeta[idx];
+    let meshData = meshMeta[idx];
     let slot = uniforms.indirectOffset + idx;
-    indirectDrawBuffer[slot].indexCount = meta.x;
+    indirectDrawBuffer[slot].indexCount = meshData.x;
     indirectDrawBuffer[slot].instanceCount = select(0u, 1u, visible);
-    indirectDrawBuffer[slot].firstIndex = meta.y;
-    indirectDrawBuffer[slot].baseVertex = i32(meta.z);
-    indirectDrawBuffer[slot].firstInstance = meta.w;
+    indirectDrawBuffer[slot].firstIndex = meshData.y;
+    indirectDrawBuffer[slot].baseVertex = i32(meshData.z);
+    indirectDrawBuffer[slot].firstInstance = meshData.w;
 }
 `;

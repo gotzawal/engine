@@ -359,9 +359,9 @@ class ShadowRenderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            if (meshInstance._globalTransformSlot < 0) {
-                renderer.setMeshInstanceMatrices(meshInstance);
-            }
+            // Shadow pass always uploads matrices — GPU culling indirect draw is
+            // only set up for the forward camera, not shadow cameras.
+            renderer.setMeshInstanceMatrices(meshInstance);
 
             renderer.setupMeshUniformBuffers(shaderInstance);
 
