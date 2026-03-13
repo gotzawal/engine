@@ -261,15 +261,17 @@ class RenderPassForward extends RenderPass {
             if (!ra.camera) continue;
 
             const layer = ra.layer;
+            const camera = ra.camera.camera;
+            const culledInstances = layer.getCulledInstances(camera);
             const visible = ra.transparent ?
-                layer.culledInstances.transparent :
-                layer.culledInstances.opaque;
+                culledInstances.transparent :
+                culledInstances.opaque;
 
             // upload transforms + bounding spheres
             renderer.updateGlobalTransforms(visible);
 
             // allocate indirect draw slots and write draw args
-            renderer.setupGlobalTransformIndirectDraws(ra.camera, visible);
+            renderer.setupGlobalTransformIndirectDraws(camera, visible);
         }
 
         // dispatch compute for the primary camera's frustum
