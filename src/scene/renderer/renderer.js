@@ -924,11 +924,26 @@ class Renderer {
         const doCull = camera.frustumCulling;
         const count = drawCalls.length;
 
+        // When GPU culling + indirect draw are both enabled, skip CPU frustum test for
+        // GPU-eligible objects. The GPU compute shader handles culling via instanceCount=0/1,
+        // so these objects must always be in the visible list for the GPU to process them.
+        const gpuCullActive = this.gpuCullingEnabled && this.indirectDrawEnabled && !!this.gpuCulling;
+
         for (let i = 0; i < count; i++) {
             const drawCall = drawCalls[i];
             if (drawCall.visible) {
 
-                const visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
+                let visible;
+                if (gpuCullActive && drawCall.cull && !drawCall._skinInstance &&
+                    !drawCall.instancingData && !drawCall.gsplatInstance &&
+                    !drawCall.isVisibleFunc &&
+                    !(drawCall._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING))) {
+                    // GPU-eligible: skip CPU frustum test, GPU will cull via indirect draw
+                    visible = true;
+                } else {
+                    visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
+                }
+
                 if (visible) {
                     drawCall.visibleThisFrame = true;
 
