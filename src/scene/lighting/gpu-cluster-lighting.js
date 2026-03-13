@@ -124,6 +124,15 @@ class GpuClusterLighting {
         // Allocate light volume staging buffer (position+range + direction+angle per light)
         this.lightVolumeStagingData = new Float32Array(MAX_LIGHTS * 8); // 2 vec4f per light
 
+        // Allocate minimal default buffers to avoid WebGPU binding errors when
+        // GPU_CLUSTER_LIGHTING shader is active but no clustered lights exist in the scene.
+        // These are replaced with properly sized buffers when updateConfig() runs.
+        this.numTilesX = 1;
+        this.numTilesY = 1;
+        this.numSlicesZ = 1;
+        this.totalClusters = 1;
+        this._reallocateBuffers();
+
         this._createComputeShaders();
         this._registerUniforms();
     }
@@ -273,6 +282,8 @@ class GpuClusterLighting {
     collectLights(lights, viewMatrix, lightingParams) {
         const staging = this.lightVolumeStagingData;
         const lightsBuffer = this.lightsBuffer;
+        lightsBuffer.cookiesEnabled = lightingParams ? lightingParams.cookiesEnabled : false;
+        lightsBuffer.shadowsEnabled = lightingParams ? lightingParams.shadowsEnabled : false;
         lightsBuffer.areaLightsEnabled = lightingParams ? lightingParams.areaLightsEnabled : false;
         let lightIndex = 0;
 
