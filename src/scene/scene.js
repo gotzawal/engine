@@ -337,6 +337,9 @@ class Scene extends EventHandler {
             this.updateShaders = true;
         });
 
+        // GPU compute cluster lighting flag (set by renderer when available)
+        this._gpuClusterLightingEnabled = false;
+
         // gsplat params
         this._gsplatParams = new GSplatParams(this.device);
 

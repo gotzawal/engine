@@ -1064,6 +1064,7 @@ class AppBase extends EventHandler {
         // #endif
 
         this.fire('prerender');
+
         this.root.syncHierarchy();
 
         if (this._batcher) {

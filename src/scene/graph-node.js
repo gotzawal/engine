@@ -204,6 +204,7 @@ class GraphNode extends EventHandler {
      */
     _frozen = false;
 
+
     /**
      * @type {Mat4}
      * @private

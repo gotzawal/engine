@@ -314,6 +314,7 @@ class LitShader {
         }
 
         if (options.useInstancing) vDefines.set('INSTANCING', true);
+        if (options.useGlobalTransformBuffer) vDefines.set('GLOBAL_TRANSFORM_BUFFER', true);
         if (options.screenSpace) vDefines.set('SCREENSPACE', true);
         if (options.pixelSnap) vDefines.set('PIXELSNAP', true);
 
@@ -350,6 +351,7 @@ class LitShader {
         // clustered lights defines
         if (clusteredLightingEnabled && this.lighting) {
             fDefines.set('LIT_CLUSTERED_LIGHTS', true);
+            if (options.gpuClusterLightingEnabled) fDefines.set('GPU_CLUSTER_LIGHTING', true);
             if (options.clusteredLightingCookiesEnabled) fDefines.set('CLUSTER_COOKIES', true);
             if (options.clusteredLightingAreaLightsEnabled) fDefines.set('CLUSTER_AREALIGHTS', true);
             if (options.lightMaskDynamic) fDefines.set('CLUSTER_MESH_DYNAMIC_LIGHTS', true);

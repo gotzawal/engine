@@ -66,6 +66,13 @@ class ExampleLoader {
         if (this._app) {
             // Updates device UI
             fire('updateActiveDevice', { deviceType: this._app?.graphicsDevice?.deviceType });
+
+            // Apply saved cluster mode preference
+            const clusterMode = localStorage.getItem('preferredClusterMode') ?? 'gpu';
+            if (this._app.scene) {
+                this._app.scene._gpuClusterLightingEnabled = (clusterMode === 'gpu');
+            }
+            fire('updateActiveClusterMode', { clusterMode });
         }
 
         this._allowRestart = true;
@@ -103,6 +110,21 @@ class ExampleLoader {
 
         // @ts-ignore
         window.top.pc = window.pc;
+
+        // Listen for runtime cluster mode changes from the parent UI
+        window.addEventListener('updateClusterMode', (/** @type {CustomEvent} */ e) => {
+            const mode = e.detail.clusterMode;
+            if (this._app?.scene) {
+                this._app.scene._gpuClusterLightingEnabled = (mode === 'gpu');
+                // Trigger shader recompilation by clearing all material variants
+                this._app.scene.layers?.layerList?.forEach((layer) => {
+                    layer.meshInstances.forEach((mi) => {
+                        mi.material?.clearVariants?.();
+                    });
+                });
+            }
+            fire('updateActiveClusterMode', { clusterMode: mode });
+        });
 
         // extracts example category and name from the URL
         const match = /([^/]+)\.html$/.exec(new URL(location.href).pathname);

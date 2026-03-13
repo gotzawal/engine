@@ -3,7 +3,7 @@ import {
     MASK_AFFECT_DYNAMIC, TONEMAP_NONE, SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL,
     SHADERDEF_MORPH_POSITION, SHADERDEF_SCREENSPACE, SHADERDEF_SKIN,
     SHADERDEF_NOSHADOW, SHADERDEF_TANGENTS, SPRITE_RENDERMODE_SIMPLE,
-    SHADERDEF_MORPH_TEXTURE_BASED_INT,
+    SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_GLOBAL_TRANSFORM_BUFFER,
     FOG_NONE,
     REFLECTIONSRC_NONE, REFLECTIONSRC_ENVATLAS, REFLECTIONSRC_ENVATLASHQ, REFLECTIONSRC_CUBEMAP,
     AMBIENTSRC_AMBIENTSH, AMBIENTSRC_ENVALATLAS, AMBIENTSRC_CONSTANT
@@ -29,6 +29,7 @@ class LitMaterialOptionsBuilder {
         litOptions.useMorphPosition = objDefs && (objDefs & SHADERDEF_MORPH_POSITION) !== 0;
         litOptions.useMorphNormal = objDefs && (objDefs & SHADERDEF_MORPH_NORMAL) !== 0;
         litOptions.useMorphTextureBasedInt = objDefs && (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0;
+        litOptions.useGlobalTransformBuffer = objDefs && (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0;
         litOptions.hasTangents = objDefs && ((objDefs & SHADERDEF_TANGENTS) !== 0);
 
         litOptions.nineSlicedMode = material.nineSlicedMode || SPRITE_RENDERMODE_SIMPLE;
@@ -36,12 +37,14 @@ class LitMaterialOptionsBuilder {
         // clustered lighting features (in shared options as shadow pass needs this too)
         if (material.useLighting && scene.clusteredLightingEnabled) {
             litOptions.clusteredLightingEnabled = true;
+            litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
             litOptions.clusteredLightingCookiesEnabled = scene.lighting.cookiesEnabled;
             litOptions.clusteredLightingShadowsEnabled = scene.lighting.shadowsEnabled;
             litOptions.clusteredLightingShadowType = scene.lighting.shadowType;
             litOptions.clusteredLightingAreaLightsEnabled = scene.lighting.areaLightsEnabled;
         } else {
             litOptions.clusteredLightingEnabled = false;
+            litOptions.gpuClusterLightingEnabled = false;
             litOptions.clusteredLightingCookiesEnabled = false;
             litOptions.clusteredLightingShadowsEnabled = false;
             litOptions.clusteredLightingAreaLightsEnabled = false;

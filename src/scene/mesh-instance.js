@@ -12,7 +12,7 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADOW_CASCADE_ALL
+    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADOW_CASCADE_ALL
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
 import { getDefaultMaterial } from './materials/default-material.js';
@@ -355,6 +355,14 @@ class MeshInstance {
      * @ignore
      */
     meshMetaData = null;
+
+    /**
+     * Slot index in the global transform buffer, or -1 if not allocated.
+     *
+     * @type {number}
+     * @ignore
+     */
+    _globalTransformSlot = -1;
 
     /**
      * @type {Record<string, {scopeId: ScopeId|null, data: any, passFlags: number}>}
@@ -740,7 +748,16 @@ class MeshInstance {
      */
     getShaderInstance(shaderPass, lightHash, scene, cameraShaderParams, viewUniformFormat, viewBindGroupFormat, sortedLights) {
 
-        const shaderDefs = this._shaderDefs;
+        let shaderDefs = this._shaderDefs;
+
+        // Strip GLOBAL_TRANSFORM_BUFFER for passes whose viewBindGroupFormat lacks the storage buffer
+        // (e.g. shadow pass uses its own format without globalTransforms)
+        if (shaderDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) {
+            const hasGTB = viewBindGroupFormat?.storageBufferFormats?.some(f => f.name === 'globalTransforms');
+            if (!hasGTB) {
+                shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+            }
+        }
 
         // unique hash for the required shader
         lookupHashes[0] = shaderPass;
@@ -1007,9 +1024,49 @@ class MeshInstance {
         return this.instancingData ? this.instancingData.count : 0;
     }
 
+    /**
+     * Ensure this mesh instance has a slot in the global transform buffer. Returns the slot index,
+     * or -1 if the global transform buffer is not available or this instance is not eligible
+     * (skinned, batched, or instanced objects have their own transform paths).
+     *
+     * @param {import('../platform/graphics/graphics-device.js').GraphicsDevice} device - The graphics device.
+     * @returns {number} The slot index, or -1.
+     * @ignore
+     */
+    ensureGlobalTransformSlot(device) {
+        if (this._globalTransformSlot === -1 && device.globalTransformBuffer) {
+            // skip objects that use skin, batch, or custom instancing — they have their own paths
+            if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
+                return -1;
+            }
+            this._globalTransformSlot = device.globalTransformBuffer.allocateSlot();
+            this._shaderDefs |= SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+        }
+        return this._globalTransformSlot;
+    }
+
+    /**
+     * Free the global transform buffer slot if allocated.
+     *
+     * @param {import('../platform/graphics/graphics-device.js').GraphicsDevice} device - The graphics device.
+     * @ignore
+     */
+    freeGlobalTransformSlot(device) {
+        if (this._globalTransformSlot >= 0 && device.globalTransformBuffer) {
+            device.globalTransformBuffer.freeSlot(this._globalTransformSlot);
+            this._globalTransformSlot = -1;
+            this._shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+        }
+    }
+
     destroy() {
 
+        // free global transform buffer slot before destroying
         const mesh = this.mesh;
+        if (mesh?.device) {
+            this.freeGlobalTransformSlot(mesh.device);
+        }
+
         if (mesh) {
 
             // this decreases ref count on the mesh
@@ -1171,7 +1228,8 @@ class MeshInstance {
      * @param {number} [count] - Optional number of consecutive slots to use. Defaults to 1.
      */
     setIndirect(camera, slot, count = 1) {
-        const key = camera?.camera ?? null;
+        // Normalize key: CameraComponent → Camera, Camera → Camera, null → null
+        const key = camera?.camera ?? camera ?? null;
 
         // disable when slot is -1
         if (slot === -1) {

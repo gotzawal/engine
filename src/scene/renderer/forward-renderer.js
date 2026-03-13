@@ -30,6 +30,7 @@ import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
  */
 
 const _noLights = [[], [], []];
+const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
 
 const _drawCallList = {
@@ -460,8 +461,9 @@ class ForwardRenderer extends Renderer {
                 device.setVertexBuffer(instancingData.vertexBuffer);
             }
 
-            // mesh / mesh normal matrix
             this.setMeshInstanceMatrices(drawCall, true);
+
+            const indirectData = drawCall.getDrawCommands(camera);
 
             this.setupMeshUniformBuffers(shaderInstance);
 
@@ -469,8 +471,6 @@ class ForwardRenderer extends Renderer {
             const indexBuffer = mesh.indexBuffer[style];
 
             drawCallback?.(drawCall, i);
-
-            const indirectData = drawCall.getDrawCommands(camera);
 
             if (viewList) {
                 for (let v = 0; v < viewList.length; v++) {
@@ -509,11 +509,70 @@ class ForwardRenderer extends Renderer {
         }
     }
 
+    /**
+     * Set up indirect draw commands for mesh instances that use the global transform buffer,
+     * encoding the transform slot index in the firstInstance field.
+     *
+     * @param {import('../camera.js').Camera} camera - The camera.
+     * @param {import('../mesh-instance.js').MeshInstance[]} drawCalls - The draw calls.
+     * @ignore
+     */
+    setupGlobalTransformIndirectDraws(camera, drawCalls) {
+        const gtb = this.globalTransformBuffer;
+        if (!gtb) return;
+
+        const device = this.device;
+        const indirectBuffer = device.indirectDrawBuffer;
+        const tempArgs = _indirectArgs;
+
+        // track contiguous range of indirect slots for GPU frustum culling
+        const startSlot = device._indirectDrawNextIndex;
+        let count = 0;
+
+        for (let i = 0; i < drawCalls.length; i++) {
+            const drawCall = drawCalls[i];
+            const slot = drawCall._globalTransformSlot;
+            if (slot < 0) continue;
+
+            // already has user-configured indirect/multi-draw — don't overwrite
+            if (drawCall.getDrawCommands(null)) continue;
+
+            // allocate a slot in the device's shared indirect draw buffer
+            const indirectSlot = device.getIndirectDrawSlot();
+
+            // write draw args: [indexCount, instanceCount, firstIndex, baseVertex, firstInstance]
+            const prim = drawCall.mesh.primitive[drawCall.renderStyle];
+            tempArgs[0] = prim.count;
+            tempArgs[1] = 1;
+            tempArgs[2] = prim.base;
+            tempArgs[3] = prim.baseVertex ?? 0;
+            tempArgs[4] = slot; // firstInstance encodes the transform slot
+            indirectBuffer.write(indirectSlot * 20, tempArgs, 0, 5);
+
+            // wire the mesh instance to use this indirect slot (null = all cameras)
+            drawCall.setIndirect(null, indirectSlot);
+            count++;
+        }
+
+        // pass indirect slot range to GPU frustum culler
+        const culler = this.gpuFrustumCuller;
+        if (culler) {
+            culler.indirectStartSlot = startSlot;
+            culler.indirectDrawCount = count;
+        }
+    }
+
     renderForward(camera, renderTarget, allDrawCalls, sortedLights, pass, drawCallback, layer, flipFaces, viewBindGroups) {
 
         // #if _PROFILER
         const forwardStartTime = now();
         // #endif
+
+        // upload all world transforms to the global GPU buffer (single writeBuffer)
+        this.updateGlobalTransforms(allDrawCalls);
+
+        // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
+        this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
@@ -592,6 +651,12 @@ class ForwardRenderer extends Renderer {
         // upload clustered lights uniforms
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         lightClusters.activate();
+
+        // GPU cluster lighting: activate storage buffer uniforms for forward shader
+        // (compute dispatch happens in RenderPassForward.before(), outside the render pass)
+        if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
+            this.worldClustersAllocator.activateGpuClusters();
+        }
 
         // debug rendering of clusters
         if (layer) {

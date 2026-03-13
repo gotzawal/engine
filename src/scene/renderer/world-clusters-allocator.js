@@ -1,9 +1,11 @@
-import { DebugHelper } from '../../core/debug.js';
+import { Debug, DebugHelper } from '../../core/debug.js';
 import { WorldClusters } from '../lighting/world-clusters.js';
+import { GpuClusterLighting } from '../lighting/gpu-cluster-lighting.js';
 
 /**
  * @import { GraphicsDevice } from '../../platform/graphics/graphics-device.js'
  * @import { RenderAction } from '../composition/render-action.js'
+ * @import { Camera } from '../camera.js'
  */
 
 const tempClusterArray = [];
@@ -38,12 +40,38 @@ class WorldClustersAllocator {
     _clusters = new Map();
 
     /**
+     * GPU compute cluster lighting instance (WebGPU only).
+     *
+     * @type {GpuClusterLighting|null}
+     */
+    _gpuCluster = null;
+
+    /**
+     * Whether GPU compute cluster lighting is available on this device.
+     *
+     * @type {boolean}
+     */
+    get gpuClusteringSupported() {
+        return this.device.isWebGPU && this.device.supportsCompute;
+    }
+
+    /**
      * Create a new instance.
      *
      * @param {GraphicsDevice} graphicsDevice - The graphics device.
      */
     constructor(graphicsDevice) {
         this.device = graphicsDevice;
+
+        // Create GPU cluster lighting if the device supports compute
+        if (this.gpuClusteringSupported) {
+            try {
+                this._gpuCluster = new GpuClusterLighting(graphicsDevice);
+            } catch (e) {
+                Debug.warn('GpuClusterLighting initialization failed, falling back to CPU clusters:', e);
+                this._gpuCluster = null;
+            }
+        }
     }
 
     destroy() {
@@ -52,6 +80,12 @@ class WorldClustersAllocator {
         if (this._empty) {
             this._empty.destroy();
             this._empty = null;
+        }
+
+        // GPU cluster lighting
+        if (this._gpuCluster) {
+            this._gpuCluster.destroy();
+            this._gpuCluster = null;
         }
 
         // all other clusters
@@ -150,6 +184,34 @@ class WorldClustersAllocator {
             const cluster = renderAction.lightClusters;
             cluster.update(layer.clusteredLightsSet, lighting);
         });
+
+        // GPU cluster lighting update (runs after CPU clusters for now, TODO: replace CPU path)
+        if (this._gpuCluster) {
+            // GPU cluster update is dispatched per-camera in the render pass
+            // The actual dispatch happens in RenderPassUpdateClustered or the forward renderer
+        }
+    }
+
+    /**
+     * Update GPU cluster lighting for a specific camera. Called from the render pass.
+     *
+     * @param {Set|Array} lights - Active lights.
+     * @param {Camera} camera - The camera to compute clusters for.
+     * @param {object} [lightingParams] - Lighting parameters.
+     */
+    updateGpuClusters(lights, camera, lightingParams) {
+        if (this._gpuCluster) {
+            this._gpuCluster.update(lights, camera, lightingParams);
+        }
+    }
+
+    /**
+     * Activate GPU cluster lighting uniforms for forward rendering.
+     */
+    activateGpuClusters() {
+        if (this._gpuCluster) {
+            this._gpuCluster.activate();
+        }
     }
 }
 

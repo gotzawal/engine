@@ -22,11 +22,14 @@ import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
-import { BindGroupFormat, BindUniformBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { GlobalTransformBuffer } from './global-transform-buffer.js';
+import { GpuFrustumCuller } from './gpu-frustum-culler.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
-    EVENT_PRECULL, EVENT_POSTCULL, EVENT_CULL_END
+    EVENT_PRECULL, EVENT_POSTCULL, EVENT_CULL_END,
+    SHADERDEF_SKIN, SHADERDEF_INSTANCING, SHADERDEF_BATCH
 } from '../constants.js';
 import { LightCube } from '../graphics/light-cube.js';
 import { getBlueNoiseTexture } from '../graphics/noise-textures.js';
@@ -182,6 +185,9 @@ class Renderer {
         // TODO: allocate only when the scene has clustered lighting enabled
         this.worldClustersAllocator = new WorldClustersAllocator(graphicsDevice);
 
+        // Notify scene that GPU compute cluster lighting is available
+        scene._gpuClusterLightingEnabled = !!this.worldClustersAllocator._gpuCluster;
+
         // texture atlas managing shadow map / cookie texture atlassing for omni and spot lights
         this.lightTextureAtlas = new LightTextureAtlas(graphicsDevice);
 
@@ -198,6 +204,17 @@ class Renderer {
         // view bind group format with its uniform buffer format
         this.viewUniformFormat = null;
         this.viewBindGroupFormat = null;
+
+        // global transform buffer for batched GPU uploads (WebGPU only)
+        this.globalTransformBuffer = graphicsDevice.isWebGPU ? new GlobalTransformBuffer(graphicsDevice) : null;
+        if (this.globalTransformBuffer) {
+            graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
+        }
+
+        // GPU frustum culler (WebGPU only, requires compute support)
+        this.gpuFrustumCuller = (this.globalTransformBuffer && graphicsDevice.supportsCompute) ?
+            new GpuFrustumCuller(graphicsDevice) : null;
+
 
         // timing
         this._skinTime = 0;
@@ -222,6 +239,11 @@ class Renderer {
 
         this.modelMatrixId = scope.resolve('matrix_model');
         this.normalMatrixId = scope.resolve('matrix_normal');
+        this.globalTransformsId = this.globalTransformBuffer ? scope.resolve('globalTransforms') : null;
+        // Set storage buffer scope value immediately so bind groups are never created with null
+        if (this.globalTransformsId) {
+            this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
+        }
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
@@ -743,6 +765,13 @@ class Renderer {
                 // new BindTextureFormat('areaLightsLutTex2', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D, SAMPLETYPE_FLOAT)
             ];
 
+            // global transform storage buffer (read-only in vertex stage)
+            if (this.globalTransformBuffer) {
+                const gtbFormat = new BindStorageBufferFormat('globalTransforms', SHADERSTAGE_VERTEX, true);
+                gtbFormat.format = 'array<mat4x4<f32>>';
+                formats.push(gtbFormat);
+            }
+
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them
             // if (isClustered) {
@@ -836,6 +865,52 @@ class Renderer {
     }
 
     /**
+     * Update global transform buffer with world matrices from all draw calls, and upload to GPU.
+     * Allocates slots lazily for eligible objects (non-skinned, non-batched, non-instanced).
+     *
+     * @param {import('../mesh-instance.js').MeshInstance[]} drawCalls - The draw calls to process.
+     * @ignore
+     */
+    updateGlobalTransforms(drawCalls) {
+        const gtb = this.globalTransformBuffer;
+        if (!gtb) return;
+
+        const device = this.device;
+        const culler = this.gpuFrustumCuller;
+
+        for (let i = 0; i < drawCalls.length; i++) {
+            const dc = drawCalls[i];
+
+            // skip objects that use skin, batch, or custom instancing — they have their own paths
+            if (dc._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
+                continue;
+            }
+
+            const slot = dc.ensureGlobalTransformSlot(device);
+            if (slot >= 0) {
+                const worldMat = dc.node.getWorldTransform();
+                gtb.updateSlot(slot, worldMat.data);
+
+                // update bounding sphere for GPU frustum culling
+                if (culler) {
+                    const aabb = dc.aabb;
+                    const c = aabb.center;
+                    culler.updateSphere(slot, c.x, c.y, c.z, aabb.halfExtents.length());
+                }
+            }
+        }
+
+        // single upload to GPU
+        gtb.upload();
+        if (culler) culler.uploadSpheres(gtb.nextSlot);
+
+        // set storage buffer for view bind group resolution
+        if (this.globalTransformsId) {
+            this.globalTransformsId.setValue(gtb.storageBuffer);
+        }
+    }
+
+    /**
      * @param {Camera} camera - The camera used for culling.
      * @param {MeshInstance[]} drawCalls - Draw calls to cull.
      * @param {CulledInstances} culledInstances - Stores culled instances.
@@ -853,11 +928,16 @@ class Renderer {
         const doCull = camera.frustumCulling;
         const count = drawCalls.length;
 
+        // GPU-eligible objects (globalTransformSlot >= 0) skip CPU frustum test entirely.
+        // GPU compute culling sets instanceCount = 0 for invisible objects via indirect draw.
+        // Non-GPU objects (skin, batch, instancing) still use CPU frustum culling.
         for (let i = 0; i < count; i++) {
             const drawCall = drawCalls[i];
             if (drawCall.visible) {
 
-                const visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
+                const gpuCulled = drawCall._globalTransformSlot >= 0;
+                const visible = gpuCulled || !doCull || !drawCall.cull || drawCall._isVisible(camera);
+
                 if (visible) {
                     drawCall.visibleThisFrame = true;
 
