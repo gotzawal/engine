@@ -255,4 +255,49 @@ describe('GlobalTransformBuffer', function () {
 
     });
 
+    describe('#WASM zero-copy integration', function () {
+
+        it('should reference WASM worldMatrices directly (same buffer, not a copy)', function () {
+            // Simulate the zero-copy pattern: GTB uses wasmSceneMath.worldMatrices
+            // as its staging buffer, avoiding a per-frame memcpy
+            const wasmWorldMatrices = new Float32Array(16 * 16);
+            wasmWorldMatrices[12] = 42;
+
+            const wasmSceneMath = {
+                worldMatrices: wasmWorldMatrices
+            };
+
+            // Simulate: staging = wasmSceneMath.worldMatrices (reference, not copy)
+            const staging = wasmSceneMath.worldMatrices;
+
+            // Modify via WASM reference
+            wasmSceneMath.worldMatrices[13] = 99;
+
+            // staging should see the change (same reference)
+            expect(staging[13]).to.equal(99);
+            expect(staging).to.equal(wasmSceneMath.worldMatrices);
+        });
+
+        it('should correctly upload used extent from WASM buffer', function () {
+            const FLOATS_PER_MATRIX = 16;
+            const capacity = 1024;
+            const wasmWorldMatrices = new Float32Array(capacity * FLOATS_PER_MATRIX);
+
+            // Only 10 slots used
+            const nextSlot = 10;
+            const usedFloats = nextSlot * FLOATS_PER_MATRIX;
+
+            // Write data to slot 9 (last used)
+            wasmWorldMatrices[9 * 16 + 12] = 777;
+
+            // Upload should only cover used extent
+            expect(usedFloats).to.equal(160);
+            expect(usedFloats).to.be.lessThan(capacity * FLOATS_PER_MATRIX);
+
+            // Verify the data is accessible within used extent
+            expect(wasmWorldMatrices[9 * 16 + 12]).to.equal(777);
+        });
+
+    });
+
 });

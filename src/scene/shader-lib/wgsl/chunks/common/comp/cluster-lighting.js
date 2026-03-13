@@ -74,13 +74,18 @@ fn main(
 ) {
     let clusterIndex = gid.x;
     let totalClusters = config.numTilesX * config.numTilesY * config.numSlicesZ;
-    if (clusterIndex >= totalClusters) {
-        return;
-    }
 
-    let aabb = clusterAABBs[clusterIndex];
-    let aabbMin = aabb.minBound.xyz;
-    let aabbMax = aabb.maxBound.xyz;
+    // Use isValid flag instead of early return to ensure ALL threads in the
+    // workgroup reach workgroupBarrier() (required for uniform control flow).
+    let isValid = clusterIndex < totalClusters;
+
+    var aabbMin = vec3f(0.0);
+    var aabbMax = vec3f(0.0);
+    if (isValid) {
+        let aabb = clusterAABBs[clusterIndex];
+        aabbMin = aabb.minBound.xyz;
+        aabbMax = aabb.maxBound.xyz;
+    }
 
     var localCount: u32 = 0u;
     var localIndices: array<u32, 128>; // MAX_LIGHTS_PER_CLUSTER
@@ -89,7 +94,7 @@ fn main(
     let numBatches = (numLights + BATCH_SIZE - 1u) / BATCH_SIZE;
 
     for (var batch: u32 = 0u; batch < numBatches; batch++) {
-        // Cooperatively load lights into shared memory
+        // Cooperatively load lights into shared memory (ALL threads participate)
         let loadIdx = batch * BATCH_SIZE + lid.x;
         if (lid.x < BATCH_SIZE && loadIdx < numLights) {
             sharedLightPos[lid.x] = lightVolumes[loadIdx].positionRange;
@@ -97,45 +102,49 @@ fn main(
         }
         workgroupBarrier();
 
-        // Test each light in this batch against the cluster AABB
-        let batchSize = min(BATCH_SIZE, numLights - batch * BATCH_SIZE);
-        for (var i: u32 = 0u; i < batchSize; i++) {
-            if (localCount >= config.maxLightsPerCluster) {
-                break;
-            }
+        // Only valid clusters perform intersection tests
+        if (isValid) {
+            let batchSize = min(BATCH_SIZE, numLights - batch * BATCH_SIZE);
+            for (var i: u32 = 0u; i < batchSize; i++) {
+                if (localCount >= config.maxLightsPerCluster) {
+                    break;
+                }
 
-            let lightPos = sharedLightPos[i].xyz;
-            let lightRange = sharedLightPos[i].w;
-            let lightDir = sharedLightDir[i].xyz;
-            let cosAngle = sharedLightDir[i].w;
+                let lightPos = sharedLightPos[i].xyz;
+                let lightRange = sharedLightPos[i].w;
+                let lightDir = sharedLightDir[i].xyz;
+                let cosAngle = sharedLightDir[i].w;
 
-            var intersects: bool;
-            if (cosAngle <= -1.5) {
-                // Omni light (cosAngle == -2.0): simple sphere-AABB test
-                intersects = sphereAABBIntersect(lightPos, lightRange, aabbMin, aabbMax);
-            } else {
-                // Spot light: cone-AABB test
-                intersects = spotConeAABBIntersect(lightPos, lightDir, cosAngle, lightRange, aabbMin, aabbMax);
-            }
+                var intersects: bool;
+                if (cosAngle <= -1.5) {
+                    // Omni light (cosAngle == -2.0): simple sphere-AABB test
+                    intersects = sphereAABBIntersect(lightPos, lightRange, aabbMin, aabbMax);
+                } else {
+                    // Spot light: cone-AABB test
+                    intersects = spotConeAABBIntersect(lightPos, lightDir, cosAngle, lightRange, aabbMin, aabbMax);
+                }
 
-            if (intersects) {
-                localIndices[localCount] = batch * BATCH_SIZE + i;
-                localCount++;
+                if (intersects) {
+                    localIndices[localCount] = batch * BATCH_SIZE + i;
+                    localCount++;
+                }
             }
         }
 
         workgroupBarrier();
     }
 
-    // Allocate space in the global light index list
-    if (localCount > 0u) {
-        let offset = atomicAdd(&globalCounter, localCount);
-        lightGrid[clusterIndex] = LightGrid(offset, localCount);
-        for (var i: u32 = 0u; i < localCount; i++) {
-            lightIndices[offset + i] = localIndices[i];
+    // Only valid clusters write results
+    if (isValid) {
+        if (localCount > 0u) {
+            let offset = atomicAdd(&globalCounter, localCount);
+            lightGrid[clusterIndex] = LightGrid(offset, localCount);
+            for (var i: u32 = 0u; i < localCount; i++) {
+                lightIndices[offset + i] = localIndices[i];
+            }
+        } else {
+            lightGrid[clusterIndex] = LightGrid(0u, 0u);
         }
-    } else {
-        lightGrid[clusterIndex] = LightGrid(0u, 0u);
     }
 }
 `;

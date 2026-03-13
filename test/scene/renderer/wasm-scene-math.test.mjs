@@ -515,6 +515,167 @@ describe('WasmSceneMath', function () {
 
     });
 
+    describe('#computeBatch - mat4 multiplication order', function () {
+
+        /**
+         * Reference mat4 multiply (column-major): out = A * B
+         */
+        function mat4Mul(a, b) {
+            const out = new Float32Array(16);
+            for (let col = 0; col < 4; col++) {
+                for (let row = 0; row < 4; row++) {
+                    let sum = 0;
+                    for (let k = 0; k < 4; k++) {
+                        sum += a[k * 4 + row] * b[col * 4 + k];
+                    }
+                    out[col * 4 + row] = sum;
+                }
+            }
+            return out;
+        }
+
+        it('should compute parent.world * child.local (NOT child.local * parent.world)', function () {
+            // This test verifies the multiplication order is correct.
+            // If reversed, non-commutative transforms (rotation + translation) will differ.
+            const wasm = new WasmSceneMath(4);
+
+            // Parent: rotation 90 degrees around Z axis (column-major)
+            const parentLocal = new Float32Array([
+                0, 1, 0, 0,   // col 0
+                -1, 0, 0, 0,  // col 1
+                0, 0, 1, 0,   // col 2
+                0, 0, 0, 1    // col 3
+            ]);
+
+            // Child: translation (5, 0, 0)
+            const childLocal = new Float32Array([
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                5, 0, 0, 1
+            ]);
+
+            wasm.setLocalMatrix(0, parentLocal);
+            wasm.setParentIndex(0, 0xFFFFFFFF);
+            wasm.setLocalMatrix(1, childLocal);
+            wasm.setParentIndex(1, 0);
+
+            wasm.markDirty(0);
+            wasm.markDirty(1);
+            wasm.computeBatch();
+
+            // Correct: parent.world * child.local
+            // Parent rotates 90° Z, then child translates (5,0,0) in parent's frame
+            // Result position: rotating (5,0,0) by 90° Z = (0,5,0)
+            const expected = mat4Mul(parentLocal, childLocal);
+            expect(expected[12]).to.be.closeTo(0, 1e-5);  // x ≈ 0
+            expect(expected[13]).to.be.closeTo(5, 1e-5);  // y ≈ 5
+
+            // Verify WASM matches
+            expect(wasm.worldMatrices[1 * 16 + 12]).to.be.closeTo(expected[12], 1e-5);
+            expect(wasm.worldMatrices[1 * 16 + 13]).to.be.closeTo(expected[13], 1e-5);
+
+            // Verify it does NOT match the reversed order (C * P ≠ P * C)
+            const reversed = mat4Mul(childLocal, parentLocal);
+            // C * P: translation (5,0,0) applied in world space after rotation
+            // col3 of C*P = C * (0,0,0,1) = (5,0,0,1)
+            expect(reversed[12]).to.be.closeTo(5, 1e-5);
+            expect(reversed[13]).to.be.closeTo(0, 1e-5);
+            // Confirm the two orders produce different results
+            expect(expected[12]).to.not.equal(reversed[12]);
+
+            wasm.destroy();
+        });
+
+        it('should handle 5-level deep hierarchy with mixed rotation+scale+translation', function () {
+            const wasm = new WasmSceneMath(8);
+
+            function mat4Mul(a, b) {
+                const out = new Float32Array(16);
+                for (let col = 0; col < 4; col++) {
+                    for (let row = 0; row < 4; row++) {
+                        let sum = 0;
+                        for (let k = 0; k < 4; k++) {
+                            sum += a[k * 4 + row] * b[col * 4 + k];
+                        }
+                        out[col * 4 + row] = sum;
+                    }
+                }
+                return out;
+            }
+
+            // Level 0: translate(10, 0, 0)
+            const l0 = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
+            // Level 1: scale(2, 2, 2)
+            const l1 = new Float32Array([2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1]);
+            // Level 2: translate(0, 5, 0)
+            const l2 = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 5, 0, 1]);
+            // Level 3: rotate 90° around Z
+            const l3 = new Float32Array([0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+            // Level 4: translate(1, 0, 0)
+            const l4 = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1]);
+
+            const locals = [l0, l1, l2, l3, l4];
+            for (let i = 0; i < 5; i++) {
+                wasm.setLocalMatrix(i, locals[i]);
+                wasm.setParentIndex(i, i === 0 ? 0xFFFFFFFF : i - 1);
+                wasm.markDirty(i);
+            }
+            wasm.computeBatch();
+
+            // Compute reference: chain multiplication
+            let refWorld = l0;
+            for (let i = 1; i < 5; i++) {
+                refWorld = mat4Mul(refWorld, locals[i]);
+            }
+
+            // Compare all 16 elements of the deepest node
+            for (let i = 0; i < 16; i++) {
+                expect(wasm.worldMatrices[4 * 16 + i]).to.be.closeTo(refWorld[i], 1e-4,
+                    `mismatch at element ${i}`);
+            }
+
+            wasm.destroy();
+        });
+
+    });
+
+    describe('#markDirty - overflow protection', function () {
+
+        it('should not crash when marking dirty beyond capacity', function () {
+            const wasm = new WasmSceneMath(4);
+            // Fill dirty list to capacity
+            for (let i = 0; i < 4; i++) {
+                wasm.markDirty(i);
+            }
+            // This should be silently ignored, not crash
+            wasm.markDirty(99);
+            expect(wasm._dirtyCount).to.equal(4);
+            wasm.destroy();
+        });
+
+    });
+
+    describe('#clearDirtyList + computeBatch interaction', function () {
+
+        it('should be a no-op when dirty list is cleared before computeBatch', function () {
+            const wasm = new WasmSceneMath(4);
+            const local = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 99, 0, 0, 1]);
+            wasm.setLocalMatrix(0, local);
+            wasm.setParentIndex(0, 0xFFFFFFFF);
+            wasm.markDirty(0);
+
+            // Clear before compute — should result in no computation
+            wasm.clearDirtyList();
+            wasm.computeBatch();
+
+            // World matrix should still be all zeros (never computed)
+            expect(wasm.worldMatrices[12]).to.equal(0);
+            wasm.destroy();
+        });
+
+    });
+
     describe('#destroy', function () {
 
         it('should null all buffers', function () {
