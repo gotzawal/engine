@@ -24,6 +24,7 @@ import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
 import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
+import { GpuFrustumCuller } from './gpu-frustum-culler.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -206,6 +207,10 @@ class Renderer {
         if (this.globalTransformBuffer) {
             graphicsDevice.globalTransformBuffer = this.globalTransformBuffer;
         }
+
+        // GPU frustum culler (WebGPU only, requires compute support)
+        this.gpuFrustumCuller = (this.globalTransformBuffer && graphicsDevice.supportsCompute) ?
+            new GpuFrustumCuller(graphicsDevice) : null;
 
         // timing
         this._skinTime = 0;
@@ -867,6 +872,7 @@ class Renderer {
         if (!gtb) return;
 
         const device = this.device;
+        const culler = this.gpuFrustumCuller;
         for (let i = 0; i < drawCalls.length; i++) {
             const dc = drawCalls[i];
 
@@ -879,11 +885,19 @@ class Renderer {
             if (slot >= 0) {
                 const worldMat = dc.node.getWorldTransform();
                 gtb.updateSlot(slot, worldMat.data);
+
+                // update bounding sphere for GPU frustum culling
+                if (culler) {
+                    const aabb = dc.aabb;
+                    const c = aabb.center;
+                    culler.updateSphere(slot, c.x, c.y, c.z, aabb.halfExtents.length());
+                }
             }
         }
 
         // single upload to GPU
         gtb.upload();
+        if (culler) culler.uploadSpheres(gtb.nextSlot);
 
         // set storage buffer for view bind group resolution
         if (this.globalTransformsId) {
@@ -909,15 +923,15 @@ class Renderer {
         const doCull = camera.frustumCulling;
         const count = drawCalls.length;
 
-        // CPU frustum culling always runs for ALL objects, including GPU-eligible ones.
-        // This keeps the visible list small (good for sort + render setup performance).
-        // GPU culling adds an additional layer via indirect draw (instanceCount 0/1),
-        // catching any objects that the CPU cull let through at the frustum boundary.
+        // GPU-eligible objects (globalTransformSlot >= 0) skip CPU frustum test entirely.
+        // GPU compute culling sets instanceCount = 0 for invisible objects via indirect draw.
+        // Non-GPU objects (skin, batch, instancing) still use CPU frustum culling.
         for (let i = 0; i < count; i++) {
             const drawCall = drawCalls[i];
             if (drawCall.visible) {
 
-                const visible = !doCull || !drawCall.cull || drawCall._isVisible(camera);
+                const gpuCulled = drawCall._globalTransformSlot >= 0;
+                const visible = gpuCulled || !doCull || !drawCall.cull || drawCall._isVisible(camera);
 
                 if (visible) {
                     drawCall.visibleThisFrame = true;

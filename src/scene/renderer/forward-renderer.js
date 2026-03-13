@@ -525,13 +525,17 @@ class ForwardRenderer extends Renderer {
         const indirectBuffer = device.indirectDrawBuffer;
         const tempArgs = _indirectArgs;
 
+        // track contiguous range of indirect slots for GPU frustum culling
+        const startSlot = device._indirectDrawNextIndex;
+        let count = 0;
+
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
             const slot = drawCall._globalTransformSlot;
             if (slot < 0) continue;
 
             // already has user-configured indirect/multi-draw — don't overwrite
-            if (drawCall.getDrawCommands(camera)) continue;
+            if (drawCall.getDrawCommands(null)) continue;
 
             // allocate a slot in the device's shared indirect draw buffer
             const indirectSlot = device.getIndirectDrawSlot();
@@ -547,6 +551,14 @@ class ForwardRenderer extends Renderer {
 
             // wire the mesh instance to use this indirect slot (null = all cameras)
             drawCall.setIndirect(null, indirectSlot);
+            count++;
+        }
+
+        // pass indirect slot range to GPU frustum culler
+        const culler = this.gpuFrustumCuller;
+        if (culler) {
+            culler.indirectStartSlot = startSlot;
+            culler.indirectDrawCount = count;
         }
     }
 
@@ -561,6 +573,11 @@ class ForwardRenderer extends Renderer {
 
         // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
         this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
+
+        // GPU frustum culling — zero instanceCount for objects outside frustum
+        if (this.gpuFrustumCuller && this.gpuFrustumCuller.indirectDrawCount > 0) {
+            this.gpuFrustumCuller.dispatch(camera);
+        }
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
