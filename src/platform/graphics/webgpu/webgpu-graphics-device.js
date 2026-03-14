@@ -659,8 +659,9 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         Debug.assert(!this._bundleEncoder, 'A bundle encoder is already active.');
         const wgpu = this.wgpu;
         this._bundleEncoder = wgpu.createRenderBundleEncoder(descriptor);
-        // reset cached pipeline so that the bundle records fresh pipeline bindings
+        // reset cached state so that the bundle records fresh pipeline/bind group bindings
         this.pipeline = null;
+        this.bindGroupFormats.length = 0;
         return this._bundleEncoder;
     }
 
@@ -674,8 +675,9 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         Debug.assert(this._bundleEncoder, 'No bundle encoder is active.');
         const bundle = this._bundleEncoder.finish();
         this._bundleEncoder = null;
-        // reset cached pipeline so that subsequent pass encoding re-binds correctly
+        // reset cached state so that subsequent pass encoding re-binds correctly
         this.pipeline = null;
+        this.bindGroupFormats.length = 0;
         return bundle;
     }
 
