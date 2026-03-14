@@ -88,6 +88,13 @@ class ExampleLoader {
                 renderer.materialStorageBufferEnabled = (materialStorageMode === 'enabled');
             }
             fire('updateActiveMaterialStorageMode', { materialStorageMode });
+
+            // Apply saved GPU-driven mode preference
+            const gpuDrivenMode = localStorage.getItem('preferredGpuDrivenMode') ?? 'disabled';
+            if (renderer) {
+                renderer.gpuDrivenEnabled = (gpuDrivenMode === 'enabled');
+            }
+            fire('updateActiveGpuDrivenMode', { gpuDrivenMode });
         }
 
         this._allowRestart = true;
@@ -171,6 +178,25 @@ class ExampleLoader {
                 renderer._drawCallGrouper?.invalidateAll();
             }
             fire('updateActiveMaterialStorageMode', { materialStorageMode: mode });
+        });
+
+        // Listen for runtime GPU-driven mode changes from the parent UI
+        window.addEventListener('updateGpuDrivenMode', (/** @type {CustomEvent} */ e) => {
+            const mode = e.detail.gpuDrivenMode;
+            const renderer = this._app?.renderer;
+            if (renderer) {
+                renderer.gpuDrivenEnabled = (mode === 'enabled');
+                // Trigger shader recompilation (GPU_DRIVEN define changes shaders)
+                this._app?.scene?.layers?.layerList?.forEach((layer) => {
+                    layer.meshInstances.forEach((mi) => {
+                        mi.material?.clearVariants?.();
+                    });
+                });
+                // invalidate all cached bundles
+                renderer._bundleCache?.invalidateAll();
+                renderer._drawCallGrouper?.invalidateAll();
+            }
+            fire('updateActiveGpuDrivenMode', { gpuDrivenMode: mode });
         });
 
         // extracts example category and name from the URL

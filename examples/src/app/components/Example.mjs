@@ -9,6 +9,7 @@ import { ClusterModeSelector } from './ClusterModeSelector.mjs';
 import { DeviceSelector } from './DeviceSelector.mjs';
 import { RenderBundleSelector } from './RenderBundleSelector.mjs';
 import { MaterialStorageSelector } from './MaterialStorageSelector.mjs';
+import { GpuDrivenSelector } from './GpuDrivenSelector.mjs';
 import { ErrorBoundary } from './ErrorBoundary.mjs';
 import { MIN_DESKTOP_WIDTH } from '../constants.mjs';
 import { iframe } from '../iframe.mjs';
@@ -277,6 +278,16 @@ class Example extends TypedComponent {
         return jsx(MaterialStorageSelector);
     }
 
+    renderGpuDrivenSelector() {
+        const { showDeviceSelector } = this.state;
+
+        if (!showDeviceSelector) {
+            return null;
+        }
+
+        return jsx(GpuDrivenSelector);
+    }
+
     renderControls() {
         const { exampleLoaded, controls, observer } = this.state;
         const ready = exampleLoaded && controls && observer && iframe.ready;
@@ -359,6 +370,7 @@ class Example extends TypedComponent {
                 this.renderClusterModeSelector(),
                 this.renderRenderBundleSelector(),
                 this.renderMaterialStorageSelector(),
+                this.renderGpuDrivenSelector(),
                 jsx(
                     Container,
                     {
@@ -425,6 +437,7 @@ class Example extends TypedComponent {
                 this.renderClusterModeSelector(),
                 this.renderRenderBundleSelector(),
                 this.renderMaterialStorageSelector(),
+                this.renderGpuDrivenSelector(),
                 this.renderControls()
             ),
             this.renderDescription()
