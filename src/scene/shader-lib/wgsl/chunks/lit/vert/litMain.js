@@ -139,6 +139,10 @@ fn vertexMain(input : VertexInput) -> VertexOutput {
         output.vTiledUv = dTiledUvGlobal;
     #endif
 
+    #ifdef GPU_DRIVEN
+        output.vGpuDrivenMaterialSlot = getGpuDrivenMaterialSlot();
+    #endif
+
     #include "litUserMainEndVS"
 
     return output;

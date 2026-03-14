@@ -1,6 +1,6 @@
 import { SHADERLANGUAGE_WGSL } from '../../platform/graphics/constants.js';
 import { ShaderProcessorOptions } from '../../platform/graphics/shader-processor-options.js';
-import { SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_SKIN, SHADERDEF_GLOBAL_TRANSFORM_BUFFER } from '../constants.js';
+import { SHADERDEF_INSTANCING, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_TEXTURE_BASED_INT, SHADERDEF_SKIN, SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN } from '../constants.js';
 import { getProgramLibrary } from '../shader-lib/get-program-library.js';
 import { shaderGeneratorShader } from '../shader-lib/programs/shader-generator-shader.js';
 import { ShaderUtils } from '../shader-lib/shader-utils.js';
@@ -110,6 +110,7 @@ class ShaderMaterial extends Material {
             useMorphNormal: (objDefs & SHADERDEF_MORPH_NORMAL) !== 0,
             useMorphTextureBasedInt: (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0,
             useGlobalTransformBuffer: (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0,
+            useGpuDriven: (objDefs & SHADERDEF_GPU_DRIVEN) !== 0,
 
             pass: params.pass,
             gamma: params.cameraShaderParams.shaderOutputGamma,

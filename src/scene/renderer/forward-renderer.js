@@ -821,16 +821,14 @@ class ForwardRenderer extends Renderer {
         const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
 
-        // Categorize draw calls: GPU-driven (grouped by batch) vs legacy
+        // Categorize draw calls: GPU-driven vs legacy
         const legacyIndices = [];
-
-        // Map: batchId -> array of prepared call indices
-        const batchDraws = new Map();
+        const gpuDrivenIndices = [];
 
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
 
-            // Only transparent objects use the legacy path (CPU sort order required)
+            // Transparent objects use legacy path (CPU sort order required)
             if (transparent) {
                 legacyIndices.push(i);
                 continue;
@@ -838,24 +836,14 @@ class ForwardRenderer extends Renderer {
 
             const entry = drawCall._geometryPoolEntry;
             if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
-                drawCall._globalTransformSlot >= 0) {
-                // batched GPU-driven draw via shared geometry pool
-                let batchList = batchDraws.get(entry.batchId);
-                if (!batchList) {
-                    batchList = [];
-                    batchDraws.set(entry.batchId, batchList);
-                }
-                batchList.push(i);
+                drawCall._globalTransformSlot >= 0 && drawCall._drawInstanceId >= 0) {
+                gpuDrivenIndices.push(i);
             } else {
-                // individual draw (no pool entry, dynamic, or no transform slot)
                 legacyIndices.push(i);
             }
         }
 
         // -- Render legacy (non-GPU-driven) draw calls FIRST --
-        // Legacy draws run before batched draws so that if a batched draw
-        // triggers a WebGPU validation error (which poisons the encoder),
-        // the legacy draws have already completed successfully.
         if (legacyIndices.length > 0) {
             if (device.supportsUniformBuffers) {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
@@ -867,73 +855,166 @@ class ForwardRenderer extends Renderer {
             }
         }
 
-        // -- Render GPU-driven draws grouped by batch --
-        if (batchDraws.size > 0) {
+        // -- Render GPU-driven draws with minimal per-draw state changes --
+        if (gpuDrivenIndices.length > 0) {
 
-            // Set view bind group once
-            if (device.supportsUniformBuffers) {
-                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
-            }
+            // Sort by pipeline state key for minimal state changes:
+            // shader.id → blendState → batchId → material (for texture sub-grouping)
+            gpuDrivenIndices.sort((a, b) => {
+                const sA = shaderInstances[a].shader, sB = shaderInstances[b].shader;
+                if (sA.id !== sB.id) return sA.id - sB.id;
+                const mA = drawCalls[a].material, mB = drawCalls[b].material;
+                const blendA = mA.blendState.key, blendB = mB.blendState.key;
+                if (blendA !== blendB) return blendA - blendB;
+                const bA = drawCalls[a]._geometryPoolEntry.batchId;
+                const bB = drawCalls[b]._geometryPoolEntry.batchId;
+                if (bA !== bB) return bA - bB;
+                // Sub-group by material for texture bind group batching
+                return mA.id - mB.id;
+            });
 
-            for (const [batchId, indices] of batchDraws) {
-                const batch = pool.getBatch(batchId);
-                if (!batch) continue;
+            // Try render bundle path: record once, replay every frame.
+            // Indirect buffer contents (cull results) change each frame but the bundle
+            // records the buffer reference, not the values, so replay is still correct.
+            const bundleCache = this._bundleCache;
+            const canBundle = this.renderBundlesEnabled && device.supportsIndirectFirstInstance && bundleCache;
 
-                let prevMaterial = null;
-
-                for (let d = 0; d < indices.length; d++) {
-                    const preparedIdx = indices[d];
-                    const drawCall = drawCalls[preparedIdx];
-                    const shaderInstance = shaderInstances[preparedIdx];
-                    const material = drawCall.material;
-
-                    if (shaderInstance.shader.failed) continue;
-
-                    // Material / pipeline state — set only when it changes
-                    if (material !== prevMaterial) {
-                        device.setShader(shaderInstance.shader, false);
-                        material.setParameters(device);
-
-                        if (lightMaskChanged[preparedIdx]) {
-                            this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
-                        }
-
-                        this.alphaTestId.setValue(material.alphaTest);
-                        device.setBlendState(material.blendState);
-                        device.setDepthState(material.depthState);
-                        device.setAlphaToCoverage(material.alphaToCoverage);
-                        prevMaterial = material;
-                    }
-
-                    this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
-
-                    const stencilFront = drawCall.stencilFront ?? material.stencilFront;
-                    const stencilBack = drawCall.stencilBack ?? material.stencilBack;
-                    device.setStencilState(stencilFront, stencilBack);
-
-                    if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
-                        this.materialIndexId.setValue(material._materialSlot);
-                    }
-
-                    drawCall.setParameters(device, passFlag);
-                    device.scope.resolve('meshInstanceId').setValue(drawCall.id);
-                    this.setMeshInstanceMatrices(drawCall, true);
-
-                    // Set shared vertex buffer before each draw (draw() clears VB array after each call)
-                    device.setVertexBuffer(batch.vertexBuffer);
-
-                    // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
-                    this.setupMeshUniformBuffers(shaderInstance);
-
-                    // Use the existing indirect draw path — the GPU frustum culler has
-                    // already zeroed instanceCount on culled entries, making them no-ops
-                    const indirectData = drawCall.getDrawCommands(camera);
-                    const indexBuffer = batch.indexBuffer;
-
-                    device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
-                    this._forwardDrawCalls++;
+            if (canBundle) {
+                // Compute cache key from sorted pipeline state sequence
+                let cacheKey = `gpudriven:${gpuDrivenIndices.length}`;
+                for (let d = 0; d < gpuDrivenIndices.length; d++) {
+                    const idx = gpuDrivenIndices[d];
+                    const shader = shaderInstances[idx].shader;
+                    const mat = drawCalls[idx].material;
+                    const bId = drawCalls[idx]._geometryPoolEntry.batchId;
+                    cacheKey += `:${shader.id},${mat.blendState.key},${bId},${mat.id}`;
                 }
+
+                let bundle = bundleCache.get(cacheKey, pass);
+                if (!bundle) {
+                    // Record a new bundle
+                    const rt = renderTarget || device.backBuffer;
+                    const wrt = /** @type {import('../../platform/graphics/webgpu/webgpu-render-target.js').WebgpuRenderTarget} */ (rt.impl);
+                    const bundleDesc = wrt.getRenderBundleDescriptor();
+                    device.startBundleEncoder(bundleDesc);
+
+                    this._executeGpuDrivenDraws(device, pool, preparedCalls, gpuDrivenIndices, camera, sortedLights, flipFactor, viewBindGroups);
+
+                    bundle = device.finishBundleEncoder();
+                    bundleCache.set(cacheKey, bundle, pass);
+                }
+
+                device.executeBundles([bundle]);
+
+                // After executeBundles, render pass state is reset — re-bind view bind group
+                // for any subsequent legacy draws
+                if (legacyIndices.length > 0 && device.supportsUniformBuffers) {
+                    device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+                }
+
+                this._forwardDrawCalls += gpuDrivenIndices.length;
+            } else {
+                // Direct execution (no bundles)
+                this._executeGpuDrivenDraws(device, pool, preparedCalls, gpuDrivenIndices, camera, sortedLights, flipFactor, viewBindGroups);
             }
+        }
+    }
+
+    /**
+     * Execute the GPU-driven draw loop. Works with both render pass encoder and render bundle
+     * encoder (device.activeEncoder handles this transparently).
+     *
+     * @param {GraphicsDevice} device - The graphics device.
+     * @param {GeometryPool} pool - The geometry pool.
+     * @param {object} preparedCalls - Prepared draw calls.
+     * @param {number[]} gpuDrivenIndices - Sorted indices into preparedCalls for GPU-driven draws.
+     * @param {Camera} camera - The camera.
+     * @param {object} sortedLights - Sorted lights.
+     * @param {number} flipFactor - Face flip factor.
+     * @param {BindGroup[]} viewBindGroups - View-level bind groups.
+     * @private
+     */
+    _executeGpuDrivenDraws(device, pool, preparedCalls, gpuDrivenIndices, camera, sortedLights, flipFactor, viewBindGroups) {
+        const { drawCalls, shaderInstances, lightMaskChanged } = preparedCalls;
+
+        // Set view bind group once
+        if (device.supportsUniformBuffers) {
+            device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+        }
+
+        let prevShader = null;
+        let prevBlendKey = -1;
+        let prevBatchId = -1;
+        let prevMaterial = null;
+        let needsFirstDraw = true;
+
+        for (let d = 0; d < gpuDrivenIndices.length; d++) {
+            const idx = gpuDrivenIndices[d];
+            const drawCall = drawCalls[idx];
+            const shaderInstance = shaderInstances[idx];
+            const material = drawCall.material;
+            const shader = shaderInstance.shader;
+            const entry = drawCall._geometryPoolEntry;
+
+            if (shader.failed) continue;
+
+            const batch = pool.getBatch(entry.batchId);
+            if (!batch) continue;
+
+            const isLast = d === gpuDrivenIndices.length - 1;
+
+            // Check what changed
+            const shaderChanged = shader !== prevShader;
+            const blendChanged = material.blendState.key !== prevBlendKey;
+            const batchChanged = entry.batchId !== prevBatchId;
+            const pipelineChanged = shaderChanged || blendChanged || batchChanged || needsFirstDraw;
+            const materialChanged = material !== prevMaterial;
+
+            // Pipeline state changes — only when pipeline state actually changes
+            if (pipelineChanged) {
+                device.setShader(shader, false);
+                device.setBlendState(material.blendState);
+                device.setDepthState(material.depthState);
+                device.setAlphaToCoverage(material.alphaToCoverage);
+
+                this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+                const stencilFront = drawCall.stencilFront ?? material.stencilFront;
+                const stencilBack = drawCall.stencilBack ?? material.stencilBack;
+                device.setStencilState(stencilFront, stencilBack);
+
+                if (lightMaskChanged[idx]) {
+                    this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
+                }
+
+                // Set VB for batch (only when batch changes)
+                device.setVertexBuffer(batch.vertexBuffer);
+
+                // Set up mesh uniform buffers once for this pipeline group
+                // Per-draw data (modelMatrix, normalMatrix, materialIndex) comes from
+                // storage buffers in GPU_DRIVEN mode, so this is shared.
+                this.setupMeshUniformBuffers(shaderInstance);
+
+                prevShader = shader;
+                prevBlendKey = material.blendState.key;
+                prevBatchId = entry.batchId;
+                this._materialSwitches++;
+            }
+
+            // Material texture bind group — only when textures change
+            if (materialChanged) {
+                material.setParameters(device);
+                prevMaterial = material;
+            }
+
+            // GPU-driven path: NO per-draw uniform updates needed.
+            // Transform: shader reads globalTransforms[drawInstances[firstInstance].transformSlot]
+            // Material: shader reads globalMaterials[drawInstances[firstInstance].materialSlot]
+            // meshInstanceId: derived from firstInstance in shader
+
+            const indirectData = drawCall.getDrawCommands(camera);
+            device.draw(drawCall.mesh.primitive[drawCall.renderStyle], batch.indexBuffer, 1, indirectData, needsFirstDraw || pipelineChanged, isLast);
+            needsFirstDraw = false;
+            this._forwardDrawCalls++;
         }
     }
 

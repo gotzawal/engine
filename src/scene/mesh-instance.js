@@ -12,7 +12,7 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADOW_CASCADE_ALL
+    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADOW_CASCADE_ALL
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
 import { getDefaultMaterial } from './materials/default-material.js';
@@ -363,6 +363,15 @@ class MeshInstance {
      * @ignore
      */
     _globalTransformSlot = -1;
+
+    /**
+     * Index into the DrawInstanceBuffer for GPU-driven rendering. Set each frame during
+     * DrawInstanceBuffer population. -1 if not participating in GPU-driven path.
+     *
+     * @type {number}
+     * @ignore
+     */
+    _drawInstanceId = -1;
 
     /**
      * Entry describing where this mesh's geometry lives in the shared GeometryPool buffer,
@@ -768,6 +777,14 @@ class MeshInstance {
             }
         }
 
+        // Strip GPU_DRIVEN for passes whose viewBindGroupFormat lacks the drawInstances storage buffer
+        if (shaderDefs & SHADERDEF_GPU_DRIVEN) {
+            const hasDIB = viewBindGroupFormat?.storageBufferFormats?.some(f => f.name === 'drawInstances');
+            if (!hasDIB) {
+                shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
+            }
+        }
+
         // unique hash for the required shader
         lookupHashes[0] = shaderPass;
         lookupHashes[1] = lightHash;
@@ -1094,6 +1111,37 @@ class MeshInstance {
 
         this._geometryPoolEntry = pool.addMesh(mesh);
         return this._geometryPoolEntry;
+    }
+
+    /**
+     * Enable or disable the GPU_DRIVEN shader define. When enabled, the shader reads
+     * transform and material data from storage buffers via the DrawInstance struct
+     * instead of per-draw uniforms.
+     *
+     * @param {boolean} enabled - Whether GPU-driven mode should be enabled.
+     * @ignore
+     */
+    setGpuDriven(enabled) {
+        const flag = SHADERDEF_GPU_DRIVEN;
+        const current = (this._shaderDefs & flag) !== 0;
+        if (current !== enabled) {
+            if (enabled) {
+                this._shaderDefs |= flag;
+            } else {
+                this._shaderDefs &= ~flag;
+            }
+            this.clearShaders();
+        }
+    }
+
+    /**
+     * Whether this mesh instance uses the GPU-driven rendering path.
+     *
+     * @type {boolean}
+     * @ignore
+     */
+    get gpuDriven() {
+        return (this._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0;
     }
 
     destroy() {

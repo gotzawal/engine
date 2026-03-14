@@ -225,6 +225,7 @@ class RenderPassForward extends RenderPass {
 
     get requiresComputeBeforeStart() {
         return !!(this.renderer.gpuFrustumCuller ||
+                  this.renderer.gpuDrawCompactor ||
                   this.renderer.worldClustersAllocator?._gpuCluster);
     }
 
@@ -279,8 +280,15 @@ class RenderPassForward extends RenderPass {
         const { renderer } = this;
         const pool = renderer.geometryPool;
         const culler = renderer.gpuFrustumCuller;
+        const drawInstanceBuffer = renderer.drawInstanceBuffer;
+        const compactor = renderer.gpuDrawCompactor;
 
         if (!pool) return;
+
+        // Begin new frame for DrawInstanceBuffer
+        if (drawInstanceBuffer) {
+            drawInstanceBuffer.beginFrame();
+        }
 
         // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
         // This runs before the render pass so that GPU frustum culling can operate on the
@@ -307,9 +315,57 @@ class RenderPassForward extends RenderPass {
             // Set up indirect draw args (now uses pool offsets for registered meshes)
             const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
             forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
+
+            // Populate DrawInstanceBuffer for GPU-driven rendering
+            if (drawInstanceBuffer) {
+                for (let j = 0; j < visible.length; j++) {
+                    const dc = visible[j];
+                    const entry = dc._geometryPoolEntry;
+                    const slot = dc._globalTransformSlot;
+
+                    // Only add eligible draw calls (has pool entry + transform slot)
+                    if (entry && slot >= 0) {
+                        const materialSlot = dc.material?._materialSlot ?? 0;
+                        const drawId = drawInstanceBuffer.addInstance(
+                            slot,
+                            materialSlot,
+                            entry.firstIndex,
+                            entry.indexCount,
+                            entry.baseVertex,
+                            entry.batchId
+                        );
+                        dc._drawInstanceId = drawId;
+
+                        // Enable GPU_DRIVEN shader define on this mesh instance
+                        dc.setGpuDriven(true);
+                    } else {
+                        dc._drawInstanceId = -1;
+                        dc.setGpuDriven(false);
+                    }
+                }
+            }
+        }
+
+        // Upload DrawInstanceBuffer to GPU
+        if (drawInstanceBuffer && drawInstanceBuffer.count > 0) {
+            drawInstanceBuffer.upload();
+
+            // Update the scope binding so shaders can access the buffer
+            if (renderer.drawInstancesId) {
+                renderer.drawInstancesId.setValue(drawInstanceBuffer.storageBuffer);
+            }
+        }
+
+        // Dispatch GPU draw compactor (frustum cull + compaction via compute shader)
+        if (compactor && drawInstanceBuffer && drawInstanceBuffer.count > 0) {
+            const primaryCamera = renderActions[0]?.camera?.camera;
+            if (primaryCamera && culler) {
+                compactor.dispatch(primaryCamera, drawInstanceBuffer, culler.boundingSphereBuffer);
+            }
         }
 
         // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
+        // This still runs for the indirect draw buffer used by the legacy path
         if (culler && culler.indirectDrawCount > 0) {
             const primaryCamera = renderActions[0]?.camera?.camera;
             if (primaryCamera) {

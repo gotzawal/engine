@@ -25,6 +25,7 @@ class ShaderGeneratorShader extends ShaderGenerator {
         if (options.useMorphNormal)             key += '_morphn';
         if (options.useMorphTextureBasedInt)    key += '_morphi';
         if (options.useGlobalTransformBuffer)   key += '_gtb';
+        if (options.useGpuDriven)              key += '_gpudriven';
 
         return key;
     }
@@ -58,7 +59,12 @@ class ShaderGeneratorShader extends ShaderGenerator {
         const defines = new Map(options.defines);
         if (options.skin) defines.set('SKIN', true);
         if (options.useInstancing) defines.set('INSTANCING', true);
-        if (options.useGlobalTransformBuffer) defines.set('GLOBAL_TRANSFORM_BUFFER', true);
+        if (options.useGpuDriven) {
+            defines.set('GPU_DRIVEN', true);
+            defines.set('GLOBAL_TRANSFORM_BUFFER', true);
+        } else if (options.useGlobalTransformBuffer) {
+            defines.set('GLOBAL_TRANSFORM_BUFFER', true);
+        }
         if (options.useMorphPosition || options.useMorphNormal) {
             defines.set('MORPHING', true);
             if (options.useMorphTextureBasedInt) defines.set('MORPHING_INT', true);

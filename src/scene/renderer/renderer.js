@@ -30,6 +30,7 @@ import { DrawInstanceBuffer } from './draw-instance-buffer.js';
 import { GpuDrawCompactor } from './gpu-draw-compactor.js';
 import { MaterialStorageBuffer } from '../materials/material-storage-buffer.js';
 import { materialDataStructWGSL } from '../shader-lib/wgsl/chunks/common/frag/materialAccess.js';
+import { drawInstanceStructWGSL } from '../shader-lib/wgsl/chunks/common/vert/gpuDrivenTransform.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -804,6 +805,14 @@ class Renderer {
                 matSBFormat.format = 'array<MaterialData>';
                 matSBFormat.structPreamble = materialDataStructWGSL;
                 formats.push(matSBFormat);
+            }
+
+            // draw instance buffer (read-only in vertex stage, for GPU-driven rendering)
+            if (this.drawInstanceBuffer) {
+                const diBFormat = new BindStorageBufferFormat('drawInstances', SHADERSTAGE_VERTEX, true);
+                diBFormat.format = 'array<DrawInstance>';
+                diBFormat.structPreamble = drawInstanceStructWGSL;
+                formats.push(diBFormat);
             }
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
