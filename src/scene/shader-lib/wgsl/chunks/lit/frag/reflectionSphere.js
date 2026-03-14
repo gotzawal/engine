@@ -6,7 +6,9 @@ export default /* wgsl */`
 
 var texture_sphereMap: texture_2d<f32>;
 var texture_sphereMapSampler: sampler;
+#ifndef MATERIAL_STORAGE_BUFFER
 uniform material_reflectivity: f32;
+#endif
 
 fn calcReflection(reflDir: vec3f, gloss: f32) -> vec3f {
     let viewRotationMatrix = mat3x3f(uniform.matrix_view[0].xyz, uniform.matrix_view[1].xyz, uniform.matrix_view[2].xyz);
@@ -19,6 +21,10 @@ fn calcReflection(reflDir: vec3f, gloss: f32) -> vec3f {
 }
 
 fn addReflection(reflDir: vec3f, gloss: f32) {
+    #ifdef MATERIAL_STORAGE_BUFFER
+    dReflection = dReflection + vec4f(calcReflection(reflDir, gloss), getMaterialReflectivity());
+    #else
     dReflection = dReflection + vec4f(calcReflection(reflDir, gloss), uniform.material_reflectivity);
+    #endif
 }
 `;

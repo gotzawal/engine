@@ -1,13 +1,19 @@
 export default /* wgsl */`
 #ifdef STD_THICKNESS_CONSTANT
-uniform material_thickness: f32;
+    #ifndef MATERIAL_STORAGE_BUFFER
+    uniform material_thickness: f32;
+    #endif
 #endif
 
 fn getThickness() {
     dThickness = 1.0;
 
     #ifdef STD_THICKNESS_CONSTANT
-    dThickness = dThickness * uniform.material_thickness;
+        #ifdef MATERIAL_STORAGE_BUFFER
+        dThickness = dThickness * getMaterialThickness();
+        #else
+        dThickness = dThickness * uniform.material_thickness;
+        #endif
     #endif
 
     #ifdef STD_THICKNESS_TEXTURE

@@ -1,14 +1,20 @@
 export default /* wgsl */`
 
 #ifdef STD_SPECULAR_CONSTANT
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_specular: vec3f;
+    #endif
 #endif
 
 fn getSpecularity() {
     var specularColor = vec3f(1.0, 1.0, 1.0);
 
     #ifdef STD_SPECULAR_CONSTANT
-    specularColor = specularColor * uniform.material_specular;
+        #ifdef MATERIAL_STORAGE_BUFFER
+        specularColor = specularColor * getMaterialSpecular();
+        #else
+        specularColor = specularColor * uniform.material_specular;
+        #endif
     #endif
 
     #ifdef STD_SPECULAR_TEXTURE
