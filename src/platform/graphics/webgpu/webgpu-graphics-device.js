@@ -692,6 +692,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         this.passEncoder.executeBundles(bundles);
         // after executeBundles the render pass state is reset, invalidate cached state
         this.pipeline = null;
+        this.bindGroupFormats.length = 0;
     }
 
     /**

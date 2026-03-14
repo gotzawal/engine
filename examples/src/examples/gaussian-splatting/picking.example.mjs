@@ -211,11 +211,11 @@ assetListLoader.load(() => {
         });
     };
 
-    app.mouse.on(pc.EVENT_MOUSEDOWN, (event) => {
+    app.mouse.on('mousedown', (event) => {
         handlePointer(event.x, event.y);
     });
 
-    app.touch.on(pc.EVENT_TOUCHSTART, (event) => {
+    app.touch.on('touchstart', (event) => {
         const touch = event.touches[0];
         handlePointer(touch.x, touch.y);
     });

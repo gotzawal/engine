@@ -496,6 +496,11 @@ class ForwardRenderer extends Renderer {
             // mesh ID - used by the picker
             device.scope.resolve('meshInstanceId').setValue(drawCall.id);
 
+            // Set materialIndex for global material storage buffer access
+            if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                this.materialIndexId.setValue(material._materialSlot);
+            }
+
             const mesh = drawCall.mesh;
             this.setVertexBuffers(device, mesh);
             this.setMorphing(device, drawCall.morphInstance);
@@ -735,6 +740,14 @@ class ForwardRenderer extends Renderer {
 
         // render non-bundleable draw calls via the legacy per-draw path
         if (unbundledIndices.length > 0) {
+
+            // After executeBundles the render pass state is reset (pipeline, bind groups
+            // are all unset).  Re-bind the view bind group so that subsequent individual
+            // draw calls have the correct bind group format at slot 0.
+            if (device.supportsUniformBuffers) {
+                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+            }
+
             for (let u = 0; u < unbundledIndices.length; u++) {
                 const idx = unbundledIndices[u];
                 this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);

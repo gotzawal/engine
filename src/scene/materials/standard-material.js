@@ -829,14 +829,17 @@ class StandardMaterial extends Material {
         const e = this.emissive;
         const s = this.specular;
 
-        // vec4 0: baseColor (rgba) - diffuse color + diffuse alpha
-        msb.updateSlotVec4(slot, 0, d.r, d.g, d.b, 1.0);
+        // Helper: sRGB gamma to linear (matches Color.linear which uses pow 2.2)
+        const toLinear = (v) => Math.pow(v, 2.2);
 
-        // vec4 1: emissive (rgb) + opacity
-        msb.updateSlotVec4(slot, 1, e.r * this.emissiveIntensity, e.g * this.emissiveIntensity, e.b * this.emissiveIntensity, this.opacity);
+        // vec4 0: baseColor (rgba) - diffuse color in linear space + diffuse alpha
+        msb.updateSlotVec4(slot, 0, toLinear(d.r), toLinear(d.g), toLinear(d.b), 1.0);
 
-        // vec4 2: specular (rgb) + glossiness
-        msb.updateSlotVec4(slot, 2, s.r, s.g, s.b, this.gloss);
+        // vec4 1: emissive (rgb) in linear space + opacity
+        msb.updateSlotVec4(slot, 1, toLinear(e.r), toLinear(e.g), toLinear(e.b), this.opacity);
+
+        // vec4 2: specular (rgb) in linear space + glossiness
+        msb.updateSlotVec4(slot, 2, toLinear(s.r), toLinear(s.g), toLinear(s.b), this.gloss);
 
         // vec4 3: metalness, roughness, alphaTest, bumpiness
         msb.updateSlotVec4(slot, 3, this.metalness, 1.0 - this.gloss, this.alphaTest, this.bumpiness);
@@ -850,13 +853,13 @@ class StandardMaterial extends Material {
         // vec4 6: sheenGloss, iridescence, iridescenceThickness, anisotropy
         msb.updateSlotVec4(slot, 6, this.sheenGloss, this.iridescence ?? 0, this.iridescenceThicknessMax ?? 0, this.anisotropyIntensity ?? 0);
 
-        // vec4 7: sheenColor (rgb) + dispersion
+        // vec4 7: sheenColor (rgb) in linear space + dispersion
         const sh = this.sheen;
-        msb.updateSlotVec4(slot, 7, sh ? sh.r : 0, sh ? sh.g : 0, sh ? sh.b : 0, this.dispersion ?? 0);
+        msb.updateSlotVec4(slot, 7, sh ? toLinear(sh.r) : 0, sh ? toLinear(sh.g) : 0, sh ? toLinear(sh.b) : 0, this.dispersion ?? 0);
 
-        // vec4 8: attenuationColor (rgb) + attenuationDistance
+        // vec4 8: attenuationColor (rgb) in linear space + attenuationDistance
         const att = this.attenuation;
-        msb.updateSlotVec4(slot, 8, att ? att.r : 1, att ? att.g : 1, att ? att.b : 1, this.attenuationDistance ?? 0);
+        msb.updateSlotVec4(slot, 8, att ? toLinear(att.r) : 1, att ? toLinear(att.g) : 1, att ? toLinear(att.b) : 1, this.attenuationDistance ?? 0);
     }
 
     updateEnvUniforms(device, scene) {
