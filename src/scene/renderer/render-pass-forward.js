@@ -302,17 +302,23 @@ class RenderPassForward extends RenderPass {
      * @private
      */
     _dispatchGpuClusterLighting(renderActions) {
+        let foundClusteredLayer = false;
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
             if (!ra.camera) continue;
             const layer = ra.layer;
             if (layer?.hasClusteredLights) {
+                foundClusteredLayer = true;
                 const camera = ra.camera.camera;
+                Debug.log(`[GpuCluster] dispatch: layer="${layer.name}" clusteredLights=${layer.clusteredLightsSet?.size ?? 0} camera=${camera?.entity?.name ?? 'unknown'}`);
                 this.renderer.worldClustersAllocator.updateGpuClusters(
                     layer.clusteredLightsSet, camera, this.scene.lighting
                 );
                 break;
             }
+        }
+        if (!foundClusteredLayer) {
+            Debug.warn('[GpuCluster] dispatch: NO layer with clustered lights found in renderActions!');
         }
     }
 
