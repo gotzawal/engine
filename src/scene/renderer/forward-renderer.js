@@ -854,6 +854,21 @@ class ForwardRenderer extends Renderer {
             batchList.push(i);
         }
 
+        // -- Render legacy (non-GPU-driven) draw calls FIRST --
+        // Legacy draws run before batched draws so that if a batched draw
+        // triggers a WebGPU validation error (which poisons the encoder),
+        // the legacy draws have already completed successfully.
+        if (legacyIndices.length > 0) {
+            if (device.supportsUniformBuffers) {
+                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+            }
+
+            for (let u = 0; u < legacyIndices.length; u++) {
+                const idx = legacyIndices[u];
+                this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+            }
+        }
+
         // -- Render GPU-driven draws grouped by batch --
         if (batchDraws.size > 0) {
 
@@ -906,6 +921,8 @@ class ForwardRenderer extends Renderer {
                     }
 
                     drawCall.setParameters(device, passFlag);
+                    device.scope.resolve('meshInstanceId').setValue(drawCall.id);
+                    this.setMeshInstanceMatrices(drawCall, true);
 
                     // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
                     this.setupMeshUniformBuffers(shaderInstance);
@@ -918,18 +935,6 @@ class ForwardRenderer extends Renderer {
                     device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
                     this._forwardDrawCalls++;
                 }
-            }
-        }
-
-        // -- Render legacy (non-GPU-driven) draw calls via per-draw path --
-        if (legacyIndices.length > 0) {
-            if (device.supportsUniformBuffers) {
-                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
-            }
-
-            for (let u = 0; u < legacyIndices.length; u++) {
-                const idx = legacyIndices[u];
-                this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
             }
         }
     }
