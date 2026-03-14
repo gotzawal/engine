@@ -619,6 +619,11 @@ fn addClusteredLights(
     let gridOffset = grid.x;
     let gridCount = grid.y;
 
+    // DEBUG: visualize cluster grid data
+    // Red = lights found in cluster, Green = cluster depth normalized
+    dDiffuseLight = vec3f(f32(gridCount) / 5.0, linearDepth / uniform.gpuClusterCameraFar, 0.0);
+    return;
+
     for (var li: u32 = 0u; li < gridCount; li++) {
         let lightIndex = gpuLightIndices[gridOffset + li];
 
