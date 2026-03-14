@@ -87,12 +87,14 @@ class StandardMaterialOptionsBuilder {
         // clustered lighting features (in shared options as shadow pass needs this too)
         if (scene.clusteredLightingEnabled && stdMat.useLighting) {
             options.litOptions.clusteredLightingEnabled = true;
+            options.litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
             options.litOptions.clusteredLightingCookiesEnabled = scene.lighting.cookiesEnabled;
             options.litOptions.clusteredLightingShadowsEnabled = scene.lighting.shadowsEnabled;
             options.litOptions.clusteredLightingShadowType = scene.lighting.shadowType;
             options.litOptions.clusteredLightingAreaLightsEnabled = scene.lighting.areaLightsEnabled;
         } else {
             options.litOptions.clusteredLightingEnabled = false;
+            options.litOptions.gpuClusterLightingEnabled = false;
             options.litOptions.clusteredLightingCookiesEnabled = false;
             options.litOptions.clusteredLightingShadowsEnabled = false;
             options.litOptions.clusteredLightingAreaLightsEnabled = false;

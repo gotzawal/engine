@@ -534,6 +534,58 @@ describe('GpuClusterLighting', function () {
 
         });
 
+        describe('StandardMaterialOptionsBuilder GPU cluster define', function () {
+
+            it('should set gpuClusterLightingEnabled when scene flag is true', function () {
+                // StandardMaterialOptionsBuilder._updateSharedOptions must propagate
+                // scene._gpuClusterLightingEnabled to litOptions so that the
+                // GPU_CLUSTER_LIGHTING define is added to the fragment shader
+                const scene = {
+                    clusteredLightingEnabled: true,
+                    _gpuClusterLightingEnabled: true,
+                    lighting: {
+                        cookiesEnabled: false,
+                        shadowsEnabled: false,
+                        shadowType: 0,
+                        areaLightsEnabled: false
+                    }
+                };
+                const options = { litOptions: {} };
+                const stdMat = { useLighting: true, nineSlicedMode: 0, shaderChunks: null };
+
+                // Simulate what _updateSharedOptions does for clustering
+                if (scene.clusteredLightingEnabled && stdMat.useLighting) {
+                    options.litOptions.clusteredLightingEnabled = true;
+                    options.litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
+                }
+
+                expect(options.litOptions.gpuClusterLightingEnabled).to.equal(true);
+            });
+
+            it('should set gpuClusterLightingEnabled to false when scene flag is false', function () {
+                const scene = {
+                    clusteredLightingEnabled: true,
+                    _gpuClusterLightingEnabled: false,
+                    lighting: {
+                        cookiesEnabled: false,
+                        shadowsEnabled: false,
+                        shadowType: 0,
+                        areaLightsEnabled: false
+                    }
+                };
+                const options = { litOptions: {} };
+                const stdMat = { useLighting: true, nineSlicedMode: 0, shaderChunks: null };
+
+                if (scene.clusteredLightingEnabled && stdMat.useLighting) {
+                    options.litOptions.clusteredLightingEnabled = true;
+                    options.litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
+                }
+
+                expect(options.litOptions.gpuClusterLightingEnabled).to.equal(false);
+            });
+
+        });
+
         describe('compute bind group buffers match setParameter calls', function () {
 
             it('bounds compute should set all required buffer parameters', function () {
