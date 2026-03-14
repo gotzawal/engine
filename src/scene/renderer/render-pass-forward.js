@@ -306,7 +306,7 @@ class RenderPassForward extends RenderPass {
 
             // Set up indirect draw args (now uses pool offsets for registered meshes)
             const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
-            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible);
+            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
         }
 
         // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
