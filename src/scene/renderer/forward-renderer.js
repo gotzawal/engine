@@ -662,6 +662,13 @@ class ForwardRenderer extends Renderer {
                 // record a new bundle for this group
                 device.startBundleEncoder(bundleDesc);
 
+                // The view bind group was set on the pass encoder before bundle recording
+                // started, but the bundle encoder has fresh state with no bind groups.
+                // We must explicitly set it on the bundle encoder.
+                if (device.supportsUniformBuffers) {
+                    device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+                }
+
                 for (let g = 0; g < group.indices.length; g++) {
                     const idx = group.indices[g];
                     this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
