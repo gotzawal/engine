@@ -13,7 +13,6 @@ export default /* wgsl */`
     #include "clusteredLightShadowsPS"
 #endif
 
-var clusterWorldTexture: texture_2d<u32>;
 var lightsTexture: texture_2d<uff>;
 
 #ifdef GPU_CLUSTER_LIGHTING
@@ -27,6 +26,17 @@ uniform gpuClusterNumSlicesZ: i32;
 uniform gpuClusterCameraNear: f32;
 uniform gpuClusterCameraFar: f32;
 uniform gpuClusterTilePixelSize: i32;
+#else
+// CPU texture-based cluster lighting resources
+var clusterWorldTexture: texture_2d<u32>;
+
+uniform clusterMaxCells: i32;
+uniform clusterTextureWidth: i32;
+uniform clusterCellsCountByBoundsSize: vec3f;
+uniform clusterBoundsMin: vec3f;
+uniform clusterBoundsDelta: vec3f;
+uniform clusterCellsDot: vec3i;
+uniform clusterCellsMax: vec3i;
 #endif
 
 #ifdef CLUSTER_SHADOWS
@@ -40,19 +50,8 @@ uniform gpuClusterTilePixelSize: i32;
     var cookieAtlasTextureSampler: sampler;
 #endif
 
-uniform clusterMaxCells: i32;
-
-// number of lights in the cluster structure
+// number of lights in the cluster structure (shared by both paths)
 uniform numClusteredLights: i32;
-
-// width of the cluster texture
-uniform clusterTextureWidth: i32;
-
-uniform clusterCellsCountByBoundsSize: vec3f;
-uniform clusterBoundsMin: vec3f;
-uniform clusterBoundsDelta: vec3f;
-uniform clusterCellsDot: vec3i;
-uniform clusterCellsMax: vec3i;
 uniform shadowAtlasParams: vec2f;
 
 // structure storing light properties of a clustered light

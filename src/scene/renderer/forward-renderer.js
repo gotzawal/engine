@@ -872,22 +872,18 @@ class ForwardRenderer extends Renderer {
         Debug.assert(visible, 'Either layer or options.meshInstances must be provided');
 
         // activate cluster lighting uniforms
-        const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
-            // set CPU cluster uniforms with empty data first to satisfy shader uniform bindings,
-            // then activate GPU clusters which overwrites numClusteredLights and lightsBuffer
-            // with correct values
-            this.worldClustersAllocator.empty.activate();
             this.worldClustersAllocator.activateGpuClusters();
         } else {
+            const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
             lightClusters.activate();
-        }
 
-        // debug rendering of clusters
-        if (layer) {
-            if (!this.clustersDebugRendered && scene.lighting.debugLayer === layer.id) {
-                this.clustersDebugRendered = true;
-                WorldClustersDebug.render(lightClusters, this.scene);
+            // debug rendering of clusters (CPU path only)
+            if (layer) {
+                if (!this.clustersDebugRendered && scene.lighting.debugLayer === layer.id) {
+                    this.clustersDebugRendered = true;
+                    WorldClustersDebug.render(lightClusters, this.scene);
+                }
             }
         }
 
