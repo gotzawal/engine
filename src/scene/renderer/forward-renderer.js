@@ -583,7 +583,7 @@ class ForwardRenderer extends Renderer {
      * @param {import('../mesh-instance.js').MeshInstance[]} drawCalls - The draw calls.
      * @ignore
      */
-    setupGlobalTransformIndirectDraws(camera, drawCalls) {
+    setupGlobalTransformIndirectDraws(camera, drawCalls, transparent = false) {
         const gtb = this.globalTransformBuffer;
         if (!gtb) return;
 
@@ -608,7 +608,7 @@ class ForwardRenderer extends Renderer {
             const indirectSlot = device.getIndirectDrawSlot();
 
             // For GPU-driven draws with geometry pool entries, use pool offsets
-            const poolEntry = gpuDriven ? drawCall._geometryPoolEntry : null;
+            const poolEntry = (gpuDriven && !transparent) ? drawCall._geometryPoolEntry : null;
             if (poolEntry) {
                 // write draw args using geometry pool offsets
                 tempArgs[0] = poolEntry.indexCount;
@@ -660,7 +660,7 @@ class ForwardRenderer extends Renderer {
         this.updateGlobalTransforms(allDrawCalls);
 
         // set up indirect draw with firstInstance = globalTransformSlot for eligible draw calls
-        this.setupGlobalTransformIndirectDraws(camera, allDrawCalls);
+        this.setupGlobalTransformIndirectDraws(camera, allDrawCalls, transparent);
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
@@ -829,29 +829,27 @@ class ForwardRenderer extends Renderer {
 
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
-            const entry = drawCall._geometryPoolEntry;
 
-            // If not in geometry pool or is dynamic, render via legacy path
-            if (!entry || (drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) ||
-                drawCall._globalTransformSlot < 0) {
-                legacyIndices.push(i);
-                continue;
-            }
-
-            // Transparent objects must maintain CPU sort order, so they use
-            // the legacy path. They still benefit from the geometry pool when
-            // the shared VB/IB is used in the legacy draw path.
+            // Only transparent objects use the legacy path (CPU sort order required)
             if (transparent) {
                 legacyIndices.push(i);
                 continue;
             }
 
-            let batchList = batchDraws.get(entry.batchId);
-            if (!batchList) {
-                batchList = [];
-                batchDraws.set(entry.batchId, batchList);
+            const entry = drawCall._geometryPoolEntry;
+            if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
+                drawCall._globalTransformSlot >= 0) {
+                // batched GPU-driven draw via shared geometry pool
+                let batchList = batchDraws.get(entry.batchId);
+                if (!batchList) {
+                    batchList = [];
+                    batchDraws.set(entry.batchId, batchList);
+                }
+                batchList.push(i);
+            } else {
+                // individual draw (no pool entry, dynamic, or no transform slot)
+                legacyIndices.push(i);
             }
-            batchList.push(i);
         }
 
         // -- Render legacy (non-GPU-driven) draw calls FIRST --
