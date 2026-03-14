@@ -36,109 +36,111 @@ export default /* wgsl */`
 
 #ifdef MATERIAL_STORAGE_BUFFER
 
+uniform materialIndex: f32;
+
 // Access material data from the global storage buffer using materialIndex
 fn getMaterialData() -> MaterialData {
-    return globalMaterials[i32(uniform_materialIndex)];
+    return globalMaterials[i32(uniform.materialIndex)];
 }
 
 fn getMaterialBaseColor() -> vec4f {
-    return globalMaterials[i32(uniform_materialIndex)].baseColor;
+    return globalMaterials[i32(uniform.materialIndex)].baseColor;
 }
 
 fn getMaterialEmissive() -> vec3f {
-    return globalMaterials[i32(uniform_materialIndex)].emissive_opacity.xyz;
+    return globalMaterials[i32(uniform.materialIndex)].emissive_opacity.xyz;
 }
 
 fn getMaterialOpacity() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].emissive_opacity.w;
+    return globalMaterials[i32(uniform.materialIndex)].emissive_opacity.w;
 }
 
 fn getMaterialSpecular() -> vec3f {
-    return globalMaterials[i32(uniform_materialIndex)].specular_glossiness.xyz;
+    return globalMaterials[i32(uniform.materialIndex)].specular_glossiness.xyz;
 }
 
 fn getMaterialGlossiness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].specular_glossiness.w;
+    return globalMaterials[i32(uniform.materialIndex)].specular_glossiness.w;
 }
 
 fn getMaterialMetalness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params1.x;
+    return globalMaterials[i32(uniform.materialIndex)].params1.x;
 }
 
 fn getMaterialRoughness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params1.y;
+    return globalMaterials[i32(uniform.materialIndex)].params1.y;
 }
 
 fn getMaterialAlphaTest() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params1.z;
+    return globalMaterials[i32(uniform.materialIndex)].params1.z;
 }
 
 fn getMaterialBumpiness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params1.w;
+    return globalMaterials[i32(uniform.materialIndex)].params1.w;
 }
 
 fn getMaterialReflectivity() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params2.x;
+    return globalMaterials[i32(uniform.materialIndex)].params2.x;
 }
 
 fn getMaterialRefraction() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params2.y;
+    return globalMaterials[i32(uniform.materialIndex)].params2.y;
 }
 
 fn getMaterialRefractionIndex() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params2.z;
+    return globalMaterials[i32(uniform.materialIndex)].params2.z;
 }
 
 fn getMaterialThickness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params2.w;
+    return globalMaterials[i32(uniform.materialIndex)].params2.w;
 }
 
 fn getMaterialClearcoat() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params3.x;
+    return globalMaterials[i32(uniform.materialIndex)].params3.x;
 }
 
 fn getMaterialClearcoatGloss() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params3.y;
+    return globalMaterials[i32(uniform.materialIndex)].params3.y;
 }
 
 fn getMaterialAO() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params3.z;
+    return globalMaterials[i32(uniform.materialIndex)].params3.z;
 }
 
 fn getMaterialLightMapIntensity() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params3.w;
+    return globalMaterials[i32(uniform.materialIndex)].params3.w;
 }
 
 fn getMaterialSheenGloss() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params4.x;
+    return globalMaterials[i32(uniform.materialIndex)].params4.x;
 }
 
 fn getMaterialIridescence() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params4.y;
+    return globalMaterials[i32(uniform.materialIndex)].params4.y;
 }
 
 fn getMaterialIridescenceThickness() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params4.z;
+    return globalMaterials[i32(uniform.materialIndex)].params4.z;
 }
 
 fn getMaterialAnisotropy() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].params4.w;
+    return globalMaterials[i32(uniform.materialIndex)].params4.w;
 }
 
 fn getMaterialSheenColor() -> vec3f {
-    return globalMaterials[i32(uniform_materialIndex)].sheen_dispersion.xyz;
+    return globalMaterials[i32(uniform.materialIndex)].sheen_dispersion.xyz;
 }
 
 fn getMaterialDispersion() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].sheen_dispersion.w;
+    return globalMaterials[i32(uniform.materialIndex)].sheen_dispersion.w;
 }
 
 fn getMaterialAttenuationColor() -> vec3f {
-    return globalMaterials[i32(uniform_materialIndex)].attenuation.xyz;
+    return globalMaterials[i32(uniform.materialIndex)].attenuation.xyz;
 }
 
 fn getMaterialAttenuationDistance() -> f32 {
-    return globalMaterials[i32(uniform_materialIndex)].attenuation.w;
+    return globalMaterials[i32(uniform.materialIndex)].attenuation.w;
 }
 
 #endif
