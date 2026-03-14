@@ -391,8 +391,9 @@ class GpuClusterLighting {
     dispatchLighting() {
         if (this.totalClusters === 0) return;
 
-        // Clear global counter to 0
+        // Clear global counter and light grid before dispatch
         this.globalCounterBuffer.clear();
+        this.lightGridBuffer.clear();
 
         const compute = this.lightingCompute;
 

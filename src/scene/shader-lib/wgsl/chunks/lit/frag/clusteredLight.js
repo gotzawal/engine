@@ -602,8 +602,8 @@ fn addClusteredLights(
     // Use view-space Z depth (not Euclidean distance) to match compute shader's depth slicing
     let linearDepth = 1.0 / pcPosition.w;
 
-    let tileX = u32(pcPosition.x) / u32(uniform.gpuClusterTilePixelSize);
-    let tileY = u32(pcPosition.y) / u32(uniform.gpuClusterTilePixelSize);
+    let tileX = min(u32(pcPosition.x) / u32(uniform.gpuClusterTilePixelSize), u32(uniform.gpuClusterNumTilesX) - 1u);
+    let tileY = min(u32(pcPosition.y) / u32(uniform.gpuClusterTilePixelSize), u32(uniform.gpuClusterNumTilesY) - 1u);
     let sliceZ = u32(
         log(linearDepth / uniform.gpuClusterCameraNear) *
         f32(uniform.gpuClusterNumSlicesZ) /
