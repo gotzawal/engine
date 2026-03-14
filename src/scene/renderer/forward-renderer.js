@@ -874,9 +874,11 @@ class ForwardRenderer extends Renderer {
         // activate cluster lighting uniforms
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
-            this.worldClustersAllocator.activateGpuClusters();
-            // set CPU cluster uniforms with empty data to satisfy shader uniform bindings
+            // set CPU cluster uniforms with empty data first to satisfy shader uniform bindings,
+            // then activate GPU clusters which overwrites numClusteredLights and lightsBuffer
+            // with correct values
             this.worldClustersAllocator.empty.activate();
+            this.worldClustersAllocator.activateGpuClusters();
         } else {
             lightClusters.activate();
         }
