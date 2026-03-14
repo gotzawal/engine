@@ -203,6 +203,15 @@ class Material {
 
     _dirtyShader = true;
 
+    /**
+     * Monotonically increasing version counter for render bundle invalidation.
+     * Bumped whenever the material changes in a way that requires re-recording bundles.
+     *
+     * @type {number}
+     * @ignore
+     */
+    _bundleVersion = 0;
+
     /** @protected */
     constructor() {
         if (new.target === Material) {
@@ -704,6 +713,7 @@ class Material {
         }
 
         this.dirty = true;
+        this._bundleVersion++;
     }
 
     // Parameter management
@@ -723,6 +733,9 @@ class Material {
         for (const meshInstance of this.meshInstances) {
             meshInstance.clearShaders();
         }
+
+        // invalidate render bundles that used this material
+        this._bundleVersion++;
     }
 
     /**

@@ -173,22 +173,18 @@ class WorldClustersAllocator {
         tempClusterArray.length = 0;
     }
 
-    update(renderPasses, lighting) {
+    update(renderPasses, lighting, gpuClusterLightingEnabled = false) {
 
         // assign clusters to render actions
         this.assign(renderPasses);
 
-        // update all unique clusters
-        this._clusters.forEach((renderAction) => {
-            const layer = renderAction.layer;
-            const cluster = renderAction.lightClusters;
-            cluster.update(layer.clusteredLightsSet, lighting);
-        });
-
-        // GPU cluster lighting update (runs after CPU clusters for now, TODO: replace CPU path)
-        if (this._gpuCluster) {
-            // GPU cluster update is dispatched per-camera in the render pass
-            // The actual dispatch happens in RenderPassUpdateClustered or the forward renderer
+        // skip CPU cluster update when GPU cluster lighting handles it via compute
+        if (!gpuClusterLightingEnabled) {
+            this._clusters.forEach((renderAction) => {
+                const layer = renderAction.layer;
+                const cluster = renderAction.lightClusters;
+                cluster.update(layer.clusteredLightsSet, lighting);
+            });
         }
     }
 

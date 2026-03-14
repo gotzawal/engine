@@ -51,7 +51,7 @@ class RenderPassUpdateClustered extends RenderPass {
 
         const { renderer } = this;
         const { scene } = renderer;
-        renderer.worldClustersAllocator.update(this.frameGraph.renderPasses, scene.lighting);
+        renderer.worldClustersAllocator.update(this.frameGraph.renderPasses, scene.lighting, scene._gpuClusterLightingEnabled);
 
         // #if _PROFILER
         renderer._lightClustersTime += now() - startTime;

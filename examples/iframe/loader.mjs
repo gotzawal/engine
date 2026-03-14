@@ -73,6 +73,14 @@ class ExampleLoader {
                 this._app.scene._gpuClusterLightingEnabled = (clusterMode === 'gpu');
             }
             fire('updateActiveClusterMode', { clusterMode });
+
+            // Apply saved render bundle mode preference
+            const renderBundleMode = localStorage.getItem('preferredRenderBundleMode') ?? 'enabled';
+            const renderer = this._app.renderer;
+            if (renderer) {
+                renderer.renderBundlesEnabled = (renderBundleMode === 'enabled');
+            }
+            fire('updateActiveRenderBundleMode', { renderBundleMode });
         }
 
         this._allowRestart = true;
@@ -124,6 +132,19 @@ class ExampleLoader {
                 });
             }
             fire('updateActiveClusterMode', { clusterMode: mode });
+        });
+
+        // Listen for runtime render bundle mode changes from the parent UI
+        window.addEventListener('updateRenderBundleMode', (/** @type {CustomEvent} */ e) => {
+            const mode = e.detail.renderBundleMode;
+            const renderer = this._app?.renderer;
+            if (renderer) {
+                renderer.renderBundlesEnabled = (mode === 'enabled');
+                // invalidate all cached bundles when toggling
+                renderer._bundleCache?.invalidateAll();
+                renderer._drawCallGrouper?.invalidateAll();
+            }
+            fire('updateActiveRenderBundleMode', { renderBundleMode: mode });
         });
 
         // extracts example category and name from the URL

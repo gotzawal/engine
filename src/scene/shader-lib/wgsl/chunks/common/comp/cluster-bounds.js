@@ -44,11 +44,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let sliceZ = clusterIndex / (config.numTilesX * config.numTilesY);
 
     // Screen-space tile boundaries in NDC [-1, 1]
+    // X: tileX=0 is left of screen (NDC X = -1)
     let tilePx = f32(config.tilePixelSize);
     let minScreenX = f32(tileX) * tilePx / config.screenWidth * 2.0 - 1.0;
     let maxScreenX = f32(tileX + 1u) * tilePx / config.screenWidth * 2.0 - 1.0;
-    let minScreenY = f32(tileY) * tilePx / config.screenHeight * 2.0 - 1.0;
-    let maxScreenY = f32(tileY + 1u) * tilePx / config.screenHeight * 2.0 - 1.0;
+    // Y: tileY=0 is top of screen (NDC Y = +1) to match fragment shader's pcPosition.y convention
+    let maxScreenY = 1.0 - f32(tileY) * tilePx / config.screenHeight * 2.0;
+    let minScreenY = 1.0 - f32(tileY + 1u) * tilePx / config.screenHeight * 2.0;
 
     // Logarithmic depth slicing for near/far of this cluster
     let logRatio = log(config.cameraFar / config.cameraNear);

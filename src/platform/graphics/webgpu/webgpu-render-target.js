@@ -189,6 +189,29 @@ class WebgpuRenderTarget {
     }
 
     /**
+     * Build a GPURenderBundleEncoderDescriptor compatible with this render target.
+     * Used to create GPURenderBundleEncoder instances whose bundles can be replayed
+     * inside a render pass targeting this render target.
+     *
+     * @returns {GPURenderBundleEncoderDescriptor} The descriptor.
+     * @ignore
+     */
+    getRenderBundleDescriptor() {
+        const rt = this.renderTarget;
+        const colorFormats = this.colorAttachments.map(ca => ca.format);
+        const desc = {
+            colorFormats: colorFormats
+        };
+        if (this.depthAttachment) {
+            desc.depthStencilFormat = this.depthAttachment.format;
+        }
+        if (rt.samples > 1) {
+            desc.sampleCount = rt.samples;
+        }
+        return desc;
+    }
+
+    /**
      * Assign a color buffer. This allows the color buffer of the main framebuffer
      * to be swapped each frame to a buffer provided by the context.
      *

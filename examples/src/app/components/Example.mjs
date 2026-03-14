@@ -7,6 +7,7 @@ import { useParams } from 'react-router-dom';
 import { CodeEditorMobile } from './code-editor/CodeEditorMobile.mjs';
 import { ClusterModeSelector } from './ClusterModeSelector.mjs';
 import { DeviceSelector } from './DeviceSelector.mjs';
+import { RenderBundleSelector } from './RenderBundleSelector.mjs';
 import { ErrorBoundary } from './ErrorBoundary.mjs';
 import { MIN_DESKTOP_WIDTH } from '../constants.mjs';
 import { iframe } from '../iframe.mjs';
@@ -255,6 +256,16 @@ class Example extends TypedComponent {
         return jsx(ClusterModeSelector);
     }
 
+    renderRenderBundleSelector() {
+        const { showDeviceSelector } = this.state;
+
+        if (!showDeviceSelector) {
+            return null;
+        }
+
+        return jsx(RenderBundleSelector);
+    }
+
     renderControls() {
         const { exampleLoaded, controls, observer } = this.state;
         const ready = exampleLoaded && controls && observer && iframe.ready;
@@ -335,6 +346,7 @@ class Example extends TypedComponent {
                 },
                 this.renderDeviceSelector(),
                 this.renderClusterModeSelector(),
+                this.renderRenderBundleSelector(),
                 jsx(
                     Container,
                     {
@@ -399,6 +411,7 @@ class Example extends TypedComponent {
                 },
                 this.renderDeviceSelector(),
                 this.renderClusterModeSelector(),
+                this.renderRenderBundleSelector(),
                 this.renderControls()
             ),
             this.renderDescription()
