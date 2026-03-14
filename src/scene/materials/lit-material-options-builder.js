@@ -38,6 +38,7 @@ class LitMaterialOptionsBuilder {
         if (material.useLighting && scene.clusteredLightingEnabled) {
             litOptions.clusteredLightingEnabled = true;
             litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
+            litOptions.materialStorageBufferEnabled = scene._materialStorageBufferEnabled ?? false;
             litOptions.clusteredLightingCookiesEnabled = scene.lighting.cookiesEnabled;
             litOptions.clusteredLightingShadowsEnabled = scene.lighting.shadowsEnabled;
             litOptions.clusteredLightingShadowType = scene.lighting.shadowType;
@@ -45,6 +46,7 @@ class LitMaterialOptionsBuilder {
         } else {
             litOptions.clusteredLightingEnabled = false;
             litOptions.gpuClusterLightingEnabled = false;
+            litOptions.materialStorageBufferEnabled = scene._materialStorageBufferEnabled ?? false;
             litOptions.clusteredLightingCookiesEnabled = false;
             litOptions.clusteredLightingShadowsEnabled = false;
             litOptions.clusteredLightingAreaLightsEnabled = false;

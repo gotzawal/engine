@@ -99,6 +99,15 @@ class ForwardRenderer extends Renderer {
         this.renderBundlesEnabled = false;
 
         /**
+         * Whether material data is packed into a global StorageBuffer array.
+         * When true, material properties are accessed via materialIndex in shaders.
+         * Can be toggled at runtime from the examples UI.
+         *
+         * @type {boolean}
+         */
+        this.materialStorageBufferEnabled = false;
+
+        /**
          * @type {RenderBundleCache}
          * @private
          */
@@ -112,6 +121,8 @@ class ForwardRenderer extends Renderer {
 
         // Uniforms
         const scope = device.scope;
+
+        this.materialIndexId = scope.resolve('materialIndex');
 
         this.fogColorId = scope.resolve('fog_color');
         this.fogStartId = scope.resolve('fog_start');
@@ -402,6 +413,18 @@ class ForwardRenderer extends Renderer {
                     material.dirty = false;
                     DebugGraphics.popGpuMarker(device);
                 }
+
+                // Pack material into global storage buffer when enabled
+                if (this.materialStorageBufferEnabled && this.materialStorageBuffer) {
+                    const msb = this.materialStorageBuffer;
+                    if (material._materialSlot < 0) {
+                        material._materialSlot = msb.allocateSlot();
+                        material._materialStorageBuffer = msb;
+                    }
+                    if (material.packToStorageBuffer) {
+                        material.packToStorageBuffer(msb, material._materialSlot);
+                    }
+                }
             }
 
             const shaderInstance = drawCall.getShaderInstance(pass, lightHash, scene, shaderParams, this.viewUniformFormat, this.viewBindGroupFormat, sortedLights);
@@ -584,11 +607,14 @@ class ForwardRenderer extends Renderer {
         }
     }
 
-    renderForward(camera, renderTarget, allDrawCalls, sortedLights, pass, drawCallback, layer, flipFaces, viewBindGroups) {
+    renderForward(camera, renderTarget, allDrawCalls, sortedLights, pass, drawCallback, layer, flipFaces, viewBindGroups, transparent = false) {
 
         // #if _PROFILER
         const forwardStartTime = now();
         // #endif
+
+        // sync materialStorageBufferEnabled flag to scene for shader options
+        this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
         // upload all world transforms to the global GPU buffer (single writeBuffer)
         this.updateGlobalTransforms(allDrawCalls);
@@ -602,8 +628,8 @@ class ForwardRenderer extends Renderer {
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
         if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
-            // bundle-accelerated path: group eligible opaque draw calls and replay cached bundles
-            this.renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups);
+            // bundle-accelerated path: group eligible draw calls and replay cached bundles
+            this.renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
         } else {
             // legacy per-draw-call path
             this.renderForwardInternal(camera, preparedCalls, sortedLights, pass, drawCallback, flipFaces, viewBindGroups);
@@ -617,9 +643,12 @@ class ForwardRenderer extends Renderer {
     }
 
     /**
-     * Bundle-accelerated rendering path for opaque draw calls.  Groups eligible draw calls by
-     * pipeline state and replays cached GPURenderBundles.  Non-bundleable draw calls (skinned,
-     * morphed) fall through to the standard per-draw path.
+     * Bundle-accelerated rendering path.  Groups eligible draw calls by pipeline state and
+     * replays cached GPURenderBundles.  Non-bundleable draw calls (skinned, morphed) fall
+     * through to the standard per-draw path.
+     *
+     * When transparent=true and materialStorageBufferEnabled=true, transparent draw calls are
+     * also bundled with sort-order tracking to detect when bundles need re-recording.
      *
      * @param {Camera} camera - The camera.
      * @param {RenderTarget|undefined} renderTarget - The render target.
@@ -628,12 +657,21 @@ class ForwardRenderer extends Renderer {
      * @param {number} pass - The shader pass.
      * @param {boolean} flipFaces - Whether to flip faces.
      * @param {BindGroup[]} viewBindGroups - View-level bind groups.
+     * @param {boolean} [transparent=false] - Whether these are transparent draw calls.
      * @private
      */
-    renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups) {
+    renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent = false) {
         const device = this.device;
         const bundleCache = this._bundleCache;
         const grouper = this._drawCallGrouper;
+
+        // sync materialStorageBufferEnabled flag so grouper can skip material version checks
+        grouper.materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+
+        // For transparent draws, check if sort order has changed and invalidate bundles if needed
+        if (transparent) {
+            grouper.checkTransparentSortChange(preparedCalls.drawCalls);
+        }
 
         // group draw calls by pipeline state
         const groups = grouper.groupDrawCalls(preparedCalls);
@@ -655,7 +693,7 @@ class ForwardRenderer extends Renderer {
 
             let bundle = null;
             if (!group.needsRebundle) {
-                bundle = bundleCache.get(key);
+                bundle = bundleCache.get(key, pass);
             }
 
             if (!bundle) {
@@ -675,7 +713,7 @@ class ForwardRenderer extends Renderer {
                 }
 
                 bundle = device.finishBundleEncoder();
-                bundleCache.set(key, bundle);
+                bundleCache.set(key, bundle, pass);
                 group.needsRebundle = false;
             }
 
@@ -757,6 +795,11 @@ class ForwardRenderer extends Renderer {
 
         drawCall.setParameters(device, passFlag);
         device.scope.resolve('meshInstanceId').setValue(drawCall.id);
+
+        // Set materialIndex for global material storage buffer access
+        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+            this.materialIndexId.setValue(material._materialSlot);
+        }
 
         const mesh = drawCall.mesh;
         this.setVertexBuffers(device, mesh);
@@ -918,7 +961,8 @@ class ForwardRenderer extends Renderer {
             null,
             layer,
             flipFaces,
-            viewBindGroups);
+            viewBindGroups,
+            transparent);
 
         if (layer) {
             layer._forwardDrawCalls += this._forwardDrawCalls - forwardDrawCalls;

@@ -42,6 +42,7 @@ import fogPS from '../chunks/common/frag/fog.js';
 import fresnelSchlickPS from '../chunks/lit/frag/fresnelSchlick.js';
 import fullscreenQuadVS from '../chunks/common/vert/fullscreenQuad.js';
 import gammaPS from '../chunks/common/frag/gamma.js';
+import materialAccessPS from '../chunks/common/frag/materialAccess.js';
 import glossPS from '../chunks/standard/frag/gloss.js';
 import quadVS from '../chunks/common/vert/quad.js';
 import indirectCoreCS from '../chunks/common/comp/indirect-core.js';
@@ -205,6 +206,7 @@ const shaderChunksWGSL = {
     frontendDeclPS: '',  // empty chunk, supplied by the shader generator
     fullscreenQuadVS,
     gammaPS,
+    materialAccessPS,
     glossPS,
     quadVS,
     indirectCoreCS,

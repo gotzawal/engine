@@ -817,6 +817,48 @@ class StandardMaterial extends Material {
         super.updateUniforms(device, scene);
     }
 
+    /**
+     * Pack material properties into the global MaterialStorageBuffer.
+     *
+     * @param {import('./material-storage-buffer.js').MaterialStorageBuffer} msb - The material storage buffer.
+     * @param {number} slot - The slot index.
+     * @ignore
+     */
+    packToStorageBuffer(msb, slot) {
+        const d = this.diffuse;
+        const e = this.emissive;
+        const s = this.specular;
+
+        // vec4 0: baseColor (rgba) - diffuse color + diffuse alpha
+        msb.updateSlotVec4(slot, 0, d.r, d.g, d.b, 1.0);
+
+        // vec4 1: emissive (rgb) + opacity
+        msb.updateSlotVec4(slot, 1, e.r * this.emissiveIntensity, e.g * this.emissiveIntensity, e.b * this.emissiveIntensity, this.opacity);
+
+        // vec4 2: specular (rgb) + glossiness
+        msb.updateSlotVec4(slot, 2, s.r, s.g, s.b, this.gloss);
+
+        // vec4 3: metalness, roughness, alphaTest, bumpiness
+        msb.updateSlotVec4(slot, 3, this.metalness, 1.0 - this.gloss, this.alphaTest, this.bumpiness);
+
+        // vec4 4: reflectivity, refraction, refractionIndex, thickness
+        msb.updateSlotVec4(slot, 4, this.reflectivity, this.refraction, this.refractionIndex, this.thickness);
+
+        // vec4 5: clearcoat, clearcoatGloss, ao intensity, lightMapIntensity
+        msb.updateSlotVec4(slot, 5, this.clearCoat, this.clearCoatGloss, this.aoIntensity, this.lightMapIntensity ?? 1.0);
+
+        // vec4 6: sheenGloss, iridescence, iridescenceThickness, anisotropy
+        msb.updateSlotVec4(slot, 6, this.sheenGloss, this.iridescence ?? 0, this.iridescenceThicknessMax ?? 0, this.anisotropyIntensity ?? 0);
+
+        // vec4 7: sheenColor (rgb) + dispersion
+        const sh = this.sheen;
+        msb.updateSlotVec4(slot, 7, sh ? sh.r : 0, sh ? sh.g : 0, sh ? sh.b : 0, this.dispersion ?? 0);
+
+        // vec4 8: attenuationColor (rgb) + attenuationDistance
+        const att = this.attenuation;
+        msb.updateSlotVec4(slot, 8, att ? att.r : 1, att ? att.g : 1, att ? att.b : 1, this.attenuationDistance ?? 0);
+    }
+
     updateEnvUniforms(device, scene) {
         const hasLocalEnvOverride = this.envAtlas || this.cubeMap || this.sphereMap;
 

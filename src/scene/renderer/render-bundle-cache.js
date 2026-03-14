@@ -40,15 +40,29 @@ class RenderBundleCache {
     stats = { hits: 0, misses: 0 };
 
     /**
-     * Look up a cached bundle for the given group key.  Returns `null` on a miss.
+     * Build a composite cache key from a group key and optional pass type.
      *
      * @param {string} groupKey - The draw-call-group key.
+     * @param {number} [passType] - The shader pass type (e.g. shadow, depth prepass).
+     * @returns {string} The composite key.
+     * @private
+     */
+    _compositeKey(groupKey, passType) {
+        return passType !== undefined ? `${groupKey}:p${passType}` : groupKey;
+    }
+
+    /**
+     * Look up a cached bundle for the given group key and pass type.  Returns `null` on a miss.
+     *
+     * @param {string} groupKey - The draw-call-group key.
+     * @param {number} [passType] - The shader pass type.
      * @returns {GPURenderBundle|null} The cached bundle, or null.
      */
-    get(groupKey) {
-        const ver = this._versions.get(groupKey);
+    get(groupKey, passType) {
+        const ckey = this._compositeKey(groupKey, passType);
+        const ver = this._versions.get(ckey);
         if (ver !== undefined && ver === this._version) {
-            const bundle = this._cache.get(groupKey);
+            const bundle = this._cache.get(ckey);
             if (bundle) {
                 this.stats.hits++;
                 return bundle;
@@ -63,20 +77,36 @@ class RenderBundleCache {
      *
      * @param {string} groupKey - The draw-call-group key.
      * @param {GPURenderBundle} bundle - The finished GPURenderBundle.
+     * @param {number} [passType] - The shader pass type.
      */
-    set(groupKey, bundle) {
-        this._cache.set(groupKey, bundle);
-        this._versions.set(groupKey, this._version);
+    set(groupKey, bundle, passType) {
+        const ckey = this._compositeKey(groupKey, passType);
+        this._cache.set(ckey, bundle);
+        this._versions.set(ckey, this._version);
     }
 
     /**
      * Invalidate a single group so that it will be re-recorded next frame.
+     * If passType is provided, only invalidates that specific pass; otherwise all passes.
      *
      * @param {string} groupKey - The draw-call-group key.
+     * @param {number} [passType] - Optional pass type to invalidate.
      */
-    invalidateGroup(groupKey) {
-        this._cache.delete(groupKey);
-        this._versions.delete(groupKey);
+    invalidateGroup(groupKey, passType) {
+        if (passType !== undefined) {
+            const ckey = this._compositeKey(groupKey, passType);
+            this._cache.delete(ckey);
+            this._versions.delete(ckey);
+        } else {
+            // invalidate all pass types for this group by scanning keys
+            const prefix = groupKey;
+            for (const key of this._cache.keys()) {
+                if (key === prefix || key.startsWith(prefix + ':p')) {
+                    this._cache.delete(key);
+                    this._versions.delete(key);
+                }
+            }
+        }
     }
 
     /**

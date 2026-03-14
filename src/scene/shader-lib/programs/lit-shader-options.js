@@ -83,6 +83,8 @@ class LitShaderOptions {
 
     gpuClusterLightingEnabled = false;
 
+    materialStorageBufferEnabled = false;
+
     vertexColors = false;
 
     useVertexColorGamma = false;

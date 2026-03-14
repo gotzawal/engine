@@ -25,6 +25,7 @@ import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/unif
 import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
+import { MaterialStorageBuffer } from '../materials/material-storage-buffer.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -215,6 +216,9 @@ class Renderer {
         this.gpuFrustumCuller = (this.globalTransformBuffer && graphicsDevice.supportsCompute) ?
             new GpuFrustumCuller(graphicsDevice) : null;
 
+        // Global material storage buffer for GPU-driven material access (WebGPU only)
+        this.materialStorageBuffer = graphicsDevice.isWebGPU ? new MaterialStorageBuffer(graphicsDevice) : null;
+
 
         // timing
         this._skinTime = 0;
@@ -243,6 +247,10 @@ class Renderer {
         // Set storage buffer scope value immediately so bind groups are never created with null
         if (this.globalTransformsId) {
             this.globalTransformsId.setValue(this.globalTransformBuffer.storageBuffer);
+        }
+        this.globalMaterialsId = this.materialStorageBuffer ? scope.resolve('globalMaterials') : null;
+        if (this.globalMaterialsId) {
+            this.globalMaterialsId.setValue(this.materialStorageBuffer.storageBuffer);
         }
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
@@ -772,6 +780,13 @@ class Renderer {
                 formats.push(gtbFormat);
             }
 
+            // global material storage buffer (read-only in vertex + fragment stages)
+            if (this.materialStorageBuffer) {
+                const matSBFormat = new BindStorageBufferFormat('globalMaterials', SHADERSTAGE_VERTEX | SHADERSTAGE_FRAGMENT, true);
+                matSBFormat.format = 'array<MaterialData>';
+                formats.push(matSBFormat);
+            }
+
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them
             // if (isClustered) {
@@ -907,6 +922,15 @@ class Renderer {
         // set storage buffer for view bind group resolution
         if (this.globalTransformsId) {
             this.globalTransformsId.setValue(gtb.storageBuffer);
+        }
+
+        // upload material storage buffer if dirty
+        const msb = this.materialStorageBuffer;
+        if (msb) {
+            msb.upload();
+            if (this.globalMaterialsId) {
+                this.globalMaterialsId.setValue(msb.storageBuffer);
+            }
         }
     }
 
