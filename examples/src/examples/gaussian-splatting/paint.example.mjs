@@ -269,7 +269,7 @@ assetListLoader.load(() => {
     };
 
     // RMB paint - disable orbit input while painting (orbit-camera handles LMB/MMB/wheel natively)
-    app.mouse.on(pc.EVENT_MOUSEDOWN, (e) => {
+    app.mouse.on('mousedown', (e) => {
         if (e.button === pc.MOUSEBUTTON_RIGHT) {
             isPainting = true;
             pickerDirty = true;
@@ -279,11 +279,11 @@ assetListLoader.load(() => {
         }
     });
 
-    app.mouse.on(pc.EVENT_MOUSEMOVE, (e) => {
+    app.mouse.on('mousemove', (e) => {
         if (isPainting) paintAt(e.x, e.y);
     });
 
-    app.mouse.on(pc.EVENT_MOUSEUP, (e) => {
+    app.mouse.on('mouseup', (e) => {
         if (e.button === pc.MOUSEBUTTON_RIGHT) {
             isPainting = false;
             orbitInput.enabled = true;

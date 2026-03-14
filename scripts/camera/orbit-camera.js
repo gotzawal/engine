@@ -366,20 +366,20 @@ class OrbitCameraInputMouse extends pc.Script {
                 self.onMouseOut(e);
             };
 
-            this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
-            this.app.mouse.on(pc.EVENT_MOUSEUP, this.onMouseUp, this);
-            this.app.mouse.on(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
-            this.app.mouse.on(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
+            this.app.mouse.on('mousedown', this.onMouseDown, this);
+            this.app.mouse.on('mouseup', this.onMouseUp, this);
+            this.app.mouse.on('mousemove', this.onMouseMove, this);
+            this.app.mouse.on('mousewheel', this.onMouseWheel, this);
 
             // Listen to when the mouse travels out of the window
             window.addEventListener('mouseout', onMouseOut, false);
 
             // Remove the listeners so if this entity is destroyed
             this.on('destroy', function () {
-                this.app.mouse.off(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
-                this.app.mouse.off(pc.EVENT_MOUSEUP, this.onMouseUp, this);
-                this.app.mouse.off(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
-                this.app.mouse.off(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
+                this.app.mouse.off('mousedown', this.onMouseDown, this);
+                this.app.mouse.off('mouseup', this.onMouseUp, this);
+                this.app.mouse.off('mousemove', this.onMouseMove, this);
+                this.app.mouse.off('mousewheel', this.onMouseWheel, this);
 
                 window.removeEventListener('mouseout', onMouseOut, false);
             });
@@ -503,18 +503,18 @@ class OrbitCameraInputTouch extends pc.Script {
         if (this.orbitCamera && this.app.touch) {
             // Use the same callback for the touchStart, touchEnd and touchCancel events as they
             // all do the same thing which is to deal the possible multiple touches to the screen
-            this.app.touch.on(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
-            this.app.touch.on(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
-            this.app.touch.on(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
+            this.app.touch.on('touchstart', this.onTouchStartEndCancel, this);
+            this.app.touch.on('touchend', this.onTouchStartEndCancel, this);
+            this.app.touch.on('touchcancel', this.onTouchStartEndCancel, this);
 
-            this.app.touch.on(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
+            this.app.touch.on('touchmove', this.onTouchMove, this);
 
             this.on('destroy', function () {
-                this.app.touch.off(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
-                this.app.touch.off(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
-                this.app.touch.off(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
+                this.app.touch.off('touchstart', this.onTouchStartEndCancel, this);
+                this.app.touch.off('touchend', this.onTouchStartEndCancel, this);
+                this.app.touch.off('touchcancel', this.onTouchStartEndCancel, this);
 
-                this.app.touch.off(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
+                this.app.touch.off('touchmove', this.onTouchMove, this);
             });
         }
     }

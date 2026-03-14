@@ -12,9 +12,9 @@ class FlyCamera extends pc.Script {
         // Disabling the context menu stops the browser displaying a menu when
         // you right-click the page
         this.app.mouse.disableContextMenu();
-        this.app.mouse.on(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
-        this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
-        this.app.mouse.on(pc.EVENT_MOUSEUP, this.onMouseUp, this);
+        this.app.mouse.on('mousemove', this.onMouseMove, this);
+        this.app.mouse.on('mousedown', this.onMouseDown, this);
+        this.app.mouse.on('mouseup', this.onMouseUp, this);
     }
 
     update(dt) {
