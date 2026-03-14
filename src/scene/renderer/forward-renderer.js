@@ -871,10 +871,12 @@ class ForwardRenderer extends Renderer {
 
         Debug.assert(visible, 'Either layer or options.meshInstances must be provided');
 
-        // activate cluster lighting uniforms — either GPU or CPU path, not both
+        // activate cluster lighting uniforms
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
         if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
             this.worldClustersAllocator.activateGpuClusters();
+            // set CPU cluster uniforms with empty data to satisfy shader uniform bindings
+            this.worldClustersAllocator.empty.activate();
         } else {
             lightClusters.activate();
         }
