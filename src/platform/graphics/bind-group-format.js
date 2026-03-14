@@ -74,6 +74,15 @@ class BindStorageBufferFormat extends BindBaseFormat {
     format = '';
 
     /**
+     * Optional WGSL struct definition to emit before the storage buffer declaration.
+     * Required when the format references a custom struct type (e.g. 'array<MaterialData>').
+     *
+     * @type {string}
+     * @ignore
+     */
+    structPreamble = '';
+
+    /**
      * Create a new instance.
      *
      * @param {string} name - The name of the storage buffer.

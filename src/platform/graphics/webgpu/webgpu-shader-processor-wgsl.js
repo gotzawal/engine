@@ -690,6 +690,10 @@ class WebgpuShaderProcessorWGSL {
 
         format.storageBufferFormats.forEach((format) => {
 
+            // emit struct definition before the binding declaration if needed
+            if (format.structPreamble) {
+                code += format.structPreamble + '\n';
+            }
             const access = format.readOnly ? 'read' : 'read_write';
             code += `@group(${bindGroup}) @binding(${format.slot}) var<storage, ${access}> ${format.name} : ${format.format};\n`;
 

@@ -26,6 +26,7 @@ import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } fro
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
 import { MaterialStorageBuffer } from '../materials/material-storage-buffer.js';
+import { materialDataStructWGSL } from '../shader-lib/wgsl/chunks/common/frag/materialAccess.js';
 import {
     VIEW_CENTER, LIGHTTYPE_DIRECTIONAL, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED, MASK_BAKE,
     SHADOWUPDATE_NONE, SHADOWUPDATE_THISFRAME,
@@ -784,6 +785,7 @@ class Renderer {
             if (this.materialStorageBuffer) {
                 const matSBFormat = new BindStorageBufferFormat('globalMaterials', SHADERSTAGE_VERTEX | SHADERSTAGE_FRAGMENT, true);
                 matSBFormat.format = 'array<MaterialData>';
+                matSBFormat.structPreamble = materialDataStructWGSL;
                 formats.push(matSBFormat);
             }
 

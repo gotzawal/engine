@@ -1,6 +1,8 @@
-export default /* wgsl */`
-
-// MaterialData struct layout for global material storage buffer (256 bytes = 16 x vec4f)
+/**
+ * WGSL struct definition for MaterialData (256 bytes = 16 x vec4f).
+ * Exported separately so it can be used as a structPreamble for storage buffer declarations.
+ */
+export const materialDataStructWGSL = /* wgsl */`
 struct MaterialData {
     // vec4 0: baseColor (rgba)
     baseColor: vec4f,
@@ -28,7 +30,9 @@ struct MaterialData {
     _reserved4: vec4f,
     _reserved5: vec4f,
     _reserved6: vec4f,
-};
+};`;
+
+export default /* wgsl */`
 
 #ifdef MATERIAL_STORAGE_BUFFER
 
