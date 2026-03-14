@@ -83,6 +83,23 @@ class DrawCallGrouper {
     _prevGroupCounts = new Map();
 
     /**
+     * When true, material property changes are stored in a global StorageBuffer and do not
+     * require bundle re-recording. Only pipeline state changes (blend, depth, shader) invalidate.
+     *
+     * @type {boolean}
+     */
+    materialStorageBufferEnabled = false;
+
+    /**
+     * Hash of the last transparent sort order, used to detect when transparent bundles need
+     * re-recording due to depth sort changes.
+     *
+     * @type {number}
+     * @private
+     */
+    _lastTransparentSortHash = 0;
+
+    /**
      * Generate a group key for a draw call + shader combination.
      *
      * The key encodes:
@@ -165,15 +182,19 @@ class DrawCallGrouper {
                 group.needsRebundle = true;
             }
 
-            // check if any material in the group has been updated
-            let versionSum = 0;
-            for (let g = 0; g < group.indices.length; g++) {
-                const dc = drawCalls[group.indices[g]];
-                versionSum += dc.material._bundleVersion;
-            }
-            if (versionSum !== group._lastMaterialVersionSum) {
-                group.needsRebundle = true;
-                group._lastMaterialVersionSum = versionSum;
+            // When materialStorageBufferEnabled, material property changes are written to
+            // the global StorageBuffer and don't affect recorded pipeline state, so we skip
+            // the material version check to avoid unnecessary bundle re-recording.
+            if (!this.materialStorageBufferEnabled) {
+                let versionSum = 0;
+                for (let g = 0; g < group.indices.length; g++) {
+                    const dc = drawCalls[group.indices[g]];
+                    versionSum += dc.material._bundleVersion;
+                }
+                if (versionSum !== group._lastMaterialVersionSum) {
+                    group.needsRebundle = true;
+                    group._lastMaterialVersionSum = versionSum;
+                }
             }
         }
 
@@ -185,6 +206,35 @@ class DrawCallGrouper {
         }
 
         return groups;
+    }
+
+    /**
+     * Compute a lightweight hash of the draw call order to detect sort order changes
+     * for transparent bundling.
+     *
+     * @param {MeshInstance[]} drawCalls - The draw calls in sorted order.
+     * @returns {number} Hash value.
+     */
+    static computeSortHash(drawCalls) {
+        let hash = 0;
+        for (let i = 0; i < drawCalls.length; i++) {
+            // combine id and position in list to detect reordering
+            hash = ((hash << 5) - hash + drawCalls[i].id) | 0;
+        }
+        return hash;
+    }
+
+    /**
+     * Check if the transparent sort order has changed and mark all groups for rebundle if so.
+     *
+     * @param {MeshInstance[]} drawCalls - The sorted draw calls.
+     */
+    checkTransparentSortChange(drawCalls) {
+        const hash = DrawCallGrouper.computeSortHash(drawCalls);
+        if (hash !== this._lastTransparentSortHash) {
+            this._lastTransparentSortHash = hash;
+            this.invalidateAll();
+        }
     }
 
     /**

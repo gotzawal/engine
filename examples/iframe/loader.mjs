@@ -81,6 +81,13 @@ class ExampleLoader {
                 renderer.renderBundlesEnabled = (renderBundleMode === 'enabled');
             }
             fire('updateActiveRenderBundleMode', { renderBundleMode });
+
+            // Apply saved material storage mode preference
+            const materialStorageMode = localStorage.getItem('preferredMaterialStorageMode') ?? 'disabled';
+            if (renderer) {
+                renderer.materialStorageBufferEnabled = (materialStorageMode === 'enabled');
+            }
+            fire('updateActiveMaterialStorageMode', { materialStorageMode });
         }
 
         this._allowRestart = true;
@@ -145,6 +152,25 @@ class ExampleLoader {
                 renderer._drawCallGrouper?.invalidateAll();
             }
             fire('updateActiveRenderBundleMode', { renderBundleMode: mode });
+        });
+
+        // Listen for runtime material storage mode changes from the parent UI
+        window.addEventListener('updateMaterialStorageMode', (/** @type {CustomEvent} */ e) => {
+            const mode = e.detail.materialStorageMode;
+            const renderer = this._app?.renderer;
+            if (renderer) {
+                renderer.materialStorageBufferEnabled = (mode === 'enabled');
+                // Trigger shader recompilation by clearing all material variants
+                this._app?.scene?.layers?.layerList?.forEach((layer) => {
+                    layer.meshInstances.forEach((mi) => {
+                        mi.material?.clearVariants?.();
+                    });
+                });
+                // invalidate all cached bundles
+                renderer._bundleCache?.invalidateAll();
+                renderer._drawCallGrouper?.invalidateAll();
+            }
+            fire('updateActiveMaterialStorageMode', { materialStorageMode: mode });
         });
 
         // extracts example category and name from the URL

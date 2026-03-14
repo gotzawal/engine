@@ -1,13 +1,19 @@
 export default /* wgsl */`
 #ifdef STD_IRIDESCENCE_CONSTANT
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_iridescence: f32;
+    #endif
 #endif
 
 fn getIridescence() {
     var iridescence = 1.0;
 
     #ifdef STD_IRIDESCENCE_CONSTANT
-    iridescence = iridescence * uniform.material_iridescence;
+        #ifdef MATERIAL_STORAGE_BUFFER
+        iridescence = iridescence * getMaterialIridescence();
+        #else
+        iridescence = iridescence * uniform.material_iridescence;
+        #endif
     #endif
 
     #ifdef STD_IRIDESCENCE_TEXTURE

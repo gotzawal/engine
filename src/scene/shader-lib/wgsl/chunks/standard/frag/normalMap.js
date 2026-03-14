@@ -1,6 +1,8 @@
 export default /* wgsl */`
 #ifdef STD_NORMAL_TEXTURE
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_bumpiness: f32;
+    #endif
 #endif
 
 #ifdef STD_NORMALDETAIL_TEXTURE
@@ -17,7 +19,11 @@ export default /* wgsl */`
 fn getNormal() {
 #ifdef STD_NORMAL_TEXTURE
     var normalMap: vec3f = {STD_NORMAL_TEXTURE_DECODE}(textureSampleBias({STD_NORMAL_TEXTURE_NAME}, {STD_NORMAL_TEXTURE_NAME}Sampler, {STD_NORMAL_TEXTURE_UV}, uniform.textureBias));
+    #ifdef MATERIAL_STORAGE_BUFFER
+    normalMap = mix(vec3f(0.0, 0.0, 1.0), normalMap, getMaterialBumpiness());
+    #else
     normalMap = mix(vec3f(0.0, 0.0, 1.0), normalMap, uniform.material_bumpiness);
+    #endif
 
     #ifdef STD_NORMALDETAIL_TEXTURE
         var normalDetailMap: vec3f = {STD_NORMALDETAIL_TEXTURE_DECODE}(textureSampleBias({STD_NORMALDETAIL_TEXTURE_NAME}, {STD_NORMALDETAIL_TEXTURE_NAME}Sampler, {STD_NORMALDETAIL_TEXTURE_UV}, uniform.textureBias));

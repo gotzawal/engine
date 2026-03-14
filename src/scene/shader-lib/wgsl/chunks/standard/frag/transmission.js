@@ -1,14 +1,20 @@
 export default /* wgsl */`
 
 #ifdef STD_REFRACTION_CONSTANT
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_refraction: f32;
+    #endif
 #endif
 
 fn getRefraction() {
     var refraction: f32 = 1.0;
 
     #ifdef STD_REFRACTION_CONSTANT
-    refraction = uniform.material_refraction;
+        #ifdef MATERIAL_STORAGE_BUFFER
+        refraction = getMaterialRefraction();
+        #else
+        refraction = uniform.material_refraction;
+        #endif
     #endif
 
     #ifdef STD_REFRACTION_TEXTURE

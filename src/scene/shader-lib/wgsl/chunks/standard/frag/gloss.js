@@ -1,13 +1,19 @@
 export default /* wgsl */`
 #ifdef STD_GLOSS_CONSTANT
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_gloss: f32;
+    #endif
 #endif
 
 fn getGlossiness() {
     dGlossiness = 1.0;
 
     #ifdef STD_GLOSS_CONSTANT
-    dGlossiness = dGlossiness * uniform.material_gloss;
+        #ifdef MATERIAL_STORAGE_BUFFER
+        dGlossiness = dGlossiness * getMaterialGlossiness();
+        #else
+        dGlossiness = dGlossiness * uniform.material_gloss;
+        #endif
     #endif
 
     #ifdef STD_GLOSS_TEXTURE

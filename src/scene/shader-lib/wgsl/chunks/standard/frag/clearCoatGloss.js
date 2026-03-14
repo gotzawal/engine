@@ -1,8 +1,14 @@
 export default /* wgsl */`
+    #ifndef MATERIAL_STORAGE_BUFFER
     uniform material_clearCoatGloss: f32;
+    #endif
 
 fn getClearCoatGlossiness() {
+    #ifdef MATERIAL_STORAGE_BUFFER
+    ccGlossiness = getMaterialClearcoatGloss();
+    #else
     ccGlossiness = uniform.material_clearCoatGloss;
+    #endif
 
     #ifdef STD_CLEARCOATGLOSS_TEXTURE
     ccGlossiness = ccGlossiness * textureSampleBias({STD_CLEARCOATGLOSS_TEXTURE_NAME}, {STD_CLEARCOATGLOSS_TEXTURE_NAME}Sampler, {STD_CLEARCOATGLOSS_TEXTURE_UV}, uniform.textureBias).{STD_CLEARCOATGLOSS_TEXTURE_CHANNEL};

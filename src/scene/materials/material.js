@@ -212,6 +212,22 @@ class Material {
      */
     _bundleVersion = 0;
 
+    /**
+     * Slot index in the global MaterialStorageBuffer, or -1 if not allocated.
+     *
+     * @type {number}
+     * @ignore
+     */
+    _materialSlot = -1;
+
+    /**
+     * Reference to the MaterialStorageBuffer this material is packed into.
+     *
+     * @type {import('./material-storage-buffer.js').MaterialStorageBuffer|null}
+     * @ignore
+     */
+    _materialStorageBuffer = null;
+
     /** @protected */
     constructor() {
         if (new.target === Material) {
@@ -864,6 +880,13 @@ class Material {
      * are no other materials using it).
      */
     destroy() {
+        // Free material storage buffer slot
+        if (this._materialSlot >= 0 && this._materialStorageBuffer) {
+            this._materialStorageBuffer.freeSlot(this._materialSlot);
+            this._materialSlot = -1;
+            this._materialStorageBuffer = null;
+        }
+
         this.variants.clear();
 
         for (const meshInstance of this.meshInstances) {

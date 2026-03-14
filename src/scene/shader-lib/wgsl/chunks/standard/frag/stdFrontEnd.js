@@ -144,7 +144,11 @@ export default /* wgsl */`
                 litArgs_thickness = dThickness;
 
                 #ifdef LIT_DISPERSION
+                    #ifdef MATERIAL_STORAGE_BUFFER
+                    litArgs_dispersion = getMaterialDispersion();
+                    #else
                     litArgs_dispersion = uniform.material_dispersion;
+                    #endif
                 #endif
             #endif
 

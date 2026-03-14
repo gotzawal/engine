@@ -1,8 +1,14 @@
 export default /* wgsl */`
+#ifndef MATERIAL_STORAGE_BUFFER
 uniform material_sheenGloss: f32;
+#endif
 
 fn getSheenGlossiness() {
+    #ifdef MATERIAL_STORAGE_BUFFER
+    var sheenGlossiness = getMaterialSheenGloss();
+    #else
     var sheenGlossiness = uniform.material_sheenGloss;
+    #endif
 
     #ifdef STD_SHEENGLOSS_TEXTURE
     sheenGlossiness = sheenGlossiness * textureSampleBias({STD_SHEENGLOSS_TEXTURE_NAME}, {STD_SHEENGLOSS_TEXTURE_NAME}Sampler, {STD_SHEENGLOSS_TEXTURE_UV}, uniform.textureBias).{STD_SHEENGLOSS_TEXTURE_CHANNEL};

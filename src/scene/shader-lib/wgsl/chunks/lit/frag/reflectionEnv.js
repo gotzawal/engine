@@ -4,7 +4,9 @@ export default /* wgsl */`
     var texture_envAtlas: texture_2d<f32>;
     var texture_envAtlasSampler: sampler;
 #endif
+#ifndef MATERIAL_STORAGE_BUFFER
 uniform material_reflectivity: f32;
+#endif
 
 // calculate mip level for shiny reflection given equirect coords uv.
 fn shinyMipLevel(uv: vec2f) -> f32 {
@@ -57,6 +59,10 @@ fn calcReflection(reflDir: vec3f, gloss: f32) -> vec3f {
 }
 
 fn addReflection(reflDir: vec3f, gloss: f32) {
+    #ifdef MATERIAL_STORAGE_BUFFER
+    dReflection = dReflection + vec4f(calcReflection(reflDir, gloss), getMaterialReflectivity());
+    #else
     dReflection = dReflection + vec4f(calcReflection(reflDir, gloss), uniform.material_reflectivity);
+    #endif
 }
 `;

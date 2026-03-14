@@ -5,6 +5,8 @@ export default /* wgsl */`
 #include "litUserDeclarationPS"
 #include "frontendDeclPS"
 
+#include "materialAccessPS"
+
 #if defined(PICK_PASS) || defined(PREPASS_PASS)
 
     #include "frontendCodePS"
@@ -18,7 +20,6 @@ export default /* wgsl */`
     #include "litShadowMainPS"
 
 #else // FORWARD_PASS
-
     #include "litForwardDeclarationPS"
     #include "litForwardPreCodePS"
     #include "frontendCodePS"
