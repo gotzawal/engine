@@ -833,7 +833,7 @@ class StandardMaterial extends Material {
         msb.updateSlotVec4(slot, 0, d.r, d.g, d.b, 1.0);
 
         // vec4 1: emissive (rgb) + opacity
-        msb.updateSlotVec4(slot, 1, e.r * this.emissiveIntensity, e.g * this.emissiveIntensity, e.b * this.emissiveIntensity, this.opacity);
+        msb.updateSlotVec4(slot, 1, e.r, e.g, e.b, this.opacity);
 
         // vec4 2: specular (rgb) + glossiness
         msb.updateSlotVec4(slot, 2, s.r, s.g, s.b, this.gloss);

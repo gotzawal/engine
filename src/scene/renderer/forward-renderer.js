@@ -496,6 +496,11 @@ class ForwardRenderer extends Renderer {
             // mesh ID - used by the picker
             device.scope.resolve('meshInstanceId').setValue(drawCall.id);
 
+            // Set materialIndex for global material storage buffer access
+            if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                this.materialIndexId.setValue(material._materialSlot);
+            }
+
             const mesh = drawCall.mesh;
             this.setVertexBuffers(device, mesh);
             this.setMorphing(device, drawCall.morphInstance);
