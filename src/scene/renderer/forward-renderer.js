@@ -881,9 +881,6 @@ class ForwardRenderer extends Renderer {
                 const batch = pool.getBatch(batchId);
                 if (!batch) continue;
 
-                // Set shared vertex/index buffers ONCE for this entire batch
-                device.setVertexBuffer(batch.vertexBuffer);
-
                 let prevMaterial = null;
 
                 for (let d = 0; d < indices.length; d++) {
@@ -923,6 +920,9 @@ class ForwardRenderer extends Renderer {
                     drawCall.setParameters(device, passFlag);
                     device.scope.resolve('meshInstanceId').setValue(drawCall.id);
                     this.setMeshInstanceMatrices(drawCall, true);
+
+                    // Set shared vertex buffer before each draw (draw() clears VB array after each call)
+                    device.setVertexBuffer(batch.vertexBuffer);
 
                     // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
                     this.setupMeshUniformBuffers(shaderInstance);
