@@ -10,7 +10,8 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING,
+    SHADERDEF_GPU_DRIVEN, SHADERDEF_GLOBAL_TRANSFORM_BUFFER
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
@@ -615,7 +616,10 @@ class ForwardRenderer extends Renderer {
                 tempArgs[1] = 1;
                 tempArgs[2] = poolEntry.firstIndex;
                 tempArgs[3] = poolEntry.baseVertex;
-                tempArgs[4] = slot; // firstInstance encodes the transform slot
+                // For GPU_DRIVEN path: firstInstance = drawId (index into DrawInstanceBuffer)
+                // The vertex shader reads drawInstances[firstInstance].transformSlot to get the transform.
+                // For non-GPU_DRIVEN path (drawId not assigned): use globalTransformSlot directly.
+                tempArgs[4] = drawCall._gpuDrivenDrawId >= 0 ? drawCall._gpuDrivenDrawId : slot;
             } else {
                 // write draw args using original mesh primitive offsets
                 const prim = drawCall.mesh.primitive[drawCall.renderStyle];
@@ -649,10 +653,29 @@ class ForwardRenderer extends Renderer {
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
-        // For GPU-driven mode: register eligible meshes in the geometry pool
+        // For GPU-driven mode: register eligible meshes in the geometry pool and
+        // activate the GPU_DRIVEN shader define so the vertex shader reads DrawInstance
+        // data from the storage buffer instead of per-draw uniforms.
         if (this.gpuDrivenEnabled && this.geometryPool) {
             for (let i = 0; i < allDrawCalls.length; i++) {
-                allDrawCalls[i].ensureGeometryPoolEntry(this.geometryPool);
+                const dc = allDrawCalls[i];
+                dc.ensureGeometryPoolEntry(this.geometryPool);
+
+                const entry = dc._geometryPoolEntry;
+                const hasOverrides = dc.parameters && Object.keys(dc.parameters).length > 0;
+                const eligible = entry &&
+                    !(dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
+                    dc._globalTransformSlot >= 0 &&
+                    !hasOverrides &&
+                    !transparent;
+
+                if (eligible) {
+                    // Activate GPU_DRIVEN (mutually exclusive with GLOBAL_TRANSFORM_BUFFER)
+                    dc._shaderDefs = (dc._shaderDefs | SHADERDEF_GPU_DRIVEN) & ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+                } else {
+                    // Ensure GPU_DRIVEN is cleared for ineligible draws
+                    dc._shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
+                }
             }
         }
 
@@ -818,44 +841,25 @@ class ForwardRenderer extends Renderer {
         const device = this.device;
         const pool = this.geometryPool;
         const { drawCalls, shaderInstances, lightMaskChanged } = preparedCalls;
-        const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
 
-        // Categorize draw calls: GPU-driven (grouped by batch) vs legacy
+        // Categorize draw calls: GPU-driven vs legacy
         const legacyIndices = [];
-
-        // Map: batchId -> array of prepared call indices
-        const batchDraws = new Map();
+        const gpuDrivenIndices = [];
 
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
 
-            // Only transparent objects use the legacy path (CPU sort order required)
-            if (transparent) {
-                legacyIndices.push(i);
-                continue;
-            }
-
-            const entry = drawCall._geometryPoolEntry;
-            if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
-                drawCall._globalTransformSlot >= 0) {
-                // batched GPU-driven draw via shared geometry pool
-                let batchList = batchDraws.get(entry.batchId);
-                if (!batchList) {
-                    batchList = [];
-                    batchDraws.set(entry.batchId, batchList);
-                }
-                batchList.push(i);
+            // GPU-driven eligible: has GPU_DRIVEN shader define set (from renderForward)
+            if (!transparent && (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) &&
+                drawCall._gpuDrivenDrawId >= 0) {
+                gpuDrivenIndices.push(i);
             } else {
-                // individual draw (no pool entry, dynamic, or no transform slot)
                 legacyIndices.push(i);
             }
         }
 
         // -- Render legacy (non-GPU-driven) draw calls FIRST --
-        // Legacy draws run before batched draws so that if a batched draw
-        // triggers a WebGPU validation error (which poisons the encoder),
-        // the legacy draws have already completed successfully.
         if (legacyIndices.length > 0) {
             if (device.supportsUniformBuffers) {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
@@ -867,74 +871,123 @@ class ForwardRenderer extends Renderer {
             }
         }
 
-        // -- Render GPU-driven draws grouped by batch --
-        if (batchDraws.size > 0) {
+        // -- Render GPU-driven draws with minimal per-draw CPU overhead --
+        // Phase 1: Use the original indirect draw buffer (frustum culler zeros instanceCount
+        // on culled draws, making them GPU no-ops). Group by pipeline state to minimize
+        // state changes. Eliminate per-draw uniform updates — the vertex shader reads
+        // transform from DrawInstance storage buffer via firstInstance = drawId.
+        if (gpuDrivenIndices.length > 0) {
 
             // Set view bind group once
             if (device.supportsUniformBuffers) {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
             }
 
-            for (const [batchId, indices] of batchDraws) {
+            // Sort GPU-driven draws by pipeline state key to minimize state changes
+            const sorted = this._sortByPipelineState(gpuDrivenIndices, drawCalls, shaderInstances);
+
+            let prevShader = null;
+            let prevMaterial = null;
+            let prevBatchId = -1;
+
+            for (let s = 0; s < sorted.length; s++) {
+                const preparedIdx = sorted[s];
+                const drawCall = drawCalls[preparedIdx];
+                const shaderInstance = shaderInstances[preparedIdx];
+                const material = drawCall.material;
+
+                if (shaderInstance.shader.failed) continue;
+
+                const entry = drawCall._geometryPoolEntry;
+                if (!entry) continue;
+
+                const batchId = entry.batchId;
                 const batch = pool.getBatch(batchId);
                 if (!batch) continue;
 
-                let prevMaterial = null;
+                // Pipeline state changes — only when material or shader changes
+                const shaderChanged = shaderInstance.shader !== prevShader;
+                const materialChanged = material !== prevMaterial;
 
-                for (let d = 0; d < indices.length; d++) {
-                    const preparedIdx = indices[d];
-                    const drawCall = drawCalls[preparedIdx];
-                    const shaderInstance = shaderInstances[preparedIdx];
-                    const material = drawCall.material;
+                if (shaderChanged || materialChanged) {
+                    device.setShader(shaderInstance.shader, false);
+                    material.setParameters(device);
 
-                    if (shaderInstance.shader.failed) continue;
-
-                    // Material / pipeline state — set only when it changes
-                    if (material !== prevMaterial) {
-                        device.setShader(shaderInstance.shader, false);
-                        material.setParameters(device);
-
-                        if (lightMaskChanged[preparedIdx]) {
-                            this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
-                        }
-
-                        this.alphaTestId.setValue(material.alphaTest);
-                        device.setBlendState(material.blendState);
-                        device.setDepthState(material.depthState);
-                        device.setAlphaToCoverage(material.alphaToCoverage);
-                        prevMaterial = material;
+                    if (lightMaskChanged[preparedIdx]) {
+                        this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
                     }
 
-                    this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+                    this.alphaTestId.setValue(material.alphaTest);
+                    device.setBlendState(material.blendState);
+                    device.setDepthState(material.depthState);
+                    device.setAlphaToCoverage(material.alphaToCoverage);
 
                     const stencilFront = drawCall.stencilFront ?? material.stencilFront;
                     const stencilBack = drawCall.stencilBack ?? material.stencilBack;
                     device.setStencilState(stencilFront, stencilBack);
 
+                    this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+
+                    // Set materialIndex for material storage buffer access (once per group)
                     if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
                         this.materialIndexId.setValue(material._materialSlot);
                     }
 
-                    drawCall.setParameters(device, passFlag);
-                    device.scope.resolve('meshInstanceId').setValue(drawCall.id);
-                    this.setMeshInstanceMatrices(drawCall, true);
-
-                    // Set shared vertex buffer before each draw (draw() clears VB array after each call)
-                    device.setVertexBuffer(batch.vertexBuffer);
-
-                    // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
-                    this.setupMeshUniformBuffers(shaderInstance);
-
-                    // Use the existing indirect draw path — the GPU frustum culler has
-                    // already zeroed instanceCount on culled entries, making them no-ops
-                    const indirectData = drawCall.getDrawCommands(camera);
-                    const indexBuffer = batch.indexBuffer;
-
-                    device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
-                    this._forwardDrawCalls++;
+                    prevShader = shaderInstance.shader;
+                    prevMaterial = material;
                 }
+
+                // Set shared vertex buffer — only when batch changes
+                // (device.draw clears VB array after each call, so this must happen before each draw)
+                device.setVertexBuffer(batch.vertexBuffer);
+
+                // Setup mesh uniform buffers — only when material/shader changes
+                // (bind group stays valid until shader changes)
+                if (shaderChanged || materialChanged) {
+                    this.setupMeshUniformBuffers(shaderInstance);
+                }
+
+                // Draw using the indirect draw buffer slot assigned to this mesh instance.
+                // The GPU frustum culler has already zeroed instanceCount for culled draws,
+                // making them GPU no-ops. No per-draw CPU uniform updates needed — the
+                // vertex shader reads transform from drawInstances[firstInstance].transformSlot.
+                const indirectData = drawCall.getDrawCommands(camera);
+                const indexBuffer = batch.indexBuffer;
+
+                device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
+                this._forwardDrawCalls++;
             }
         }
+    }
+
+    /**
+     * Sort GPU-driven draw call indices by pipeline state key (batch → shader → material)
+     * to minimize state changes during rendering.
+     *
+     * @param {number[]} indices - Indices into preparedCalls arrays.
+     * @param {MeshInstance[]} drawCalls - Draw call list.
+     * @param {object[]} shaderInstances - Shader instances.
+     * @returns {number[]} Sorted indices.
+     * @private
+     */
+    _sortByPipelineState(indices, drawCalls, shaderInstances) {
+        // Build sort keys: batch (VB switch is expensive) → shader → material
+        const keys = new Array(indices.length);
+        for (let i = 0; i < indices.length; i++) {
+            const idx = indices[i];
+            const dc = drawCalls[idx];
+            const si = shaderInstances[idx];
+            const entry = dc._geometryPoolEntry;
+            const shaderId = si.shader.id || 0;
+            const matId = dc.material.id || 0;
+            const batchId = entry ? entry.batchId : 0;
+            keys[i] = batchId * 1000000 + shaderId * 1000 + matId;
+        }
+
+        // Sort indices by key
+        const sortedMap = indices.map((idx, i) => ({ idx, key: keys[i] }));
+        sortedMap.sort((a, b) => a.key - b.key);
+        return sortedMap.map(e => e.idx);
     }
 
     /**

@@ -374,6 +374,15 @@ class MeshInstance {
     _geometryPoolEntry = null;
 
     /**
+     * Index into the DrawInstanceBuffer for GPU-driven rendering, or -1 if not registered.
+     * Set per-frame during _dispatchGpuDrivenCompaction.
+     *
+     * @type {number}
+     * @ignore
+     */
+    _gpuDrivenDrawId = -1;
+
+    /**
      * @type {Record<string, {scopeId: ScopeId|null, data: any, passFlags: number}>}
      * @ignore
      */

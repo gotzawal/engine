@@ -6,7 +6,15 @@ import { BlendState } from '../../platform/graphics/blend-state.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { RenderPass } from '../../platform/graphics/render-pass.js';
 import { RenderAction } from '../composition/render-action.js';
-import { EVENT_POSTRENDER, EVENT_POSTRENDER_LAYER, EVENT_PRERENDER, EVENT_PRERENDER_LAYER, SHADER_FORWARD } from '../constants.js';
+import {
+    EVENT_POSTRENDER, EVENT_POSTRENDER_LAYER, EVENT_PRERENDER, EVENT_PRERENDER_LAYER, SHADER_FORWARD,
+    SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING
+} from '../constants.js';
+
+// Mask for mesh instances excluded from GPU-driven path (must match forward-renderer.js)
+const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
+    SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
 
 /**
  * @import { CameraComponent } from '../../framework/components/camera/component.js'
@@ -279,12 +287,16 @@ class RenderPassForward extends RenderPass {
         const { renderer } = this;
         const pool = renderer.geometryPool;
         const culler = renderer.gpuFrustumCuller;
+        const dib = renderer.drawInstanceBuffer;
+        const compactor = renderer.gpuDrawCompactor;
 
         if (!pool) return;
 
-        // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
-        // This runs before the render pass so that GPU frustum culling can operate on the
-        // indirect draw buffer entries that reference geometry pool offsets.
+        // Begin frame for DrawInstanceBuffer (reset count)
+        if (dib) dib.beginFrame();
+
+        // Register eligible meshes in the geometry pool, populate DrawInstanceBuffer,
+        // and prepare transforms/bounding spheres for GPU culling + compaction.
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
             if (!ra.camera) continue;
@@ -304,13 +316,65 @@ class RenderPassForward extends RenderPass {
             // Upload transforms + bounding spheres
             renderer.updateGlobalTransforms(visible);
 
-            // Set up indirect draw args (now uses pool offsets for registered meshes)
+            // Populate DrawInstanceBuffer with eligible opaque draws
+            if (dib && !ra.transparent) {
+                for (let j = 0; j < visible.length; j++) {
+                    const dc = visible[j];
+                    const entry = dc._geometryPoolEntry;
+                    const slot = dc._globalTransformSlot;
+                    if (!entry || slot < 0) continue;
+                    if (dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) continue;
+                    if (dc.parameters && Object.keys(dc.parameters).length > 0) continue;
+
+                    const drawId = dib.addInstance(
+                        slot,
+                        dc.material._materialSlot ?? 0,
+                        entry.firstIndex,
+                        entry.indexCount,
+                        entry.baseVertex,
+                        entry.batchId
+                    );
+                    dc._gpuDrivenDrawId = drawId;
+
+                    // Update bounding sphere for GPU culling
+                    if (culler) {
+                        const aabb = dc.aabb;
+                        const center = aabb.center;
+                        const he = aabb.halfExtents;
+                        const radius = Math.sqrt(he.x * he.x + he.y * he.y + he.z * he.z);
+                        culler.updateSphere(drawId, center.x, center.y, center.z, radius);
+                    }
+                }
+            }
+
+            // Set up indirect draw args for non-GPU-driven draws (legacy path)
             const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
             forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
         }
 
-        // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
-        if (culler && culler.indirectDrawCount > 0) {
+        // Upload DrawInstanceBuffer to GPU
+        if (dib && dib.count > 0) {
+            dib.upload();
+
+            // Update scope in case buffer was resized
+            if (renderer.drawInstancesId) {
+                renderer.drawInstancesId.setValue(dib.storageBuffer);
+            }
+        }
+
+        // Upload bounding spheres
+        if (culler && dib) {
+            culler.uploadSpheres(dib.count);
+        }
+
+        // Dispatch GPU draw compactor (frustum cull + atomic compact) if available
+        if (compactor && dib && dib.count > 0) {
+            const primaryCamera = renderActions[0]?.camera?.camera;
+            if (primaryCamera) {
+                compactor.dispatch(primaryCamera, dib, culler.boundingSphereBuffer);
+            }
+        } else if (culler && culler.indirectDrawCount > 0) {
+            // Fallback to old frustum culler for non-compacted path
             const primaryCamera = renderActions[0]?.camera?.camera;
             if (primaryCamera) {
                 culler.dispatch(primaryCamera);
