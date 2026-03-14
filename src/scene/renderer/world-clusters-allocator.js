@@ -116,53 +116,71 @@ class WorldClustersAllocator {
     }
 
     // assign light clusters to render actions that need it
-    assign(renderPasses) {
+    assign(renderPasses, gpuClusterLightingEnabled = false) {
 
         // reuse previously allocated clusters
         tempClusterArray.push(...this._allocated);
         this._allocated.length = 0;
         this._clusters.clear();
 
-        // update render actions in passes that use them
         const passCount = renderPasses.length;
-        for (let p = 0; p < passCount; p++) {
 
-            const renderPass = renderPasses[p];
-            const renderActions = renderPass.renderActions;
-            if (renderActions) {
+        if (gpuClusterLightingEnabled) {
 
-                // process all render actions
-                const count = renderActions.length;
-                for (let i = 0; i < count; i++) {
-                    const ra = renderActions[i];
-                    ra.lightClusters = null;
+            // GPU path: skip CPU cluster allocation entirely, just null out lightClusters
+            for (let p = 0; p < passCount; p++) {
+                const renderPass = renderPasses[p];
+                const renderActions = renderPass.renderActions;
+                if (renderActions) {
+                    const count = renderActions.length;
+                    for (let i = 0; i < count; i++) {
+                        renderActions[i].lightClusters = null;
+                    }
+                }
+            }
 
-                    // if the layer has lights used by clusters, and meshes
-                    const layer = ra.layer;
-                    if (layer.hasClusteredLights && layer.meshInstances.length) {
+        } else {
 
-                        // use existing clusters if the lights on the layer are the same
-                        const hash = layer.getLightIdHash();
-                        const existingRenderAction = this._clusters.get(hash);
-                        let clusters = existingRenderAction?.lightClusters;
+            // CPU path: allocate WorldClusters per unique light set
+            for (let p = 0; p < passCount; p++) {
 
-                        // no match, needs new clusters
-                        if (!clusters) {
+                const renderPass = renderPasses[p];
+                const renderActions = renderPass.renderActions;
+                if (renderActions) {
 
-                            // use already allocated cluster from last frame, or create a new one
-                            clusters = tempClusterArray.pop() ?? new WorldClusters(this.device);
-                            DebugHelper.setName(clusters, `Cluster-${this._allocated.length}`);
+                    // process all render actions
+                    const count = renderActions.length;
+                    for (let i = 0; i < count; i++) {
+                        const ra = renderActions[i];
+                        ra.lightClusters = null;
 
-                            this._allocated.push(clusters);
-                            this._clusters.set(hash, ra);
+                        // if the layer has lights used by clusters, and meshes
+                        const layer = ra.layer;
+                        if (layer.hasClusteredLights && layer.meshInstances.length) {
+
+                            // use existing clusters if the lights on the layer are the same
+                            const hash = layer.getLightIdHash();
+                            const existingRenderAction = this._clusters.get(hash);
+                            let clusters = existingRenderAction?.lightClusters;
+
+                            // no match, needs new clusters
+                            if (!clusters) {
+
+                                // use already allocated cluster from last frame, or create a new one
+                                clusters = tempClusterArray.pop() ?? new WorldClusters(this.device);
+                                DebugHelper.setName(clusters, `Cluster-${this._allocated.length}`);
+
+                                this._allocated.push(clusters);
+                                this._clusters.set(hash, ra);
+                            }
+
+                            ra.lightClusters = clusters;
                         }
 
-                        ra.lightClusters = clusters;
-                    }
-
-                    // no clustered lights, use the cluster with no lights
-                    if (!ra.lightClusters) {
-                        ra.lightClusters = this.empty;
+                        // no clustered lights, use the cluster with no lights
+                        if (!ra.lightClusters) {
+                            ra.lightClusters = this.empty;
+                        }
                     }
                 }
             }
@@ -176,7 +194,7 @@ class WorldClustersAllocator {
     update(renderPasses, lighting, gpuClusterLightingEnabled = false) {
 
         // assign clusters to render actions
-        this.assign(renderPasses);
+        this.assign(renderPasses, gpuClusterLightingEnabled);
 
         // skip CPU cluster update when GPU cluster lighting handles it via compute
         if (!gpuClusterLightingEnabled) {
