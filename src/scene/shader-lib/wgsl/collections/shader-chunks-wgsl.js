@@ -46,6 +46,7 @@ import materialAccessPS from '../chunks/common/frag/materialAccess.js';
 import glossPS from '../chunks/standard/frag/gloss.js';
 import quadVS from '../chunks/common/vert/quad.js';
 import indirectCoreCS from '../chunks/common/comp/indirect-core.js';
+import drawCompactCS from '../chunks/common/comp/draw-compact.js';
 import immediateLinePS from '../chunks/internal/frag/immediateLine.js';
 import immediateLineVS from '../chunks/internal/vert/immediateLine.js';
 import iridescenceDiffractionPS from '../chunks/lit/frag/iridescenceDiffraction.js';
@@ -141,6 +142,7 @@ import tonemappingNonePS from '../chunks/common/frag/tonemapping/tonemappingNone
 import transformVS from '../chunks/common/vert/transform.js';
 import transformCoreVS from '../chunks/common/vert/transformCore.js';
 import transformGlobalBufferVS from '../chunks/common/vert/transformGlobalBuffer.js';
+import gpuDrivenTransformVS from '../chunks/common/vert/gpuDrivenTransform.js';
 import transformInstancingVS from '../chunks/common/vert/transformInstancing.js';
 import transmissionPS from '../chunks/standard/frag/transmission.js';
 import twoSidedLightingPS from '../chunks/lit/frag/twoSidedLighting.js';
@@ -210,6 +212,7 @@ const shaderChunksWGSL = {
     glossPS,
     quadVS,
     indirectCoreCS,
+    drawCompactCS,
     immediateLinePS,
     immediateLineVS,
     iridescenceDiffractionPS,
@@ -313,6 +316,7 @@ const shaderChunksWGSL = {
     transformVS,
     transformCoreVS,
     transformGlobalBufferVS,
+    gpuDrivenTransformVS,
     transformInstancingVS,
     transmissionPS,
     twoSidedLightingPS,

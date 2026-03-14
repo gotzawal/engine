@@ -25,6 +25,9 @@ import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/unif
 import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
+import { GeometryPool } from './geometry-pool.js';
+import { DrawInstanceBuffer } from './draw-instance-buffer.js';
+import { GpuDrawCompactor } from './gpu-draw-compactor.js';
 import { MaterialStorageBuffer } from '../materials/material-storage-buffer.js';
 import { materialDataStructWGSL } from '../shader-lib/wgsl/chunks/common/frag/materialAccess.js';
 import {
@@ -220,6 +223,16 @@ class Renderer {
         // Global material storage buffer for GPU-driven material access (WebGPU only)
         this.materialStorageBuffer = graphicsDevice.isWebGPU ? new MaterialStorageBuffer(graphicsDevice) : null;
 
+        // Geometry pool for merging compatible meshes into shared vertex/index buffers (WebGPU only)
+        this.geometryPool = graphicsDevice.isWebGPU ? new GeometryPool(graphicsDevice) : null;
+
+        // Draw instance buffer for GPU-driven rendering metadata (WebGPU only)
+        this.drawInstanceBuffer = graphicsDevice.isWebGPU ? new DrawInstanceBuffer(graphicsDevice) : null;
+
+        // GPU draw compactor for compute-based culling + draw compaction (WebGPU only)
+        this.gpuDrawCompactor = (graphicsDevice.isWebGPU && graphicsDevice.supportsCompute) ?
+            new GpuDrawCompactor(graphicsDevice) : null;
+
 
         // timing
         this._skinTime = 0;
@@ -252,6 +265,10 @@ class Renderer {
         this.globalMaterialsId = this.materialStorageBuffer ? scope.resolve('globalMaterials') : null;
         if (this.globalMaterialsId) {
             this.globalMaterialsId.setValue(this.materialStorageBuffer.storageBuffer);
+        }
+        this.drawInstancesId = this.drawInstanceBuffer ? scope.resolve('drawInstances') : null;
+        if (this.drawInstancesId) {
+            this.drawInstancesId.setValue(this.drawInstanceBuffer.storageBuffer);
         }
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);

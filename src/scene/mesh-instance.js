@@ -365,6 +365,15 @@ class MeshInstance {
     _globalTransformSlot = -1;
 
     /**
+     * Entry describing where this mesh's geometry lives in the shared GeometryPool buffer,
+     * or null if not registered in a pool.
+     *
+     * @type {import('./renderer/geometry-pool.js').MeshEntry|null}
+     * @ignore
+     */
+    _geometryPoolEntry = null;
+
+    /**
      * @type {Record<string, {scopeId: ScopeId|null, data: any, passFlags: number}>}
      * @ignore
      */
@@ -1057,6 +1066,30 @@ class MeshInstance {
             this._globalTransformSlot = -1;
             this._shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
         }
+    }
+
+    /**
+     * Register this mesh instance's geometry in the given GeometryPool. Skinned, batched, and
+     * instanced objects are excluded. Returns the pool entry, or null if not eligible.
+     *
+     * @param {import('./renderer/geometry-pool.js').GeometryPool} pool - The geometry pool.
+     * @returns {import('./renderer/geometry-pool.js').MeshEntry|null} The pool entry.
+     * @ignore
+     */
+    ensureGeometryPoolEntry(pool) {
+        if (this._geometryPoolEntry) return this._geometryPoolEntry;
+
+        // skip objects with dynamic vertex data
+        if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
+            return null;
+        }
+        if (this.morphInstance) return null;
+
+        const mesh = this.mesh;
+        if (!mesh) return null;
+
+        this._geometryPoolEntry = pool.addMesh(mesh);
+        return this._geometryPoolEntry;
     }
 
     destroy() {

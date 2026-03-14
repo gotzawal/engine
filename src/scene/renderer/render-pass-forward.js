@@ -231,12 +231,20 @@ class RenderPassForward extends RenderPass {
     before() {
         const { renderActions, renderer } = this;
 
+        // GPU-driven rendering pre-pass — register meshes in geometry pool, set up indirect
+        // draws with pool offsets, and dispatch GPU frustum culling. Must happen before the
+        // render pass starts because compute passes cannot run inside an active render pass.
+        const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
+        if (forwardRenderer.gpuDrivenEnabled && renderer.geometryPool) {
+            this._dispatchGpuDrivenCompaction(renderActions);
+        }
+
         // GPU frustum culling compute dispatch — must happen before the render pass starts,
         // because a compute pass cannot run inside an active render pass.
         // Buffer uploads (queue.writeBuffer) in renderForward() are guaranteed by WebGPU to
         // complete before any command buffer execution, so the compute shader reads valid data.
         const culler = renderer.gpuFrustumCuller;
-        if (culler) {
+        if (culler && !forwardRenderer.gpuDrivenEnabled) {
             this._dispatchGpuFrustumCulling(culler, renderActions);
         }
 
@@ -252,6 +260,60 @@ class RenderPassForward extends RenderPass {
             const ra = renderActions[i];
             if (ra.firstCameraUse) {
                 this.scene.fire(EVENT_PRERENDER, ra.camera);
+            }
+        }
+    }
+
+    /**
+     * Prepare GPU-driven rendering data and dispatch compute culling + compaction.
+     * Populates the DrawInstanceBuffer with geometry pool entries for all eligible draw calls,
+     * uploads transforms and bounding spheres, then dispatches the compactor compute shader.
+     *
+     * This must run before the render pass starts because compute passes cannot run inside
+     * an active render pass.
+     *
+     * @param {RenderAction[]} renderActions - The render actions for this pass.
+     * @private
+     */
+    _dispatchGpuDrivenCompaction(renderActions) {
+        const { renderer } = this;
+        const pool = renderer.geometryPool;
+        const culler = renderer.gpuFrustumCuller;
+
+        if (!pool) return;
+
+        // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
+        // This runs before the render pass so that GPU frustum culling can operate on the
+        // indirect draw buffer entries that reference geometry pool offsets.
+        for (let i = 0; i < renderActions.length; i++) {
+            const ra = renderActions[i];
+            if (!ra.camera) continue;
+
+            const layer = ra.layer;
+            const camera = ra.camera.camera;
+            const culledInstances = layer.getCulledInstances(camera);
+            const visible = ra.transparent ?
+                culledInstances.transparent :
+                culledInstances.opaque;
+
+            // Register meshes in geometry pool
+            for (let j = 0; j < visible.length; j++) {
+                visible[j].ensureGeometryPoolEntry(pool);
+            }
+
+            // Upload transforms + bounding spheres
+            renderer.updateGlobalTransforms(visible);
+
+            // Set up indirect draw args (now uses pool offsets for registered meshes)
+            const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
+            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible);
+        }
+
+        // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
+        if (culler && culler.indirectDrawCount > 0) {
+            const primaryCamera = renderActions[0]?.camera?.camera;
+            if (primaryCamera) {
+                culler.dispatch(primaryCamera);
             }
         }
     }

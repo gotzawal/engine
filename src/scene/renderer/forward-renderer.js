@@ -8,7 +8,9 @@ import {
     LIGHTTYPE_DIRECTIONAL,
     LIGHTSHAPE_PUNCTUAL,
     LAYERID_DEPTH,
-    PROJECTION_ORTHOGRAPHIC
+    PROJECTION_ORTHOGRAPHIC,
+    SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
@@ -34,6 +36,11 @@ import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 const _noLights = [[], [], []];
 const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
+
+// Mask for dynamic mesh instances (skinned, morphed, batched, instanced) - excluded from GPU-driven path
+const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
+    SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
+
 
 const _drawCallList = {
     drawCalls: [],
@@ -106,6 +113,15 @@ class ForwardRenderer extends Renderer {
          * @type {boolean}
          */
         this.materialStorageBufferEnabled = false;
+
+        /**
+         * Whether GPU-driven rendering is enabled. When true, eligible static mesh instances
+         * are rendered using merged geometry buffers, compute-based culling, and compacted
+         * indirect draw calls. This eliminates per-draw setVertexBuffer and setBindGroup overhead.
+         *
+         * @type {boolean}
+         */
+        this.gpuDrivenEnabled = false;
 
         /**
          * @type {RenderBundleCache}
@@ -574,6 +590,7 @@ class ForwardRenderer extends Renderer {
         const device = this.device;
         const indirectBuffer = device.indirectDrawBuffer;
         const tempArgs = _indirectArgs;
+        const gpuDriven = this.gpuDrivenEnabled;
 
         // track contiguous range of indirect slots for GPU frustum culling
         const startSlot = device._indirectDrawNextIndex;
@@ -590,13 +607,24 @@ class ForwardRenderer extends Renderer {
             // allocate a slot in the device's shared indirect draw buffer
             const indirectSlot = device.getIndirectDrawSlot();
 
-            // write draw args: [indexCount, instanceCount, firstIndex, baseVertex, firstInstance]
-            const prim = drawCall.mesh.primitive[drawCall.renderStyle];
-            tempArgs[0] = prim.count;
-            tempArgs[1] = 1;
-            tempArgs[2] = prim.base;
-            tempArgs[3] = prim.baseVertex ?? 0;
-            tempArgs[4] = slot; // firstInstance encodes the transform slot
+            // For GPU-driven draws with geometry pool entries, use pool offsets
+            const poolEntry = gpuDriven ? drawCall._geometryPoolEntry : null;
+            if (poolEntry) {
+                // write draw args using geometry pool offsets
+                tempArgs[0] = poolEntry.indexCount;
+                tempArgs[1] = 1;
+                tempArgs[2] = poolEntry.firstIndex;
+                tempArgs[3] = poolEntry.baseVertex;
+                tempArgs[4] = slot; // firstInstance encodes the transform slot
+            } else {
+                // write draw args using original mesh primitive offsets
+                const prim = drawCall.mesh.primitive[drawCall.renderStyle];
+                tempArgs[0] = prim.count;
+                tempArgs[1] = 1;
+                tempArgs[2] = prim.base;
+                tempArgs[3] = prim.baseVertex ?? 0;
+                tempArgs[4] = slot; // firstInstance encodes the transform slot
+            }
             indirectBuffer.write(indirectSlot * 20, tempArgs, 0, 5);
 
             // wire the mesh instance to use this indirect slot (null = all cameras)
@@ -621,6 +649,13 @@ class ForwardRenderer extends Renderer {
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
+        // For GPU-driven mode: register eligible meshes in the geometry pool
+        if (this.gpuDrivenEnabled && this.geometryPool) {
+            for (let i = 0; i < allDrawCalls.length; i++) {
+                allDrawCalls[i].ensureGeometryPoolEntry(this.geometryPool);
+            }
+        }
+
         // upload all world transforms to the global GPU buffer (single writeBuffer)
         this.updateGlobalTransforms(allDrawCalls);
 
@@ -632,7 +667,10 @@ class ForwardRenderer extends Renderer {
 
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
-        if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
+        if (this.gpuDrivenEnabled && !drawCallback && !hasXR) {
+            // GPU-driven path: merged geometry, compute culling, compacted indirect draws
+            this.renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
+        } else if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
             // bundle-accelerated path: group eligible draw calls and replay cached bundles
             this.renderForwardBundled(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
         } else {
@@ -750,6 +788,147 @@ class ForwardRenderer extends Renderer {
 
             for (let u = 0; u < unbundledIndices.length; u++) {
                 const idx = unbundledIndices[u];
+                this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+            }
+        }
+    }
+
+    /**
+     * GPU-driven rendering path. Uses merged geometry buffers (GeometryPool) and the existing
+     * indirect draw + GPU frustum culler. Draws are grouped by GeometryBatch (vertex format),
+     * so vertex/index buffers are only set once per batch. Within each batch, draws are grouped
+     * by material to minimize pipeline state changes.
+     *
+     * The existing GPU frustum culler zeros instanceCount on culled indirect draw entries,
+     * making them no-ops without needing draw compaction.
+     *
+     * Non-eligible draws (skinned, morphed, instanced) fall through to per-draw path.
+     *
+     * @param {Camera} camera - The camera.
+     * @param {RenderTarget|undefined} renderTarget - The render target.
+     * @param {object} preparedCalls - Prepared draw calls from renderForwardPrepareMaterials.
+     * @param {object} sortedLights - Sorted lights arrays.
+     * @param {number} pass - The shader pass.
+     * @param {boolean} flipFaces - Whether to flip faces.
+     * @param {BindGroup[]} viewBindGroups - View-level bind groups.
+     * @param {boolean} [transparent] - Whether these are transparent draw calls.
+     * @private
+     */
+    renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent = false) {
+        const device = this.device;
+        const pool = this.geometryPool;
+        const { drawCalls, shaderInstances, lightMaskChanged } = preparedCalls;
+        const passFlag = 1 << pass;
+        const flipFactor = flipFaces ? -1 : 1;
+
+        // Categorize draw calls: GPU-driven (grouped by batch) vs legacy
+        const legacyIndices = [];
+
+        // Map: batchId -> array of prepared call indices
+        const batchDraws = new Map();
+
+        for (let i = 0; i < drawCalls.length; i++) {
+            const drawCall = drawCalls[i];
+            const entry = drawCall._geometryPoolEntry;
+
+            // If not in geometry pool or is dynamic, render via legacy path
+            if (!entry || (drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) ||
+                drawCall._globalTransformSlot < 0) {
+                legacyIndices.push(i);
+                continue;
+            }
+
+            // Transparent objects must maintain CPU sort order, so they use
+            // the legacy path. They still benefit from the geometry pool when
+            // the shared VB/IB is used in the legacy draw path.
+            if (transparent) {
+                legacyIndices.push(i);
+                continue;
+            }
+
+            let batchList = batchDraws.get(entry.batchId);
+            if (!batchList) {
+                batchList = [];
+                batchDraws.set(entry.batchId, batchList);
+            }
+            batchList.push(i);
+        }
+
+        // -- Render GPU-driven draws grouped by batch --
+        if (batchDraws.size > 0) {
+
+            // Set view bind group once
+            if (device.supportsUniformBuffers) {
+                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+            }
+
+            for (const [batchId, indices] of batchDraws) {
+                const batch = pool.getBatch(batchId);
+                if (!batch) continue;
+
+                // Set shared vertex/index buffers ONCE for this entire batch
+                device.setVertexBuffer(batch.vertexBuffer);
+
+                let prevMaterial = null;
+
+                for (let d = 0; d < indices.length; d++) {
+                    const preparedIdx = indices[d];
+                    const drawCall = drawCalls[preparedIdx];
+                    const shaderInstance = shaderInstances[preparedIdx];
+                    const material = drawCall.material;
+
+                    if (shaderInstance.shader.failed) continue;
+
+                    // Material / pipeline state — set only when it changes
+                    if (material !== prevMaterial) {
+                        device.setShader(shaderInstance.shader, false);
+                        material.setParameters(device);
+
+                        if (lightMaskChanged[preparedIdx]) {
+                            this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
+                        }
+
+                        this.alphaTestId.setValue(material.alphaTest);
+                        device.setBlendState(material.blendState);
+                        device.setDepthState(material.depthState);
+                        device.setAlphaToCoverage(material.alphaToCoverage);
+                        prevMaterial = material;
+                    }
+
+                    this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+
+                    const stencilFront = drawCall.stencilFront ?? material.stencilFront;
+                    const stencilBack = drawCall.stencilBack ?? material.stencilBack;
+                    device.setStencilState(stencilFront, stencilBack);
+
+                    if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                        this.materialIndexId.setValue(material._materialSlot);
+                    }
+
+                    drawCall.setParameters(device, passFlag);
+
+                    // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
+                    this.setupMeshUniformBuffers(shaderInstance);
+
+                    // Use the existing indirect draw path — the GPU frustum culler has
+                    // already zeroed instanceCount on culled entries, making them no-ops
+                    const indirectData = drawCall.getDrawCommands(camera);
+                    const indexBuffer = batch.indexBuffer;
+
+                    device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
+                    this._forwardDrawCalls++;
+                }
+            }
+        }
+
+        // -- Render legacy (non-GPU-driven) draw calls via per-draw path --
+        if (legacyIndices.length > 0) {
+            if (device.supportsUniformBuffers) {
+                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+            }
+
+            for (let u = 0; u < legacyIndices.length; u++) {
+                const idx = legacyIndices[u];
                 this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
             }
         }

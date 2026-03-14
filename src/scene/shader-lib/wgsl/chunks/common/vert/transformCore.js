@@ -48,6 +48,10 @@ export default /* wgsl */`
 
         #include "transformInstancingVS"
 
+    #elif defined(GPU_DRIVEN)
+
+        #include "gpuDrivenTransformVS"
+
     #elif defined(GLOBAL_TRANSFORM_BUFFER)
 
         #include "transformGlobalBufferVS"
