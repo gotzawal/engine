@@ -431,7 +431,7 @@ class ForwardRenderer extends Renderer {
                 }
 
                 // Pack material into global storage buffer when enabled
-                if (this.materialStorageBufferEnabled && this.materialStorageBuffer) {
+                if ((this.materialStorageBufferEnabled || this.gpuDrivenEnabled) && this.materialStorageBuffer) {
                     const msb = this.materialStorageBuffer;
                     if (material._materialSlot < 0) {
                         material._materialSlot = msb.allocateSlot();
@@ -647,7 +647,8 @@ class ForwardRenderer extends Renderer {
         // #endif
 
         // sync materialStorageBufferEnabled flag to scene for shader options
-        this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+        // GPU-driven rendering requires material storage buffer for shader material access
+        this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled || this.gpuDrivenEnabled;
 
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {

@@ -325,7 +325,7 @@ class RenderPassForward extends RenderPass {
 
                     // Only add eligible draw calls (has pool entry + transform slot)
                     if (entry && slot >= 0) {
-                        const materialSlot = dc.material?._materialSlot ?? 0;
+                        const materialSlot = Math.max(0, dc.material?._materialSlot ?? 0);
                         const drawId = drawInstanceBuffer.addInstance(
                             slot,
                             materialSlot,
