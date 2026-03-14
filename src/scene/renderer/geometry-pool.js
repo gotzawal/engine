@@ -127,6 +127,9 @@ class GeometryBatch {
         const srcIB = mesh.indexBuffer[0]; // RENDERSTYLE_SOLID
         if (!srcVB || !srcIB) return null;
 
+        // Reject non-interleaved formats - data layout is incompatible with interleaved copy
+        if (!srcVB.getFormat().interleaved) return null;
+
         const vertexCount = srcVB.getNumVertices();
         const indexCount = srcIB.getNumIndices();
 

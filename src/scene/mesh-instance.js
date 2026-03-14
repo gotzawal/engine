@@ -1088,6 +1088,10 @@ class MeshInstance {
         const mesh = this.mesh;
         if (!mesh) return null;
 
+        // skip non-interleaved vertex formats (incompatible with geometry pool's interleaved copy logic)
+        const vb = mesh.vertexBuffer;
+        if (!vb || !vb.getFormat().interleaved) return null;
+
         this._geometryPoolEntry = pool.addMesh(mesh);
         return this._geometryPoolEntry;
     }
