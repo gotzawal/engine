@@ -1,4 +1,4 @@
-# PlayCanvas 엔진 포크 + Examples 테스트 가이드
+# PlayCanvas 엔진 Examples 테스트 가이드
 
 엔진 소스를 클론하고, 빌드하고, examples 브라우저로 검증하는 전체 워크플로다.
 
