@@ -10,7 +10,6 @@ import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } fro
 import { UniformBufferFormat, UniformFormat } from '../../platform/graphics/uniform-buffer-format.js';
 import { Vec3 } from '../../core/math/vec3.js';
 import { Mat4 } from '../../core/math/mat4.js';
-import { Debug } from '../../core/debug.js';
 import { LIGHTTYPE_DIRECTIONAL, LIGHTTYPE_SPOT, MASK_AFFECT_DYNAMIC, MASK_AFFECT_LIGHTMAPPED } from '../constants.js';
 import { LightsBuffer } from './lights-buffer.js';
 import clusterBoundsWGSL from '../shader-lib/wgsl/chunks/common/comp/cluster-bounds.js';
@@ -235,6 +234,7 @@ class GpuClusterLighting {
         if (changed) {
             this.numTilesX = newTilesX;
             this.numTilesY = newTilesY;
+            this.numSlicesZ = DEFAULT_NUM_SLICES_Z;
             this.totalClusters = newTilesX * newTilesY * this.numSlicesZ;
 
             this._lastCameraNear = near;
@@ -344,11 +344,6 @@ class GpuClusterLighting {
         }
 
         this.activeLightCount = lightIndex;
-
-        Debug.log(`[GpuCluster] collectLights: ${lightIndex} active lights collected`);
-        if (lightIndex > 0) {
-            Debug.log(`[GpuCluster]   light[0] viewPos=(${staging[0].toFixed(2)}, ${staging[1].toFixed(2)}, ${staging[2].toFixed(2)}) range=${staging[3].toFixed(2)} cosAngle=${staging[7].toFixed(2)}`);
-        }
     }
 
     /**
@@ -434,8 +429,6 @@ class GpuClusterLighting {
         // Update cluster grid config
         const configChanged = this.updateConfig(camera, screenWidth, screenHeight);
 
-        Debug.log(`[GpuCluster] update: screen=${screenWidth}x${screenHeight} tiles=${this.numTilesX}x${this.numTilesY}x${this.numSlicesZ} total=${this.totalClusters} configChanged=${configChanged}`);
-
         // Get view matrix
         const viewMat = camera.node ? camera.node.getWorldTransform().clone().invert() : new Mat4();
 
@@ -479,8 +472,6 @@ class GpuClusterLighting {
 
         // Also activate the lights buffer (texture-based light data for forward shader)
         this.lightsBuffer.updateUniforms();
-
-        Debug.log(`[GpuCluster] activate: numClusteredLights=${this.activeLightCount + 1} gridBuffer=${!!this.lightGridBuffer} indicesBuffer=${!!this.lightIndicesBuffer} near=${this._lastCameraNear} far=${this._lastCameraFar} tileSize=${this.tilePixelSize}`);
     }
 
     destroy() {
