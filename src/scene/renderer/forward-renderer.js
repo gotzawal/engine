@@ -871,14 +871,12 @@ class ForwardRenderer extends Renderer {
 
         Debug.assert(visible, 'Either layer or options.meshInstances must be provided');
 
-        // upload clustered lights uniforms
+        // activate cluster lighting uniforms — either GPU or CPU path, not both
         const lightClusters = options.lightClusters ?? this.worldClustersAllocator.empty;
-        lightClusters.activate();
-
-        // GPU cluster lighting: activate storage buffer uniforms for forward shader
-        // (compute dispatch happens in RenderPassForward.before(), outside the render pass)
         if (this.worldClustersAllocator._gpuCluster && this.scene._gpuClusterLightingEnabled) {
             this.worldClustersAllocator.activateGpuClusters();
+        } else {
+            lightClusters.activate();
         }
 
         // debug rendering of clusters
