@@ -45,14 +45,14 @@ class StandardMaterialOptionsBuilder {
     }
 
     // Minimal options for Depth and Shadow passes
-    updateMinRef(options, scene, stdMat, objDefs, pass, sortedLights) {
-        this._updateSharedOptions(options, scene, stdMat, objDefs, pass);
+    updateMinRef(options, scene, stdMat, objDefs, pass, sortedLights, gpuRenderDefs) {
+        this._updateSharedOptions(options, scene, stdMat, objDefs, pass, gpuRenderDefs);
         this._updateMinOptions(options, stdMat, pass);
         this._updateUVOptions(options, stdMat, objDefs, true);
     }
 
-    updateRef(options, scene, cameraShaderParams, stdMat, objDefs, pass, sortedLights) {
-        this._updateSharedOptions(options, scene, stdMat, objDefs, pass);
+    updateRef(options, scene, cameraShaderParams, stdMat, objDefs, pass, sortedLights, gpuRenderDefs) {
+        this._updateSharedOptions(options, scene, stdMat, objDefs, pass, gpuRenderDefs);
         this._updateEnvOptions(options, stdMat, scene, cameraShaderParams);
         this._updateMaterialOptions(options, stdMat, scene);
         options.litOptions.hasTangents = objDefs && ((objDefs & SHADERDEF_TANGENTS) !== 0);
@@ -60,7 +60,7 @@ class StandardMaterialOptionsBuilder {
         this._updateUVOptions(options, stdMat, objDefs, false, cameraShaderParams);
     }
 
-    _updateSharedOptions(options, scene, stdMat, objDefs, pass) {
+    _updateSharedOptions(options, scene, stdMat, objDefs, pass, gpuRenderDefs) {
         options.forceUv1 = stdMat.forceUv1;
 
         // USER ATTRIBUTES
@@ -81,6 +81,7 @@ class StandardMaterialOptionsBuilder {
         options.litOptions.useMorphNormal = objDefs && (objDefs & SHADERDEF_MORPH_NORMAL) !== 0;
         options.litOptions.useMorphTextureBasedInt = objDefs && (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0;
         options.litOptions.useGlobalTransformBuffer = objDefs && (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0;
+        options.litOptions.useGpuDriven = !!(gpuRenderDefs & 1);  // GPU_RENDER_DEF_GPU_DRIVEN
 
         options.litOptions.nineSlicedMode = stdMat.nineSlicedMode || 0;
 

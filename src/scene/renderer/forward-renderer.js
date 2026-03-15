@@ -10,13 +10,18 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING,
+    GPU_DRIVEN_EXCLUDE_DEFS
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
 import { RenderPassForward } from './render-pass-forward.js';
 import { RenderBundleCache } from './render-bundle-cache.js';
 import { DrawCallGrouper } from './draw-call-group.js';
+
+// GPU render feature flags — must match mesh-instance.js constants
+const GPU_RENDER_DEF_GPU_DRIVEN = 1;
+const GPU_RENDER_DEF_MSB = 2;
 
 import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 
@@ -36,10 +41,6 @@ import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 const _noLights = [[], [], []];
 const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
-
-// Mask for dynamic mesh instances (skinned, morphed, batched, instanced) - excluded from GPU-driven path
-const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
-    SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
 
 
 const _drawCallList = {
@@ -443,6 +444,23 @@ class ForwardRenderer extends Renderer {
                 }
             }
 
+            // GPU render feature flags — stored in _gpuRenderDefs (not _shaderDefs)
+            // to avoid corrupting the light mask in the upper 16 bits of _shaderDefs.
+            let gpuDefs = 0;
+            if (this.materialStorageBufferEnabled) gpuDefs |= GPU_RENDER_DEF_MSB;
+            if (this.gpuDrivenEnabled) {
+                const entry = drawCall._geometryPoolEntry;
+                const noExclude = !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS);
+
+                if (entry && noExclude &&
+                    drawCall._globalTransformSlot >= 0 &&
+                    this.materialStorageBufferEnabled && material._materialSlot >= 0 &&
+                    drawCall._gpuDrivenDrawId >= 0) {
+                    gpuDefs |= GPU_RENDER_DEF_GPU_DRIVEN;
+                }
+            }
+            drawCall._gpuRenderDefs = gpuDefs;
+
             const shaderInstance = drawCall.getShaderInstance(pass, lightHash, scene, shaderParams, this.viewUniformFormat, this.viewBindGroupFormat, sortedLights);
 
             addCall(drawCall, shaderInstance, material !== prevMaterial, !prevMaterial || lightMask !== prevLightMask);
@@ -619,7 +637,14 @@ class ForwardRenderer extends Renderer {
                 tempArgs[1] = 1;
                 tempArgs[2] = poolEntry.firstIndex;
                 tempArgs[3] = poolEntry.baseVertex;
-                tempArgs[4] = slot; // firstInstance encodes the transform slot
+                // GPU_DRIVEN eligible: firstInstance = drawId (DIB index) for DrawInstance lookup
+                // Legacy: firstInstance = transform slot for direct globalTransforms lookup
+                if (drawCall._gpuDrivenDrawId >= 0 &&
+                    !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS)) {
+                    tempArgs[4] = drawCall._gpuDrivenDrawId;
+                } else {
+                    tempArgs[4] = slot;
+                }
             } else {
                 // write draw args using original mesh primitive offsets
                 const prim = drawCall.mesh.primitive[drawCall.renderStyle];
@@ -650,6 +675,11 @@ class ForwardRenderer extends Renderer {
         const forwardStartTime = now();
         // #endif
 
+        // GPU-driven rendering requires the material storage buffer system
+        if (this.gpuDrivenEnabled) {
+            this.materialStorageBufferEnabled = true;
+        }
+
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
@@ -668,6 +698,24 @@ class ForwardRenderer extends Renderer {
 
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
+
+        // Upload material storage buffer AFTER packing (packToStorageBuffer runs inside prepareMaterials)
+        const msb = this.materialStorageBuffer;
+        if (msb && msb.dirty) {
+            msb.upload();
+            // Re-bind scope in case MSB resized (creates new StorageBuffer)
+            if (this.globalMaterialsId) {
+                this.globalMaterialsId.setValue(msb.storageBuffer);
+            }
+            // Re-update view bind groups so they pick up the latest globalMaterials buffer reference.
+            // This is required when MSB resizes (new StorageBuffer object) after setupViewUniformBuffers
+            // already captured the old reference.
+            if (viewBindGroups) {
+                for (let i = 0; i < viewBindGroups.length; i++) {
+                    viewBindGroups[i].update();
+                }
+            }
+        }
 
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
@@ -890,13 +938,22 @@ class ForwardRenderer extends Renderer {
                     const drawCall = drawCalls[preparedIdx];
                     const shaderInstance = shaderInstances[preparedIdx];
                     const material = drawCall.material;
+                    // Only treat as GPU-driven if the shader with GPU_DRIVEN define is ready.
+                    // On the frame GPU_DRIVEN first activates, the old shader may still be in use
+                    // while the new variant compiles — fall back to per-draw uniforms for safety.
+                    const isGpuDriven = !!(drawCall._gpuRenderDefs & GPU_RENDER_DEF_GPU_DRIVEN) &&
+                        !shaderInstance.shader.failed && shaderInstance.shader.ready;
 
                     if (shaderInstance.shader.failed) continue;
 
                     // Material / pipeline state — set only when it changes
                     if (material !== prevMaterial) {
                         device.setShader(shaderInstance.shader, false);
-                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+
+                        // GPU_DRIVEN: textures still need CPU binding, scalar/vector params read from SB
+                        if (isGpuDriven) {
+                            material.setParametersTextureOnly(device);
+                        } else if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
                             material.setParametersTextureOnly(device);
                         } else {
                             material.setParameters(device);
@@ -906,7 +963,10 @@ class ForwardRenderer extends Renderer {
                             this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
                         }
 
-                        this.alphaTestId.setValue(material.alphaTest);
+                        if (!isGpuDriven) {
+                            this.alphaTestId.setValue(material.alphaTest);
+                        }
+
                         device.setBlendState(material.blendState);
                         device.setDepthState(material.depthState);
                         device.setAlphaToCoverage(material.alphaToCoverage);
@@ -919,13 +979,17 @@ class ForwardRenderer extends Renderer {
                     const stencilBack = drawCall.stencilBack ?? material.stencilBack;
                     device.setStencilState(stencilFront, stencilBack);
 
-                    if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
-                        this.materialIndexId.setValue(material._materialSlot);
+                    if (!isGpuDriven) {
+                        // Legacy: per-draw uniform upload
+                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                            this.materialIndexId.setValue(material._materialSlot);
+                        }
+                        drawCall.setParameters(device, passFlag);
+                        this.setMeshInstanceMatrices(drawCall, true);
                     }
 
-                    drawCall.setParameters(device, passFlag);
+                    // meshInstanceId is needed for picker
                     device.scope.resolve('meshInstanceId').setValue(drawCall.id);
-                    this.setMeshInstanceMatrices(drawCall, true);
 
                     // Set shared vertex buffer before each draw (draw() clears VB array after each call)
                     device.setVertexBuffer(batch.vertexBuffer);

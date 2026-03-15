@@ -6,7 +6,7 @@ import { BlendState } from '../../platform/graphics/blend-state.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { RenderPass } from '../../platform/graphics/render-pass.js';
 import { RenderAction } from '../composition/render-action.js';
-import { EVENT_POSTRENDER, EVENT_POSTRENDER_LAYER, EVENT_PRERENDER, EVENT_PRERENDER_LAYER, SHADER_FORWARD } from '../constants.js';
+import { EVENT_POSTRENDER, EVENT_POSTRENDER_LAYER, EVENT_PRERENDER, EVENT_PRERENDER_LAYER, SHADER_FORWARD, GPU_DRIVEN_EXCLUDE_DEFS } from '../constants.js';
 
 /**
  * @import { CameraComponent } from '../../framework/components/camera/component.js'
@@ -282,9 +282,20 @@ class RenderPassForward extends RenderPass {
 
         if (!pool) return;
 
+        const dib = renderer.drawInstanceBuffer;
+        const fillDib = dib && renderer.gpuDrivenEnabled;
+
         // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
         // This runs before the render pass so that GPU frustum culling can operate on the
         // indirect draw buffer entries that reference geometry pool offsets.
+        //
+        // DIB filling is interleaved: after geometry pool registration + transform upload
+        // (so _geometryPoolEntry and _globalTransformSlot are available), but before
+        // setupGlobalTransformIndirectDraws (so _gpuDrivenDrawId is available for firstInstance).
+        if (fillDib) {
+            dib.beginFrame();
+        }
+
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
             if (!ra.camera) continue;
@@ -304,9 +315,41 @@ class RenderPassForward extends RenderPass {
             // Upload transforms + bounding spheres
             renderer.updateGlobalTransforms(visible);
 
+            // Fill DrawInstanceBuffer for GPU-driven path (after geometry pool + transforms)
+            // Skip transparent draws — they always use the legacy CPU-sorted path
+            if (fillDib && !ra.transparent) {
+                for (let j = 0; j < visible.length; j++) {
+                    const dc = visible[j];
+                    // Reset drawId to prevent stale IDs from previous frames
+                    dc._gpuDrivenDrawId = -1;
+
+                    const entry = dc._geometryPoolEntry;
+                    if (!entry) continue;
+                    if (dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) continue;
+                    if (dc._globalTransformSlot < 0) continue;
+                    if (!dc.material || dc.material._materialSlot < 0) continue;
+
+                    const drawId = dib.addInstance(
+                        dc._globalTransformSlot, dc.material._materialSlot,
+                        entry.firstIndex, entry.indexCount, entry.baseVertex, entry.batchId
+                    );
+                    dc._gpuDrivenDrawId = drawId;
+                }
+            }
+
             // Set up indirect draw args (now uses pool offsets for registered meshes)
             const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
             forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
+        }
+
+        if (fillDib) {
+            dib.upload();
+
+            // Re-bind scope in case DIB resized (creates new StorageBuffer, old one destroyed)
+            const dibScopeId = renderer.drawInstancesId;
+            if (dibScopeId && dibScopeId.value !== dib.storageBuffer) {
+                dibScopeId.setValue(dib.storageBuffer);
+            }
         }
 
         // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)

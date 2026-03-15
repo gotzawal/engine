@@ -735,7 +735,9 @@ export const SHADERDEF_LMAMBIENT = 4096; // lightmaps contain ambient
 export const SHADERDEF_MORPH_TEXTURE_BASED_INT = 8192;
 export const SHADERDEF_BATCH = 16384;
 export const SHADERDEF_GLOBAL_TRANSFORM_BUFFER = 32768;
-export const SHADERDEF_GPU_DRIVEN = 65536;
+// Mask for dynamic mesh instances (skinned, morphed, batched, instanced) - excluded from GPU-driven path
+export const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
+    SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
 
 /**
  * The shadow map is not to be updated.

@@ -10,14 +10,14 @@ import {
 } from '../constants.js';
 
 class LitMaterialOptionsBuilder {
-    static update(litOptions, material, scene, renderParams, objDefs, pass, sortedLights) {
-        LitMaterialOptionsBuilder.updateSharedOptions(litOptions, material, scene, objDefs, pass);
+    static update(litOptions, material, scene, renderParams, objDefs, pass, sortedLights, gpuRenderDefs) {
+        LitMaterialOptionsBuilder.updateSharedOptions(litOptions, material, scene, objDefs, pass, gpuRenderDefs);
         LitMaterialOptionsBuilder.updateMaterialOptions(litOptions, material);
         LitMaterialOptionsBuilder.updateEnvOptions(litOptions, material, scene, renderParams);
         LitMaterialOptionsBuilder.updateLightingOptions(litOptions, material, scene, objDefs, sortedLights);
     }
 
-    static updateSharedOptions(litOptions, material, scene, objDefs, pass) {
+    static updateSharedOptions(litOptions, material, scene, objDefs, pass, gpuRenderDefs) {
         litOptions.shaderChunks = material.shaderChunks;
         litOptions.pass = pass;
         litOptions.alphaTest = material.alphaTest > 0;
@@ -30,6 +30,7 @@ class LitMaterialOptionsBuilder {
         litOptions.useMorphNormal = objDefs && (objDefs & SHADERDEF_MORPH_NORMAL) !== 0;
         litOptions.useMorphTextureBasedInt = objDefs && (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0;
         litOptions.useGlobalTransformBuffer = objDefs && (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0;
+        litOptions.useGpuDriven = false;  // Set by StandardMaterialOptionsBuilder via gpuRenderDefs
         litOptions.hasTangents = objDefs && ((objDefs & SHADERDEF_TANGENTS) !== 0);
 
         litOptions.nineSlicedMode = material.nineSlicedMode || SPRITE_RENDERMODE_SIMPLE;

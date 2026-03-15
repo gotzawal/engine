@@ -59,6 +59,7 @@ class ShaderGeneratorShader extends ShaderGenerator {
         if (options.skin) defines.set('SKIN', true);
         if (options.useInstancing) defines.set('INSTANCING', true);
         if (options.useGlobalTransformBuffer) defines.set('GLOBAL_TRANSFORM_BUFFER', true);
+        if (options.useGpuDriven) defines.set('GPU_DRIVEN', true);
         if (options.useMorphPosition || options.useMorphNormal) {
             defines.set('MORPHING', true);
             if (options.useMorphTextureBasedInt) defines.set('MORPHING_INT', true);

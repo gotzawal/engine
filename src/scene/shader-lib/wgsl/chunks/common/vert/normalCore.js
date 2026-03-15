@@ -44,6 +44,10 @@ fn getLocalNormal(vertexNormal: vec3f) -> vec3f {
     fn getNormalMatrix(modelMatrix: mat4x4f) -> mat3x3f {
         return mat3x3f(modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz);
     }
+#elif defined(GPU_DRIVEN)
+    fn getNormalMatrix(modelMatrix: mat4x4f) -> mat3x3f {
+        return mat3x3f(modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz);
+    }
 #elif defined(GLOBAL_TRANSFORM_BUFFER)
     fn getNormalMatrix(modelMatrix: mat4x4f) -> mat3x3f {
         return mat3x3f(modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz);
