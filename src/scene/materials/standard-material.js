@@ -832,6 +832,17 @@ class StandardMaterial extends Material {
         // Helper: sRGB gamma to linear (matches Color.linear which uses pow 2.2)
         const toLinear = (v) => Math.pow(v, 2.2);
 
+        // === DEBUG LOG (once per material) ===
+        if (!this._packDbgCount) this._packDbgCount = 0;
+        if (this._packDbgCount++ % 120 === 0) {
+            console.log(`[packToStorageBuffer] "${this.name}" slot:${slot}`,
+                `diffuse:(${d.r.toFixed(2)},${d.g.toFixed(2)},${d.b.toFixed(2)})`,
+                `linear:(${toLinear(d.r).toFixed(3)},${toLinear(d.g).toFixed(3)},${toLinear(d.b).toFixed(3)})`,
+                `emissive:(${e.r.toFixed(2)},${e.g.toFixed(2)},${e.b.toFixed(2)})`,
+                `opacity:${this.opacity}`
+            );
+        }
+
         // vec4 0: baseColor (rgba) - diffuse color in linear space + diffuse alpha
         msb.updateSlotVec4(slot, 0, toLinear(d.r), toLinear(d.g), toLinear(d.b), 1.0);
 

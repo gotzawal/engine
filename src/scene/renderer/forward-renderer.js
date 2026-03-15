@@ -725,6 +725,22 @@ class ForwardRenderer extends Renderer {
         // run first pass over draw calls and handle material / shader updates
         const preparedCalls = this.renderForwardPrepareMaterials(camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
 
+        // Upload material storage buffer AFTER packing (packToStorageBuffer runs inside prepareMaterials)
+        const msb = this.materialStorageBuffer;
+        if (msb && msb.dirty) {
+            msb.upload();
+            // Re-bind scope in case MSB resized
+            if (this.globalMaterialsId) {
+                this.globalMaterialsId.setValue(msb.storageBuffer);
+            }
+
+            // === DEBUG LOG ===
+            if (this._gpuDbgCounter % 120 === 1) {
+                console.log('[GPU_DRIVEN] msb.upload() after prepareMaterials, nextSlot:', msb.nextSlot,
+                    'dirty was true, first 16 floats:', Array.from(msb.stagingBuffer.slice(0, 16)).map(v => v.toFixed(3)).join(','));
+            }
+        }
+
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
         if (this.gpuDrivenEnabled && !drawCallback && !hasXR) {
