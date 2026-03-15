@@ -95,6 +95,13 @@ class ExampleLoader {
                 renderer.gpuDrivenEnabled = (gpuDrivenMode === 'enabled');
             }
             fire('updateActiveGpuDrivenMode', { gpuDrivenMode });
+
+            // Apply saved texture array batching mode preference
+            const textureArrayMode = localStorage.getItem('preferredTextureArrayMode') ?? 'disabled';
+            if (renderer) {
+                renderer.textureArrayBatchingEnabled = (textureArrayMode === 'enabled');
+            }
+            fire('updateActiveTextureArrayMode', { textureArrayMode });
         }
 
         this._allowRestart = true;
@@ -197,6 +204,25 @@ class ExampleLoader {
                 renderer._drawCallGrouper?.invalidateAll();
             }
             fire('updateActiveGpuDrivenMode', { gpuDrivenMode: mode });
+        });
+
+        // Listen for runtime texture array batching mode changes from the parent UI
+        window.addEventListener('updateTextureArrayMode', (/** @type {CustomEvent} */ e) => {
+            const mode = e.detail.textureArrayMode;
+            const renderer = this._app?.renderer;
+            if (renderer) {
+                renderer.textureArrayBatchingEnabled = (mode === 'enabled');
+                // Trigger shader recompilation (TEXTURE_ARRAY_BATCHING define changes shaders)
+                this._app?.scene?.layers?.layerList?.forEach((layer) => {
+                    layer.meshInstances.forEach((mi) => {
+                        mi.material?.clearVariants?.();
+                    });
+                });
+                // invalidate all cached bundles
+                renderer._bundleCache?.invalidateAll();
+                renderer._drawCallGrouper?.invalidateAll();
+            }
+            fire('updateActiveTextureArrayMode', { textureArrayMode: mode });
         });
 
         // extracts example category and name from the URL

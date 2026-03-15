@@ -10,6 +10,7 @@ import { DeviceSelector } from './DeviceSelector.mjs';
 import { RenderBundleSelector } from './RenderBundleSelector.mjs';
 import { MaterialStorageSelector } from './MaterialStorageSelector.mjs';
 import { GpuDrivenSelector } from './GpuDrivenSelector.mjs';
+import { TextureArraySelector } from './TextureArraySelector.mjs';
 import { ErrorBoundary } from './ErrorBoundary.mjs';
 import { MIN_DESKTOP_WIDTH } from '../constants.mjs';
 import { iframe } from '../iframe.mjs';
@@ -288,6 +289,16 @@ class Example extends TypedComponent {
         return jsx(GpuDrivenSelector);
     }
 
+    renderTextureArraySelector() {
+        const { showDeviceSelector } = this.state;
+
+        if (!showDeviceSelector) {
+            return null;
+        }
+
+        return jsx(TextureArraySelector);
+    }
+
     renderControls() {
         const { exampleLoaded, controls, observer } = this.state;
         const ready = exampleLoaded && controls && observer && iframe.ready;
@@ -371,6 +382,7 @@ class Example extends TypedComponent {
                 this.renderRenderBundleSelector(),
                 this.renderMaterialStorageSelector(),
                 this.renderGpuDrivenSelector(),
+                this.renderTextureArraySelector(),
                 jsx(
                     Container,
                     {
@@ -438,6 +450,7 @@ class Example extends TypedComponent {
                 this.renderRenderBundleSelector(),
                 this.renderMaterialStorageSelector(),
                 this.renderGpuDrivenSelector(),
+                this.renderTextureArraySelector(),
                 this.renderControls()
             ),
             this.renderDescription()
