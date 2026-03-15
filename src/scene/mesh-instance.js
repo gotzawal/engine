@@ -1099,18 +1099,35 @@ class MeshInstance {
 
         // skip objects with dynamic vertex data
         if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
+            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: dynamic defs=0x${this._shaderDefs.toString(16)}`); }
             return null;
         }
-        if (this.morphInstance) return null;
+        if (this.morphInstance) {
+            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: morphInstance`); }
+            return null;
+        }
 
         const mesh = this.mesh;
-        if (!mesh) return null;
+        if (!mesh) {
+            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: no mesh`); }
+            return null;
+        }
 
         // skip non-interleaved vertex formats (incompatible with geometry pool's interleaved copy logic)
         const vb = mesh.vertexBuffer;
-        if (!vb || !vb.getFormat().interleaved) return null;
+        if (!vb || !vb.getFormat().interleaved) {
+            if (!this._gpuPoolDbg) {
+                this._gpuPoolDbg = true;
+                const fmt = vb?.getFormat();
+                console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: non-interleaved`,
+                    'hasVB:', !!vb, 'interleaved:', fmt?.interleaved,
+                    'elements:', fmt?.elements?.map(e => e.name).join(','), 'stride:', fmt?.size);
+            }
+            return null;
+        }
 
         this._geometryPoolEntry = pool.addMesh(mesh);
+        if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" OK entry:`, this._geometryPoolEntry); }
         return this._geometryPoolEntry;
     }
 
