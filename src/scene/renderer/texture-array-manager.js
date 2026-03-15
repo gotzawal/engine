@@ -80,9 +80,9 @@ class TextureArrayGroup {
             arrayLength: this.capacity,
             addressU: ADDRESS_REPEAT,
             addressV: ADDRESS_REPEAT,
-            minFilter: FILTER_LINEAR_MIPMAP_LINEAR,
+            minFilter: FILTER_LINEAR,
             magFilter: FILTER_LINEAR,
-            mipmaps: true
+            mipmaps: false
         });
     }
 
@@ -247,6 +247,28 @@ class TextureArrayManager {
     getTextureArray(arrayIndex) {
         const group = this.groupsByIndex.get(arrayIndex);
         return group?.textureArray ?? null;
+    }
+
+    /**
+     * Create a 1x1x1 white placeholder texture array for bind group stability.
+     *
+     * @returns {Texture} A minimal texture array.
+     */
+    createPlaceholder() {
+        const tex = new Texture(this.device, {
+            name: 'TextureArray_Placeholder',
+            width: 1,
+            height: 1,
+            format: PIXELFORMAT_RGBA8,
+            arrayLength: 1,
+            mipmaps: false,
+            minFilter: FILTER_LINEAR,
+            magFilter: FILTER_LINEAR
+        });
+        const data = new Uint8Array([255, 255, 255, 255]);
+        tex.lock().set(data);
+        tex.unlock();
+        return tex;
     }
 
     destroy() {

@@ -355,6 +355,10 @@ class LitShader {
             // (diffuse, specular, gloss, etc.) check MATERIAL_STORAGE_BUFFER to call
             // getMaterialBaseColor() etc. materialAccess.js handles precedence correctly.
             fDefines.set('MATERIAL_STORAGE_BUFFER', true);
+
+            if (options.textureArrayBatchingEnabled) {
+                fDefines.set('TEXTURE_ARRAY_BATCHING', true);
+            }
         }
 
         // clustered lights defines

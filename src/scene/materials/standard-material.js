@@ -538,6 +538,12 @@ class StandardMaterial extends Material {
 
     userAttributes = new Map();
 
+    /** @type {import('../renderer/texture-array-manager.js').TextureArrayEntry|null} */
+    _diffuseArrayEntry = null;
+
+    /** @type {boolean} */
+    _textureArrayCompatible = true;
+
     /**
      * A custom function that will be called after all shader generator properties are collected
      * and before shader code is generated. This function will receive an object with shader
@@ -860,6 +866,15 @@ class StandardMaterial extends Material {
         // vec4 8: attenuationColor (rgb) in linear space + attenuationDistance
         const att = this.attenuation;
         msb.updateSlotVec4(slot, 8, att ? toLinear(att.r) : 1, att ? toLinear(att.g) : 1, att ? toLinear(att.b) : 1, this.attenuationDistance ?? 0);
+
+        // vec4 9: texture array layer indices (diffuse, normal, specular, emissive)
+        const diffEntry = this._diffuseArrayEntry;
+        msb.updateSlotVec4(slot, 9,
+            diffEntry ? diffEntry.layerIndex : -1,
+            0,   // normalMap layerIndex (reserved)
+            0,   // specularMap layerIndex (reserved)
+            0    // emissiveMap layerIndex (reserved)
+        );
     }
 
     updateEnvUniforms(device, scene) {
