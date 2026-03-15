@@ -11,6 +11,8 @@ struct DrawInstance {
     _pad1: u32,
 };
 
+var<storage, read> drawInstances: array<DrawInstance>;
+
 fn getDrawInstance() -> DrawInstance {
     return drawInstances[pcInstanceIndex];
 }
