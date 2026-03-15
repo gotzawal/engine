@@ -1097,27 +1097,30 @@ class MeshInstance {
     ensureGeometryPoolEntry(pool) {
         if (this._geometryPoolEntry) return this._geometryPoolEntry;
 
+        // === DEBUG: log every call (no one-time guard) ===
+        if (!this._gpuPoolDbgCount) this._gpuPoolDbgCount = 0;
+        const doLog = (this._gpuPoolDbgCount++ % 120 === 0);
+
         // skip objects with dynamic vertex data
         if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
-            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: dynamic defs=0x${this._shaderDefs.toString(16)}`); }
+            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: dynamic defs=0x${this._shaderDefs.toString(16)}`);
             return null;
         }
         if (this.morphInstance) {
-            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: morphInstance`); }
+            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: morphInstance`);
             return null;
         }
 
         const mesh = this.mesh;
         if (!mesh) {
-            if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: no mesh`); }
+            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: no mesh`);
             return null;
         }
 
         // skip non-interleaved vertex formats (incompatible with geometry pool's interleaved copy logic)
         const vb = mesh.vertexBuffer;
         if (!vb || !vb.getFormat().interleaved) {
-            if (!this._gpuPoolDbg) {
-                this._gpuPoolDbg = true;
+            if (doLog) {
                 const fmt = vb?.getFormat();
                 console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: non-interleaved`,
                     'hasVB:', !!vb, 'interleaved:', fmt?.interleaved,
@@ -1127,7 +1130,7 @@ class MeshInstance {
         }
 
         this._geometryPoolEntry = pool.addMesh(mesh);
-        if (!this._gpuPoolDbg) { this._gpuPoolDbg = true; console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" OK entry:`, this._geometryPoolEntry); }
+        if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" OK entry:`, this._geometryPoolEntry);
         return this._geometryPoolEntry;
     }
 
