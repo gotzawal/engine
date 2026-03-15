@@ -829,7 +829,7 @@ class Renderer {
 
             // diffuse texture array for GPU-driven texture array batching (read-only in fragment)
             if (this.textureArrayManager) {
-                formats.push(new BindTextureFormat('globalDiffuseArray', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D_ARRAY, SAMPLETYPE_FLOAT));
+                formats.push(new BindTextureFormat('globalDiffuseArray', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D_ARRAY, SAMPLETYPE_FLOAT, true, 'globalDiffuseArraySampler'));
             }
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
