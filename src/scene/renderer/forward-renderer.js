@@ -445,6 +445,17 @@ class ForwardRenderer extends Renderer {
 
             const shaderInstance = drawCall.getShaderInstance(pass, lightHash, scene, shaderParams, this.viewUniformFormat, this.viewBindGroupFormat, sortedLights);
 
+            // DEBUG: Log shader defines for GPU-driven draws (first 3 frames only)
+            ForwardRenderer._shaderDebugFrame = ForwardRenderer._shaderDebugFrame ?? 0;
+            if (ForwardRenderer._shaderDebugFrame < 10 && (drawCall._shaderDefs & 128)) { // SHADERDEF_GPU_DRIVEN = 128
+                ForwardRenderer._shaderDebugFrame++;
+                const shader = shaderInstance?.shader;
+                const src = shader?.impl?.fragmentCode || shader?.definition?.fshader || '';
+                const hasMSB = src.includes('MATERIAL_STORAGE_BUFFER') || src.includes('getMaterialBaseColor');
+                const hasGpuDriven = src.includes('GPU_DRIVEN') || src.includes('vGpuDrivenMaterialSlot');
+                console.log(`  [SHADER] node="${drawCall.node?.name}" hasMSB_in_frag=${hasMSB}, hasGpuDriven_in_frag=${hasGpuDriven}, shaderDefs=0x${drawCall._shaderDefs.toString(16)}, scene._materialStorageBufferEnabled=${scene._materialStorageBufferEnabled}`);
+            }
+
             addCall(drawCall, shaderInstance, material !== prevMaterial, !prevMaterial || lightMask !== prevLightMask);
 
             prevMaterial = material;
@@ -615,7 +626,10 @@ class ForwardRenderer extends Renderer {
                 tempArgs[1] = 1;
                 tempArgs[2] = poolEntry.firstIndex;
                 tempArgs[3] = poolEntry.baseVertex;
-                tempArgs[4] = slot; // firstInstance encodes the transform slot
+                // GPU-driven vertex shader indexes drawInstances[pcInstanceIndex] where
+                // pcInstanceIndex = firstInstance. Use _drawInstanceId (index into DrawInstanceBuffer)
+                // instead of _globalTransformSlot (index into globalTransforms).
+                tempArgs[4] = drawCall._drawInstanceId >= 0 ? drawCall._drawInstanceId : slot;
             } else {
                 // write draw args using original mesh primitive offsets
                 const prim = drawCall.mesh.primitive[drawCall.renderStyle];
@@ -626,6 +640,13 @@ class ForwardRenderer extends Renderer {
                 tempArgs[4] = slot; // firstInstance encodes the transform slot
             }
             indirectBuffer.write(indirectSlot * 20, tempArgs, 0, 5);
+
+            // DEBUG: Log firstInstance for first 3 frames
+            ForwardRenderer._indirectDebugFrame = ForwardRenderer._indirectDebugFrame ?? 0;
+            if (ForwardRenderer._indirectDebugFrame < 15) {
+                ForwardRenderer._indirectDebugFrame++;
+                console.log(`  [INDIRECT] node="${drawCall.node?.name}" slot=${indirectSlot} firstInstance=${tempArgs[4]} (drawInstanceId=${drawCall._drawInstanceId}, transformSlot=${slot}) poolEntry=${!!poolEntry} indexCount=${tempArgs[0]}`);
+            }
 
             // wire the mesh instance to use this indirect slot (null = all cameras)
             drawCall.setIndirect(null, indirectSlot);
@@ -649,6 +670,13 @@ class ForwardRenderer extends Renderer {
         // sync materialStorageBufferEnabled flag to scene for shader options
         // GPU-driven rendering requires material storage buffer for shader material access
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled || this.gpuDrivenEnabled;
+
+        // DEBUG: Log GPU-driven state for first 3 frames
+        ForwardRenderer._gpuDrivenDebugFrame = (ForwardRenderer._gpuDrivenDebugFrame ?? 0) + 1;
+        const _fwdDebugFrame = ForwardRenderer._gpuDrivenDebugFrame;
+        if (_fwdDebugFrame <= 3) {
+            console.log(`[FWD-RENDER Frame ${_fwdDebugFrame}] gpuDrivenEnabled=${this.gpuDrivenEnabled}, materialStorageBufferEnabled=${this.materialStorageBufferEnabled}, scene._materialStorageBufferEnabled=${this.scene._materialStorageBufferEnabled}, drawCalls=${allDrawCalls.length}`);
+        }
 
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
@@ -830,6 +858,11 @@ class ForwardRenderer extends Renderer {
         const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
 
+        // DEBUG
+        ForwardRenderer._gpuDrivenRenderFrame = (ForwardRenderer._gpuDrivenRenderFrame ?? 0) + 1;
+        const _renderDebugFrame = ForwardRenderer._gpuDrivenRenderFrame;
+        const _renderDebugLog = _renderDebugFrame <= 3;
+
         // Categorize draw calls: GPU-driven vs legacy
         const legacyIndices = [];
         const gpuDrivenIndices = [];
@@ -849,6 +882,20 @@ class ForwardRenderer extends Renderer {
                 gpuDrivenIndices.push(i);
             } else {
                 legacyIndices.push(i);
+            }
+        }
+
+        if (_renderDebugLog) {
+            console.log(`[GPU-DRIVEN-RENDER Frame ${_renderDebugFrame}] total=${drawCalls.length}, gpuDriven=${gpuDrivenIndices.length}, legacy=${legacyIndices.length}`);
+            for (let d = 0; d < Math.min(gpuDrivenIndices.length, 5); d++) {
+                const idx = gpuDrivenIndices[d];
+                const dc = drawCalls[idx];
+                const si = shaderInstances[idx];
+                const shader = si?.shader;
+                const fDefs = shader?._fDefines || shader?.definition?.fshader;
+                const hasMSB = fDefs?.includes?.('MATERIAL_STORAGE_BUFFER') ?? 'N/A';
+                const hasGPU = fDefs?.includes?.('GPU_DRIVEN') ?? 'N/A';
+                console.log(`  gpuDraw[${d}]: node="${dc.node?.name}" drawInstanceId=${dc._drawInstanceId} transformSlot=${dc._globalTransformSlot} matSlot=${dc.material?._materialSlot} shaderDefs=0x${dc._shaderDefs?.toString(16)} shader=${shader?.label || shader?.id}`);
             }
         }
 

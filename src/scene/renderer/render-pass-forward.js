@@ -285,6 +285,11 @@ class RenderPassForward extends RenderPass {
 
         if (!pool) return;
 
+        // DEBUG: Log first 3 frames of GPU-driven pipeline
+        RenderPassForward._gpuDrivenDebugFrame = (RenderPassForward._gpuDrivenDebugFrame ?? 0) + 1;
+        const _debugFrame = RenderPassForward._gpuDrivenDebugFrame;
+        const _debugLog = _debugFrame <= 3;
+
         // Begin new frame for DrawInstanceBuffer
         if (drawInstanceBuffer) {
             drawInstanceBuffer.beginFrame();
@@ -312,10 +317,6 @@ class RenderPassForward extends RenderPass {
             // Upload transforms + bounding spheres
             renderer.updateGlobalTransforms(visible);
 
-            // Set up indirect draw args (now uses pool offsets for registered meshes)
-            const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
-            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
-
             // Allocate material storage buffer slots BEFORE populating DrawInstanceBuffer,
             // so that materialSlot values written to the buffer are valid indices.
             const msb = renderer.materialStorageBuffer;
@@ -332,7 +333,19 @@ class RenderPassForward extends RenderPass {
                 }
             }
 
-            // Populate DrawInstanceBuffer for GPU-driven rendering
+            if (_debugLog) {
+                console.log(`[GPU-DRIVEN Frame ${_debugFrame}] visible=${visible.length}, msb=${!!msb}, msbDirty=${msb?.dirty}`);
+                for (let j = 0; j < Math.min(visible.length, 5); j++) {
+                    const dc = visible[j];
+                    const mat = dc.material;
+                    const d = mat?.diffuse;
+                    console.log(`  [${j}] node="${dc.node?.name}" matSlot=${mat?._materialSlot} diffuse=(${d?.r?.toFixed(2)},${d?.g?.toFixed(2)},${d?.b?.toFixed(2)}) transformSlot=${dc._globalTransformSlot} poolEntry=${!!dc._geometryPoolEntry}`);
+                }
+            }
+
+            // Populate DrawInstanceBuffer for GPU-driven rendering.
+            // This must happen BEFORE setupGlobalTransformIndirectDraws so that
+            // _drawInstanceId is available for use as firstInstance in indirect args.
             if (drawInstanceBuffer) {
                 for (let j = 0; j < visible.length; j++) {
                     const dc = visible[j];
@@ -352,14 +365,27 @@ class RenderPassForward extends RenderPass {
                         );
                         dc._drawInstanceId = drawId;
 
+                        if (_debugLog) {
+                            console.log(`  DrawInstance[${drawId}]: transformSlot=${slot}, materialSlot=${materialSlot}, firstIndex=${entry.firstIndex}, indexCount=${entry.indexCount}`);
+                        }
+
                         // Enable GPU_DRIVEN shader define on this mesh instance
                         dc.setGpuDriven(true);
                     } else {
                         dc._drawInstanceId = -1;
                         dc.setGpuDriven(false);
+                        if (_debugLog) {
+                            console.log(`  SKIPPED [${j}]: entry=${!!entry}, slot=${slot}`);
+                        }
                     }
                 }
             }
+
+            // Set up indirect draw args AFTER DrawInstanceBuffer population so that
+            // GPU-driven draws can use _drawInstanceId as firstInstance (the vertex shader
+            // indexes drawInstances[pcInstanceIndex] where pcInstanceIndex = firstInstance).
+            const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
+            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
         }
 
         // Upload material storage buffer (packed during the allocation loop above)
@@ -371,6 +397,18 @@ class RenderPassForward extends RenderPass {
             }
         }
 
+        if (_debugLog) {
+            console.log(`[GPU-DRIVEN Frame ${_debugFrame}] MSB upload: dirty=${msbRef?.dirty}, nextSlot=${msbRef?.nextSlot}, storageBuffer=${!!msbRef?.storageBuffer}`);
+            // Log first few floats of staging buffer (baseColor of slot 0)
+            if (msbRef?.stagingBuffer && msbRef.nextSlot > 0) {
+                const s = msbRef.stagingBuffer;
+                console.log(`  MSB slot[0] baseColor: (${s[0]?.toFixed(3)}, ${s[1]?.toFixed(3)}, ${s[2]?.toFixed(3)}, ${s[3]?.toFixed(3)})`);
+                if (msbRef.nextSlot > 1) {
+                    console.log(`  MSB slot[1] baseColor: (${s[64]?.toFixed(3)}, ${s[65]?.toFixed(3)}, ${s[66]?.toFixed(3)}, ${s[67]?.toFixed(3)})`);
+                }
+            }
+        }
+
         // Upload DrawInstanceBuffer to GPU
         if (drawInstanceBuffer && drawInstanceBuffer.count > 0) {
             drawInstanceBuffer.upload();
@@ -379,6 +417,10 @@ class RenderPassForward extends RenderPass {
             if (renderer.drawInstancesId) {
                 renderer.drawInstancesId.setValue(drawInstanceBuffer.storageBuffer);
             }
+        }
+
+        if (_debugLog) {
+            console.log(`[GPU-DRIVEN Frame ${_debugFrame}] DrawInstanceBuffer: count=${drawInstanceBuffer?.count}, uploaded=${drawInstanceBuffer?.count > 0}`);
         }
 
         // Dispatch GPU draw compactor (frustum cull + compaction via compute shader)
