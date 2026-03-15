@@ -338,6 +338,30 @@ class RenderPassForward extends RenderPass {
                     _dibAdded++;
                 }
 
+                // === GPU_DRIVEN DEBUG LOG (once per 120 frames) ===
+                if (!renderer._gpuDbgCounter2) renderer._gpuDbgCounter2 = 0;
+                if (renderer._gpuDbgCounter2++ % 120 === 0) {
+                    console.log(`[GPU_DRIVEN DIB fill] ra[${i}] layer="${ra.layer?.name}" transparent:${ra.transparent}`,
+                        `visible:${visible.length}`,
+                        `added:${_dibAdded}`,
+                        `skipEntry:${_dibSkipEntry}`,
+                        `skipExclude:${_dibSkipExclude}`,
+                        `skipTransform:${_dibSkipTransform}`,
+                        `skipMat:${_dibSkipMat}`,
+                        `dibTotal:${dib.count}`
+                    );
+                    // Log first 3 draws for detail
+                    for (let j = 0; j < Math.min(3, visible.length); j++) {
+                        const dc = visible[j];
+                        console.log(`  dc[${j}] "${dc.node?.name}"`,
+                            'entry:', !!dc._geometryPoolEntry,
+                            'transformSlot:', dc._globalTransformSlot,
+                            'matSlot:', dc.material?._materialSlot,
+                            'drawId:', dc._gpuDrivenDrawId,
+                            'shaderDefs:', dc._shaderDefs?.toString(16)
+                        );
+                    }
+                }
             }
 
             // Set up indirect draw args (now uses pool offsets for registered meshes)

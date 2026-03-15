@@ -1,8 +1,6 @@
 export default /* wgsl */`
-#ifndef MATERIAL_STORAGE_BUFFER
-    uniform material_invAttenuationDistance: f32;
-    uniform material_attenuation: vec3f;
-#endif
+uniform material_invAttenuationDistance: f32;
+uniform material_attenuation: vec3f;
 
 fn evalRefractionColor(refractionVector: vec3f, gloss: f32, refractionIndex: f32) -> vec3f {
 
@@ -71,20 +69,11 @@ fn addRefraction(
 
     // Transmittance is our final refraction color
     var transmittance: vec3f;
-    #ifdef MATERIAL_STORAGE_BUFFER
-        let _invAttDist: f32 = select(0.0, 1.0 / getMaterialAttenuationDistance(), getMaterialAttenuationDistance() > 0.0);
-        if (_invAttDist != 0.0)
-        {
-            let attenuation: vec3f = -log(getMaterialAttenuationColor()) * _invAttDist;
-            transmittance = exp(-attenuation * length(refractionVector));
-        }
-    #else
-        if (uniform.material_invAttenuationDistance != 0.0)
-        {
-            let attenuation: vec3f = -log(uniform.material_attenuation) * uniform.material_invAttenuationDistance;
-            transmittance = exp(-attenuation * length(refractionVector));
-        }
-    #endif
+    if (uniform.material_invAttenuationDistance != 0.0)
+    {
+        let attenuation: vec3f = -log(uniform.material_attenuation) * uniform.material_invAttenuationDistance;
+        transmittance = exp(-attenuation * length(refractionVector));
+    }
     else
     {
         transmittance = vec3f(1.0);

@@ -4,15 +4,6 @@ fn evaluateBackend() -> FragmentOutput {
 
     var output: FragmentOutput;
 
-    // GPU-side diagnostic: output raw storage buffer baseColor, bypassing all lighting.
-    // If the object appears WHITE, the storage buffer access works (issue is in lighting).
-    // If the object appears BLACK, the storage buffer binding is broken.
-    #if defined(MATERIAL_STORAGE_BUFFER) && defined(DEBUG_MSB_OUTPUT)
-        output.color = getMaterialBaseColor();
-        #include "outputPS"
-        return output;
-    #endif
-
     // apply SSAO during lighting
     #ifdef LIT_SSAO
         litArgs_ao = litArgs_ao * textureSampleLevel(ssaoTexture, ssaoTextureSampler, pcPosition.xy * uniform.ssaoTextureSizeInv, 0.0).r;

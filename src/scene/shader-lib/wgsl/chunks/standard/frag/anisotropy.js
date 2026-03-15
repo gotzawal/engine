@@ -1,8 +1,6 @@
 export default /* wgsl */`
 #ifdef LIT_GGX_SPECULAR
-    #ifndef MATERIAL_STORAGE_BUFFER
-        uniform material_anisotropyIntensity: f32;
-    #endif
+    uniform material_anisotropyIntensity: f32;
     uniform material_anisotropyRotation: vec2f;
 #endif
 
@@ -11,11 +9,7 @@ fn getAnisotropy() {
     dAnisotropyRotation = vec2f(1.0, 0.0);
 
 #ifdef LIT_GGX_SPECULAR
-    #ifdef MATERIAL_STORAGE_BUFFER
-        dAnisotropy = getMaterialAnisotropy();
-    #else
-        dAnisotropy = uniform.material_anisotropyIntensity;
-    #endif
+    dAnisotropy = uniform.material_anisotropyIntensity;
     dAnisotropyRotation = uniform.material_anisotropyRotation;
 #endif
 
