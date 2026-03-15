@@ -10,7 +10,7 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN, SHADERDEF_MATERIAL_STORAGE_BUFFER,
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING,
     GPU_DRIVEN_EXCLUDE_DEFS
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
@@ -18,6 +18,10 @@ import { Renderer } from './renderer.js';
 import { RenderPassForward } from './render-pass-forward.js';
 import { RenderBundleCache } from './render-bundle-cache.js';
 import { DrawCallGrouper } from './draw-call-group.js';
+
+// GPU render feature flags — must match mesh-instance.js constants
+const GPU_RENDER_DEF_GPU_DRIVEN = 1;
+const GPU_RENDER_DEF_MSB = 2;
 
 import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 
@@ -440,18 +444,10 @@ class ForwardRenderer extends Renderer {
                 }
             }
 
-            // MATERIAL_STORAGE_BUFFER define — ensures shader cache distinguishes
-            // MSB shaders from standard uniform-based shaders
-            if (this.materialStorageBufferEnabled) {
-                drawCall._shaderDefs |= SHADERDEF_MATERIAL_STORAGE_BUFFER;
-            } else {
-                drawCall._shaderDefs &= ~SHADERDEF_MATERIAL_STORAGE_BUFFER;
-            }
-
-            // GPU_DRIVEN define — eligible draws read transform/material from DrawInstanceBuffer
-            // Only set when the draw has a valid DrawInstanceBuffer entry from the current
-            // frame's before() phase (_gpuDrivenDrawId >= 0).
-            drawCall._shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
+            // GPU render feature flags — stored in _gpuRenderDefs (not _shaderDefs)
+            // to avoid corrupting the light mask in the upper 16 bits of _shaderDefs.
+            let gpuDefs = 0;
+            if (this.materialStorageBufferEnabled) gpuDefs |= GPU_RENDER_DEF_MSB;
             if (this.gpuDrivenEnabled) {
                 const entry = drawCall._geometryPoolEntry;
                 const noExclude = !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS);
@@ -460,9 +456,10 @@ class ForwardRenderer extends Renderer {
                     drawCall._globalTransformSlot >= 0 &&
                     this.materialStorageBufferEnabled && material._materialSlot >= 0 &&
                     drawCall._gpuDrivenDrawId >= 0) {
-                    drawCall._shaderDefs |= SHADERDEF_GPU_DRIVEN;
+                    gpuDefs |= GPU_RENDER_DEF_GPU_DRIVEN;
                 }
             }
+            drawCall._gpuRenderDefs = gpuDefs;
 
             const shaderInstance = drawCall.getShaderInstance(pass, lightHash, scene, shaderParams, this.viewUniformFormat, this.viewBindGroupFormat, sortedLights);
 
@@ -944,7 +941,7 @@ class ForwardRenderer extends Renderer {
                     // Only treat as GPU-driven if the shader with GPU_DRIVEN define is ready.
                     // On the frame GPU_DRIVEN first activates, the old shader may still be in use
                     // while the new variant compiles — fall back to per-draw uniforms for safety.
-                    const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0 &&
+                    const isGpuDriven = !!(drawCall._gpuRenderDefs & GPU_RENDER_DEF_GPU_DRIVEN) &&
                         !shaderInstance.shader.failed && shaderInstance.shader.ready;
 
                     if (shaderInstance.shader.failed) continue;

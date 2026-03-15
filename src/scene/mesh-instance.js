@@ -12,12 +12,17 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADERDEF_MATERIAL_STORAGE_BUFFER, SHADOW_CASCADE_ALL,
+    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADOW_CASCADE_ALL,
     SHADER_FORWARD
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
 import { getDefaultMaterial } from './materials/default-material.js';
 import { LightmapCache } from './graphics/lightmap-cache.js';
+
+// GPU render feature flags — stored in _gpuRenderDefs, separate from _shaderDefs
+// to avoid corrupting the light mask in the upper 16 bits of _shaderDefs.
+const GPU_RENDER_DEF_GPU_DRIVEN = 1;
+const GPU_RENDER_DEF_MSB = 2;
 import { DebugGraphics } from '../platform/graphics/debug-graphics.js';
 import { hash32Fnv1a } from '../core/hash.js';
 import { array } from '../core/array-utils.js';
@@ -511,6 +516,15 @@ class MeshInstance {
     _shaderDefs = MASK_AFFECT_DYNAMIC << 16;
 
     /**
+     * GPU render feature flags (GPU_DRIVEN, MATERIAL_STORAGE_BUFFER).
+     * Stored separately from _shaderDefs to avoid corrupting the light mask
+     * in the upper 16 bits of _shaderDefs.
+     *
+     * @private
+     */
+    _gpuRenderDefs = 0;
+
+    /**
      * @type {CalculateSortDistanceCallback|null}
      * @private
      */
@@ -778,17 +792,16 @@ class MeshInstance {
             }
         }
 
-        // Strip GPU_DRIVEN and MATERIAL_STORAGE_BUFFER for non-forward passes
-        // (shadow, pick, prepass, depth-pick). These features only apply to forward rendering.
-        if (shaderPass !== SHADER_FORWARD) {
-            shaderDefs &= ~(SHADERDEF_GPU_DRIVEN | SHADERDEF_MATERIAL_STORAGE_BUFFER);
-        }
+        // GPU render features (GPU_DRIVEN, MSB) only apply to forward rendering.
+        // For non-forward passes, treat as 0 so the hash doesn't include them.
+        const gpuRenderDefs = (shaderPass === SHADER_FORWARD) ? this._gpuRenderDefs : 0;
 
         // unique hash for the required shader
         lookupHashes[0] = shaderPass;
         lookupHashes[1] = lightHash;
         lookupHashes[2] = shaderDefs;
-        lookupHashes[3] = cameraShaderParams.hash;
+        // Mix gpuRenderDefs into the camera hash slot to distinguish GPU feature variants
+        lookupHashes[3] = (cameraShaderParams.hash ^ (gpuRenderDefs * 0x9E3779B9)) >>> 0;
         const hash = hash32Fnv1a(lookupHashes);
 
         // look up the cache
@@ -814,6 +827,7 @@ class MeshInstance {
                     device: this.mesh.device,
                     scene: scene,
                     objDefs: shaderDefs,
+                    gpuRenderDefs: gpuRenderDefs,
                     cameraShaderParams: cameraShaderParams,
                     pass: shaderPass,
                     sortedLights: sortedLights,

@@ -881,7 +881,7 @@ class StandardMaterial extends Material {
 
     getShaderVariant(params) {
 
-        const { device, scene, pass, objDefs, sortedLights, cameraShaderParams } = params;
+        const { device, scene, pass, objDefs, gpuRenderDefs, sortedLights, cameraShaderParams } = params;
 
         // update prefiltered lighting data
         this.updateEnvUniforms(device, scene);
@@ -893,9 +893,9 @@ class StandardMaterial extends Material {
         options.defines = ShaderUtils.getCoreDefines(this, params);
 
         if (minimalOptions) {
-            this.shaderOptBuilder.updateMinRef(options, scene, this, objDefs, pass, sortedLights);
+            this.shaderOptBuilder.updateMinRef(options, scene, this, objDefs, pass, sortedLights, gpuRenderDefs);
         } else {
-            this.shaderOptBuilder.updateRef(options, scene, cameraShaderParams, this, objDefs, pass, sortedLights);
+            this.shaderOptBuilder.updateRef(options, scene, cameraShaderParams, this, objDefs, pass, sortedLights, gpuRenderDefs);
         }
 
         // standard material can overwrite camera's fog setting
