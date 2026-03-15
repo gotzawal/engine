@@ -7,6 +7,11 @@ uniform material_diffuse: vec3f;
     #include "detailModesPS"
 #endif
 
+#if defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING) && defined(STD_DIFFUSE_TEXTURE)
+    var globalDiffuseArray: texture_2d_array<f32>;
+    var globalDiffuseArraySampler: sampler;
+#endif
+
 fn getAlbedo() {
     #ifdef MATERIAL_STORAGE_BUFFER
         dAlbedo = getMaterialBaseColor().rgb;

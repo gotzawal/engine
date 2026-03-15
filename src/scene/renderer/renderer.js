@@ -16,9 +16,7 @@ import {
     CULLFACE_NONE,
     BINDGROUP_MESH_UB,
     FRONTFACE_CCW,
-    FRONTFACE_CW,
-    TEXTUREDIMENSION_2D_ARRAY,
-    SAMPLETYPE_FLOAT
+    FRONTFACE_CW
 } from '../../platform/graphics/constants.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
@@ -825,11 +823,6 @@ class Renderer {
                 dibFormat.format = 'array<DrawInstance>';
                 dibFormat.structPreamble = drawInstanceStructWGSL;
                 formats.push(dibFormat);
-            }
-
-            // diffuse texture array for GPU-driven texture array batching (read-only in fragment)
-            if (this.textureArrayManager) {
-                formats.push(new BindTextureFormat('globalDiffuseArray', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D_ARRAY, SAMPLETYPE_FLOAT));
             }
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
