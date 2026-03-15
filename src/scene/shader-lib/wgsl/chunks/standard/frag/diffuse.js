@@ -22,7 +22,7 @@ fn getAlbedo() {
             if (diffuseLayerIdx >= 0) {
                 var albedoTexture: vec3f = textureSampleBias(
                     globalDiffuseArray,
-                    globalDiffuseArraySampler,
+                    globalDiffuseArray_sampler,
                     {STD_DIFFUSE_TEXTURE_UV},
                     diffuseLayerIdx,
                     uniform.textureBias
