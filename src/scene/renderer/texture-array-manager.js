@@ -113,12 +113,13 @@ class TextureArrayGroup {
      * @private
      */
     _copyTextureToLayer(src, layer) {
-        // Use GPU copy if available via commandEncoder.copyTextureToTexture
-        // For now, mark as needing update - the actual copy will happen when
-        // the WebGPU command encoder is available
         const device = this.device;
         if (device.isWebGPU && src.impl && this.textureArray.impl) {
-            // Schedule GPU-side copy from src texture to array layer
+            // Ensure source texture pixel data is uploaded to GPU before copying
+            if (src._needsUpload || src._needsMipmapsUpload) {
+                src.impl.uploadImmediate(device, src);
+            }
+
             const srcImpl = src.impl;
             const dstImpl = this.textureArray.impl;
             if (srcImpl.gpuTexture && dstImpl.gpuTexture) {
