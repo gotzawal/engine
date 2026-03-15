@@ -201,7 +201,13 @@ class ShaderGeneratorStandard extends ShaderGenerator {
                     mapping[textureIdentifier] = samplerName;
 
                     // texture is not aliased to existing texture, create a new one
-                    fDefines.set(`STD_${propNameCaps}_TEXTURE_ALLOCATE`, '');
+                    // Skip allocation when texture array batching replaces per-material diffuse texture
+                    const isTexArrayBatched = propName === 'diffuse' &&
+                        options.litOptions?.useGpuDriven &&
+                        options.litOptions?.textureArrayBatchingEnabled;
+                    if (!isTexArrayBatched) {
+                        fDefines.set(`STD_${propNameCaps}_TEXTURE_ALLOCATE`, '');
+                    }
                 }
                 fDefines.set(textureId, samplerName);
             }

@@ -349,12 +349,13 @@ class RenderPassForward extends RenderPass {
                 const dc = eligibleDraws[i];
                 const mat = dc.material;
                 const batchId = dc._geometryPoolEntry.batchId;
-                // texKey: 0 for array-compatible or no-texture materials, mat.id for legacy
+                // texKey: encode non-array texture signature for array-compatible materials
+                // so only materials with identical bind group formats share a pipeline group
                 let texKey;
                 if (texArrayBatching && mat._textureArrayCompatible) {
-                    texKey = 0;
-                } else if (!mat.diffuseMap && !mat.normalMap && !mat.heightMap) {
-                    texKey = 0;
+                    texKey = (mat.normalMap ? 1 : 0) | (mat.glossMap ? 2 : 0) |
+                             (mat.heightMap ? 4 : 0) | (mat.emissiveMap ? 8 : 0) |
+                             (mat.metalnessMap ? 16 : 0) | (mat.aoMap ? 32 : 0);
                 } else {
                     texKey = mat.id;
                 }
