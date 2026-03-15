@@ -1,5 +1,5 @@
 import { Texture } from '../../platform/graphics/texture.js';
-import { ADDRESS_REPEAT, FILTER_LINEAR, FILTER_LINEAR_MIPMAP_LINEAR, PIXELFORMAT_RGBA8 } from '../../platform/graphics/constants.js';
+import { ADDRESS_REPEAT, FILTER_LINEAR, FILTER_LINEAR_MIPMAP_LINEAR, PIXELFORMAT_RGBA8, pixelFormatInfo } from '../../platform/graphics/constants.js';
 
 /**
  * @import { GraphicsDevice } from '../../platform/graphics/graphics-device.js'
@@ -113,23 +113,59 @@ class TextureArrayGroup {
      * @private
      */
     _copyTextureToLayer(src, layer) {
-        // Use GPU copy if available via commandEncoder.copyTextureToTexture
-        // For now, mark as needing update - the actual copy will happen when
-        // the WebGPU command encoder is available
         const device = this.device;
-        if (device.isWebGPU && src.impl && this.textureArray.impl) {
-            // Schedule GPU-side copy from src texture to array layer
-            const srcImpl = src.impl;
-            const dstImpl = this.textureArray.impl;
-            if (srcImpl.gpuTexture && dstImpl.gpuTexture) {
-                const encoder = device.wgpu.createCommandEncoder();
-                encoder.copyTextureToTexture(
-                    { texture: srcImpl.gpuTexture, mipLevel: 0 },
-                    { texture: dstImpl.gpuTexture, mipLevel: 0, origin: { x: 0, y: 0, z: layer } },
+        if (!device.isWebGPU) return;
+
+        const dstImpl = this.textureArray?.impl;
+        if (!dstImpl?.gpuTexture) return;
+
+        // Try CPU-side source data first — this is the reliable path because the
+        // source texture's GPU data may not have been uploaded yet at this point
+        // (uploadImmediate runs lazily on first bind-group use).
+        const srcData = src._levels?.[0];
+        if (srcData) {
+            const isExternal = (typeof ImageBitmap !== 'undefined' && srcData instanceof ImageBitmap) ||
+                               (typeof HTMLCanvasElement !== 'undefined' && srcData instanceof HTMLCanvasElement) ||
+                               (typeof OffscreenCanvas !== 'undefined' && srcData instanceof OffscreenCanvas);
+
+            if (isExternal) {
+                // ImageBitmap / Canvas → copyExternalImageToTexture (queue operation, safe anytime)
+                device.wgpu.queue.copyExternalImageToTexture(
+                    { source: srcData, origin: [0, 0], flipY: false },
+                    { texture: dstImpl.gpuTexture, mipLevel: 0, origin: [0, 0, layer], premultipliedAlpha: src._premultiplyAlpha },
                     { width: this.width, height: this.height, depthOrArrayLayers: 1 }
                 );
-                device.wgpu.queue.submit([encoder.finish()]);
+                return;
             }
+
+            if (ArrayBuffer.isView(srcData) || srcData instanceof ArrayBuffer) {
+                // Typed array → writeTexture (queue operation, safe anytime)
+                const bytesPerPixel = pixelFormatInfo.get(this.format)?.size ?? 4;
+                const bytesPerRow = this.width * bytesPerPixel;
+                device.wgpu.queue.writeTexture(
+                    { texture: dstImpl.gpuTexture, mipLevel: 0, origin: { x: 0, y: 0, z: layer } },
+                    srcData,
+                    { offset: 0, bytesPerRow: bytesPerRow, rowsPerImage: this.height },
+                    { width: this.width, height: this.height, depthOrArrayLayers: 1 }
+                );
+                return;
+            }
+        }
+
+        // Fallback: GPU-to-GPU copy (only works if source already has pixel data on GPU)
+        const srcImpl = src.impl;
+        if (srcImpl?.gpuTexture && dstImpl.gpuTexture) {
+            // Ensure source texture data is uploaded first
+            if (src._needsUpload && !device.insideRenderPass) {
+                srcImpl.uploadImmediate(device, src);
+            }
+            const encoder = device.wgpu.createCommandEncoder();
+            encoder.copyTextureToTexture(
+                { texture: srcImpl.gpuTexture, mipLevel: 0 },
+                { texture: dstImpl.gpuTexture, mipLevel: 0, origin: { x: 0, y: 0, z: layer } },
+                { width: this.width, height: this.height, depthOrArrayLayers: 1 }
+            );
+            device.wgpu.queue.submit([encoder.finish()]);
         }
     }
 
