@@ -441,11 +441,16 @@ class ForwardRenderer extends Renderer {
             }
 
             // GPU_DRIVEN define — eligible draws read transform/material from DrawInstanceBuffer
+            // GPU_DRIVEN: only set when the draw has a valid DrawInstanceBuffer entry
+            // from the current frame's before() phase (_gpuDrivenDrawId >= 0).
+            // This prevents GPU_DRIVEN from being set on frame 0 when DIB hasn't been filled yet.
+            drawCall._shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
             if (this.gpuDrivenEnabled) {
                 const entry = drawCall._geometryPoolEntry;
                 if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
                     drawCall._globalTransformSlot >= 0 &&
-                    this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                    this.materialStorageBufferEnabled && material._materialSlot >= 0 &&
+                    drawCall._gpuDrivenDrawId >= 0) {
                     drawCall._shaderDefs |= SHADERDEF_GPU_DRIVEN;
                 }
             }

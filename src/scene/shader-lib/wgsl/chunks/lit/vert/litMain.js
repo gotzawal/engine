@@ -23,7 +23,7 @@ export default /* wgsl */`
 
 #endif
 
-#ifdef GPU_DRIVEN
+#if defined(GPU_DRIVEN) && !defined(BATCH) && !defined(SKIN) && !defined(INSTANCING)
     varying @interpolate(flat) vMaterialSlot: u32;
 #endif
 
@@ -143,7 +143,7 @@ fn vertexMain(input : VertexInput) -> VertexOutput {
         output.vTiledUv = dTiledUvGlobal;
     #endif
 
-    #ifdef GPU_DRIVEN
+    #if defined(GPU_DRIVEN) && !defined(BATCH) && !defined(SKIN) && !defined(INSTANCING)
         output.vMaterialSlot = dMaterialSlotGlobal;
     #endif
 
