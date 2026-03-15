@@ -447,10 +447,28 @@ class ForwardRenderer extends Renderer {
             drawCall._shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
             if (this.gpuDrivenEnabled) {
                 const entry = drawCall._geometryPoolEntry;
-                if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
-                    drawCall._globalTransformSlot >= 0 &&
-                    this.materialStorageBufferEnabled && material._materialSlot >= 0 &&
-                    drawCall._gpuDrivenDrawId >= 0) {
+                const hasEntry = !!entry;
+                const noExclude = !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS);
+                const hasTransformSlot = drawCall._globalTransformSlot >= 0;
+                const hasMaterialSlot = material._materialSlot >= 0;
+                const hasDrawId = drawCall._gpuDrivenDrawId >= 0;
+
+                // === GPU_DRIVEN DEBUG LOG (first 5 draw calls, once per 120 frames) ===
+                if (this._gpuDbgCounter % 120 === 1 && i < 5) {
+                    console.log(`[GPU_DRIVEN eligibility] dc[${i}] "${drawCall.node?.name}"`,
+                        'entry:', hasEntry,
+                        'noExclude:', noExclude,
+                        'transformSlot:', drawCall._globalTransformSlot,
+                        'msbEnabled:', this.materialStorageBufferEnabled,
+                        'matSlot:', material._materialSlot,
+                        'drawId:', drawCall._gpuDrivenDrawId,
+                        'shaderDefs:', drawCall._shaderDefs.toString(16)
+                    );
+                }
+
+                if (hasEntry && noExclude && hasTransformSlot &&
+                    this.materialStorageBufferEnabled && hasMaterialSlot &&
+                    hasDrawId) {
                     drawCall._shaderDefs |= SHADERDEF_GPU_DRIVEN;
                 }
             }
@@ -677,6 +695,20 @@ class ForwardRenderer extends Renderer {
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
+        // === GPU_DRIVEN DEBUG LOG (once per 120 frames) ===
+        if (!this._gpuDbgCounter) this._gpuDbgCounter = 0;
+        if (this._gpuDbgCounter++ % 120 === 0) {
+            console.log('[GPU_DRIVEN renderForward]',
+                'gpuDrivenEnabled:', this.gpuDrivenEnabled,
+                'materialStorageBufferEnabled:', this.materialStorageBufferEnabled,
+                'materialStorageBuffer:', !!this.materialStorageBuffer,
+                'drawInstanceBuffer:', !!this.drawInstanceBuffer,
+                'geometryPool:', !!this.geometryPool,
+                'drawCalls:', allDrawCalls.length,
+                'transparent:', transparent
+            );
+        }
+
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
             for (let i = 0; i < allDrawCalls.length; i++) {
@@ -855,6 +887,14 @@ class ForwardRenderer extends Renderer {
         // Map: batchId -> array of prepared call indices
         const batchDraws = new Map();
 
+        // === GPU_DRIVEN DEBUG LOG ===
+        if (this._gpuDbgCounter % 120 === 1) {
+            console.log('[GPU_DRIVEN renderForwardGpuDriven]',
+                'drawCalls:', drawCalls.length,
+                'transparent:', transparent
+            );
+        }
+
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
 
@@ -878,6 +918,15 @@ class ForwardRenderer extends Renderer {
                 // individual draw (no pool entry, dynamic, or no transform slot)
                 legacyIndices.push(i);
             }
+        }
+
+        // === GPU_DRIVEN DEBUG LOG ===
+        if (this._gpuDbgCounter % 120 === 1) {
+            console.log('[GPU_DRIVEN categorize]',
+                'legacy:', legacyIndices.length,
+                'batchGroups:', batchDraws.size,
+                'batchDrawTotal:', [...batchDraws.values()].reduce((s, v) => s + v.length, 0)
+            );
         }
 
         // -- Render legacy (non-GPU-driven) draw calls FIRST --
@@ -919,6 +968,21 @@ class ForwardRenderer extends Renderer {
                     // while the new variant compiles — fall back to per-draw uniforms for safety.
                     const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0 &&
                         !shaderInstance.shader.failed && shaderInstance.shader.ready;
+
+                    // === GPU_DRIVEN DEBUG LOG (first 3 draws per batch, once per 120 frames) ===
+                    if (this._gpuDbgCounter % 120 === 1 && d < 3) {
+                        console.log(`[GPU_DRIVEN batchDraw] batch=${batchId} d=${d}`,
+                            `"${drawCall.node?.name}"`,
+                            'isGpuDriven:', isGpuDriven,
+                            'shaderDefs:', drawCall._shaderDefs.toString(16),
+                            'hasGPU_DRIVEN:', !!(drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN),
+                            'shaderFailed:', shaderInstance.shader.failed,
+                            'shaderReady:', shaderInstance.shader.ready,
+                            'drawId:', drawCall._gpuDrivenDrawId,
+                            'matSlot:', material._materialSlot,
+                            'transformSlot:', drawCall._globalTransformSlot
+                        );
+                    }
 
                     if (shaderInstance.shader.failed) continue;
 
