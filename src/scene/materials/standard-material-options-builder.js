@@ -90,6 +90,7 @@ class StandardMaterialOptionsBuilder {
             options.litOptions.clusteredLightingEnabled = true;
             options.litOptions.gpuClusterLightingEnabled = scene._gpuClusterLightingEnabled ?? false;
             options.litOptions.materialStorageBufferEnabled = scene._materialStorageBufferEnabled ?? false;
+            options.litOptions.textureArrayBatchingEnabled = scene._textureArrayBatchingEnabled ?? false;
             options.litOptions.clusteredLightingCookiesEnabled = scene.lighting.cookiesEnabled;
             options.litOptions.clusteredLightingShadowsEnabled = scene.lighting.shadowsEnabled;
             options.litOptions.clusteredLightingShadowType = scene.lighting.shadowType;
@@ -98,6 +99,7 @@ class StandardMaterialOptionsBuilder {
             options.litOptions.clusteredLightingEnabled = false;
             options.litOptions.gpuClusterLightingEnabled = false;
             options.litOptions.materialStorageBufferEnabled = scene._materialStorageBufferEnabled ?? false;
+            options.litOptions.textureArrayBatchingEnabled = scene._textureArrayBatchingEnabled ?? false;
             options.litOptions.clusteredLightingCookiesEnabled = false;
             options.litOptions.clusteredLightingShadowsEnabled = false;
             options.litOptions.clusteredLightingAreaLightsEnabled = false;

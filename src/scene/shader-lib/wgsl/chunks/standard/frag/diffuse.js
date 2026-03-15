@@ -15,7 +15,19 @@ fn getAlbedo() {
     #endif
 
     #ifdef STD_DIFFUSE_TEXTURE
-        var albedoTexture: vec3f = {STD_DIFFUSE_TEXTURE_DECODE}(textureSampleBias({STD_DIFFUSE_TEXTURE_NAME}, {STD_DIFFUSE_TEXTURE_NAME}Sampler, {STD_DIFFUSE_TEXTURE_UV}, uniform.textureBias)).{STD_DIFFUSE_TEXTURE_CHANNEL};
+        #if defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING)
+            // Texture array path: sample from shared globalDiffuseArray using per-material layer index
+            let diffLayerIdx = i32(getMaterialTexArrayLayers().x);
+            var albedoTexture: vec3f;
+            if (diffLayerIdx >= 0) {
+                albedoTexture = {STD_DIFFUSE_TEXTURE_DECODE}(textureSampleBias(globalDiffuseArray, globalDiffuseArraySampler, {STD_DIFFUSE_TEXTURE_UV}, diffLayerIdx, uniform.textureBias)).{STD_DIFFUSE_TEXTURE_CHANNEL};
+            } else {
+                // No texture in array, use white (flat color already set from baseColor)
+                albedoTexture = vec3f(1.0);
+            }
+        #else
+            var albedoTexture: vec3f = {STD_DIFFUSE_TEXTURE_DECODE}(textureSampleBias({STD_DIFFUSE_TEXTURE_NAME}, {STD_DIFFUSE_TEXTURE_NAME}Sampler, {STD_DIFFUSE_TEXTURE_UV}, uniform.textureBias)).{STD_DIFFUSE_TEXTURE_CHANNEL};
+        #endif
 
         #ifdef STD_DIFFUSEDETAIL_TEXTURE
             var albedoDetail: vec3f = {STD_DIFFUSEDETAIL_TEXTURE_DECODE}(textureSampleBias({STD_DIFFUSEDETAIL_TEXTURE_NAME}, {STD_DIFFUSEDETAIL_TEXTURE_NAME}Sampler, {STD_DIFFUSEDETAIL_TEXTURE_UV}, uniform.textureBias)).{STD_DIFFUSEDETAIL_TEXTURE_CHANNEL};

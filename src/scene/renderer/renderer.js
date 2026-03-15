@@ -16,19 +16,22 @@ import {
     CULLFACE_NONE,
     BINDGROUP_MESH_UB,
     FRONTFACE_CCW,
-    FRONTFACE_CW
+    FRONTFACE_CW,
+    TEXTUREDIMENSION_2D_ARRAY,
+    SAMPLETYPE_FLOAT
 } from '../../platform/graphics/constants.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
-import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
+import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat, BindTextureFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
 import { GeometryPool } from './geometry-pool.js';
 import { DrawInstanceBuffer } from './draw-instance-buffer.js';
 import { GpuDrawCompactor } from './gpu-draw-compactor.js';
 import { MaterialStorageBuffer } from '../materials/material-storage-buffer.js';
+import { TextureArrayManager } from './texture-array-manager.js';
 import { materialDataStructWGSL } from '../shader-lib/wgsl/chunks/common/frag/materialAccess.js';
 import { drawInstanceStructWGSL } from '../shader-lib/wgsl/chunks/common/vert/gpuDrivenTransform.js';
 import {
@@ -224,6 +227,9 @@ class Renderer {
         // Global material storage buffer for GPU-driven material access (WebGPU only)
         this.materialStorageBuffer = graphicsDevice.isWebGPU ? new MaterialStorageBuffer(graphicsDevice) : null;
 
+        // Texture array manager for GPU-driven texture array batching (WebGPU only)
+        this.textureArrayManager = graphicsDevice.isWebGPU ? new TextureArrayManager(graphicsDevice) : null;
+
         // Geometry pool for merging compatible meshes into shared vertex/index buffers (WebGPU only)
         this.geometryPool = graphicsDevice.isWebGPU ? new GeometryPool(graphicsDevice) : null;
 
@@ -271,6 +277,7 @@ class Renderer {
         if (this.drawInstancesId) {
             this.drawInstancesId.setValue(this.drawInstanceBuffer.storageBuffer);
         }
+        this.globalDiffuseArrayId = this.textureArrayManager ? scope.resolve('globalDiffuseArray') : null;
         this.viewInvId = scope.resolve('matrix_viewInverse');
         this.viewPos = new Float32Array(3);
         this.viewPosId = scope.resolve('view_position');
@@ -324,6 +331,11 @@ class Renderer {
 
         this.gsplatDirector?.destroy();
         this.gsplatDirector = null;
+
+        this.textureArrayManager?.destroy();
+        this.textureArrayManager = null;
+        this._placeholderTexArray?.destroy();
+        this._placeholderTexArray = null;
     }
 
     /**
@@ -815,6 +827,11 @@ class Renderer {
                 formats.push(dibFormat);
             }
 
+            // diffuse texture array for GPU-driven texture array batching (read-only in fragment)
+            if (this.textureArrayManager) {
+                formats.push(new BindTextureFormat('globalDiffuseArray', SHADERSTAGE_FRAGMENT, TEXTUREDIMENSION_2D_ARRAY, SAMPLETYPE_FLOAT));
+            }
+
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them
             // if (isClustered) {
@@ -847,6 +864,20 @@ class Renderer {
 
         Debug.assert(Array.isArray(viewBindGroups), 'viewBindGroups must be an array');
         const { device } = this;
+
+        // Bind the diffuse texture array (or placeholder) for GPU-driven texture array batching
+        if (this.globalDiffuseArrayId) {
+            const tam = this.textureArrayManager;
+            const firstGroup = tam.groupsByIndex.get(0);
+            if (firstGroup?.textureArray) {
+                this.globalDiffuseArrayId.setValue(firstGroup.textureArray);
+            } else {
+                if (!this._placeholderTexArray) {
+                    this._placeholderTexArray = tam.createPlaceholder();
+                }
+                this.globalDiffuseArrayId.setValue(this._placeholderTexArray);
+            }
+        }
 
         // make sure we have bind group for each view
         const viewCount = viewList?.length ?? 1;

@@ -75,6 +75,12 @@ class RenderPassForward extends RenderPass {
      */
     noDepthClear = false;
 
+    /** @private */
+    _eligibleDraws = [];
+
+    /** @private */
+    _pipelineGroupMap = new Map();
+
     constructor(device, layerComposition, scene, renderer) {
         super(device);
 
@@ -292,7 +298,8 @@ class RenderPassForward extends RenderPass {
         }
 
         // Pass 1: register geometry pool + upload transforms, collect eligible draws
-        const eligibleDraws = [];
+        const eligibleDraws = this._eligibleDraws;
+        eligibleDraws.length = 0;
 
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
@@ -331,17 +338,28 @@ class RenderPassForward extends RenderPass {
         // Pass 2: pipeline group sorting + DIB filling
         if (fillDib && eligibleDraws.length > 0) {
 
-            // Pipeline group key = material.id + blendState.key + depthState.key + batchId
+            // Pipeline group key = texKey + blendState.key + depthState.key + batchId
             // Same key => same pipeline + same VB/IB
-            const groupMap = new Map(); // key -> groupId
+            const groupMap = this._pipelineGroupMap;
+            groupMap.clear();
             const pipelineGroups = []; // [{key, startDrawId, count, draws, batchId}]
+            const texArrayBatching = forwardRenderer.textureArrayBatchingEnabled;
 
             for (let i = 0; i < eligibleDraws.length; i++) {
                 const dc = eligibleDraws[i];
                 const mat = dc.material;
                 const batchId = dc._geometryPoolEntry.batchId;
+                // texKey: 0 for array-compatible or no-texture materials, mat.id for legacy
+                let texKey;
+                if (texArrayBatching && mat._textureArrayCompatible) {
+                    texKey = 0;
+                } else if (!mat.diffuseMap && !mat.normalMap && !mat.heightMap) {
+                    texKey = 0;
+                } else {
+                    texKey = mat.id;
+                }
                 // batchId included so only draws sharing the same VB/IB are grouped together
-                const key = (mat.id * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
+                const key = (texKey * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
 
                 let groupId = groupMap.get(key);
                 if (groupId === undefined) {

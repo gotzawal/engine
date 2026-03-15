@@ -80,6 +80,17 @@ const _storageBufferPackedParams = new Set([
     'material_attenuation',
     'material_attenuationDistance'
 ]);
+
+/**
+ * Texture parameters managed by the texture array system.
+ * These are skipped by setParametersEnvOnly when texture array batching is active.
+ *
+ * @type {Set<string>}
+ * @ignore
+ */
+const _textureArrayManagedParams = new Set([
+    'texture_diffuseMap'
+]);
 blendModes[BLEND_MAX] = { src: BLENDMODE_ONE, dst: BLENDMODE_ONE, op: BLENDEQUATION_MAX };
 
 let id = 0;
@@ -882,6 +893,28 @@ class Material {
                 if (_storageBufferPackedParams.has(paramName)) {
                     continue;
                 }
+                if (!parameter.scopeId) {
+                    parameter.scopeId = device.scope.resolve(paramName);
+                }
+                parameter.scopeId.setValue(parameter.data);
+            }
+        }
+    }
+
+    /**
+     * Like setParametersTextureOnly, but additionally skips texture parameters managed by
+     * the texture array system (e.g. texture_diffuseMap). Used for array-compatible materials
+     * in GPU-driven rendering where diffuse textures are sampled from a shared texture_2d_array.
+     *
+     * @param {import('../../platform/graphics/graphics-device.js').GraphicsDevice} device - The device.
+     */
+    setParametersEnvOnly(device) {
+        const parameters = this.parameters;
+        for (const paramName in parameters) {
+            const parameter = parameters[paramName];
+            if (parameter) {
+                if (_storageBufferPackedParams.has(paramName)) continue;
+                if (_textureArrayManagedParams.has(paramName)) continue;
                 if (!parameter.scopeId) {
                     parameter.scopeId = device.scope.resolve(paramName);
                 }
