@@ -10,7 +10,7 @@ struct DrawInstance {
     indexCount: u32,
     baseVertex: i32,
     batchId: u32,
-    _pad0: u32,
+    pipelineGroupId: u32,
     _pad1: u32,
 };`;
 

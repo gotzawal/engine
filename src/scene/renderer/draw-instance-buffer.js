@@ -21,7 +21,7 @@ const BYTES_PER_INSTANCE = 32;
  *   [3] indexCount    (u32)   - number of indices for this draw
  *   [4] baseVertex    (i32)   - vertex offset in the mega vertex buffer
  *   [5] batchId       (u32)   - which GeometryBatch (vertex format group)
- *   [6] _pad0         (u32)
+ *   [6] pipelineGroupId (u32) - pipeline group index for compacted indirect draws
  *   [7] _pad1         (u32)
  *
  * @ignore
@@ -78,9 +78,10 @@ class DrawInstanceBuffer {
      * @param {number} indexCount - Number of indices.
      * @param {number} baseVertex - Vertex offset (signed).
      * @param {number} batchId - GeometryBatch id.
+     * @param {number} [pipelineGroupId] - Pipeline group index for compacted indirect draws.
      * @returns {number} The drawId (index of this instance).
      */
-    addInstance(transformSlot, materialSlot, firstIndex, indexCount, baseVertex, batchId) {
+    addInstance(transformSlot, materialSlot, firstIndex, indexCount, baseVertex, batchId, pipelineGroupId = 0) {
         if (this.count >= this.capacity) {
             this._resize(this.capacity * 2);
         }
@@ -94,7 +95,7 @@ class DrawInstanceBuffer {
         this.stagingBuffer[offset + 3] = indexCount;
         this.stagingBufferI32[offset + 4] = baseVertex;  // signed i32
         this.stagingBuffer[offset + 5] = batchId;
-        this.stagingBuffer[offset + 6] = 0;
+        this.stagingBuffer[offset + 6] = pipelineGroupId;
         this.stagingBuffer[offset + 7] = 0;
 
         this.count++;

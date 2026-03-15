@@ -8,20 +8,22 @@ struct DrawInstance {
     indexCount: u32,
     baseVertex: i32,
     batchId: u32,
-    _pad0: u32,
+    pipelineGroupId: u32,
     _pad1: u32,
 };
 
 struct CompactUniforms {
     frustumPlanes: array<vec4f, 6>,
     totalDrawCount: u32,
+    groupCount: u32,
 };
 
 @group(0) @binding(0) var<uniform> uniforms: CompactUniforms;
 @group(0) @binding(1) var<storage, read> drawInstances: array<DrawInstance>;
 @group(0) @binding(2) var<storage, read> boundingSpheres: array<vec4f>;
 @group(0) @binding(3) var<storage, read_write> compactedDrawArgs: array<DrawIndexedIndirectArgs>;
-@group(0) @binding(4) var<storage, read_write> drawCount: atomic<u32>;
+@group(0) @binding(4) var<storage, read_write> groupCounts: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read> groupBaseOffsets: array<u32>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -45,7 +47,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     }
 
     if (visible) {
-        let outIdx = atomicAdd(&drawCount, 1u);
+        let groupId = di.pipelineGroupId;
+        let localIdx = atomicAdd(&groupCounts[groupId], 1u);
+        let outIdx = groupBaseOffsets[groupId] + localIdx;
         compactedDrawArgs[outIdx] = DrawIndexedIndirectArgs(
             di.indexCount,
             1u,

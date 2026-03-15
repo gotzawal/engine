@@ -125,6 +125,14 @@ class ForwardRenderer extends Renderer {
         this.gpuDrivenEnabled = false;
 
         /**
+         * Pipeline groups for compacted indirect draws, set by _dispatchGpuDrivenCompaction.
+         *
+         * @type {Array|null}
+         * @private
+         */
+        this._pipelineGroups = null;
+
+        /**
          * @type {RenderBundleCache}
          * @private
          */
@@ -626,6 +634,13 @@ class ForwardRenderer extends Renderer {
             // already has user-configured indirect/multi-draw — don't overwrite
             if (drawCall.getDrawCommands(null)) continue;
 
+            // GPU_DRIVEN eligible draws use the compacted buffer — skip indirect slot allocation
+            if (drawCall._gpuDrivenDrawId >= 0 &&
+                !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
+                !transparent) {
+                continue;
+            }
+
             // allocate a slot in the device's shared indirect draw buffer
             const indirectSlot = device.getIndirectDrawSlot();
 
@@ -869,20 +884,18 @@ class ForwardRenderer extends Renderer {
     renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent = false) {
         const device = this.device;
         const pool = this.geometryPool;
+        const compactor = this.gpuDrawCompactor;
+        const dib = this.drawInstanceBuffer;
+        const pipelineGroups = this._pipelineGroups;
         const { drawCalls, shaderInstances, lightMaskChanged } = preparedCalls;
-        const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
 
-        // Categorize draw calls: GPU-driven (grouped by batch) vs legacy
+        // -- Categorize legacy vs GPU-driven --
         const legacyIndices = [];
-
-        // Map: batchId -> array of prepared call indices
-        const batchDraws = new Map();
 
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
 
-            // Only transparent objects use the legacy path (CPU sort order required)
             if (transparent) {
                 legacyIndices.push(i);
                 continue;
@@ -890,121 +903,87 @@ class ForwardRenderer extends Renderer {
 
             const entry = drawCall._geometryPoolEntry;
             if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
-                drawCall._globalTransformSlot >= 0) {
-                // batched GPU-driven draw via shared geometry pool
-                let batchList = batchDraws.get(entry.batchId);
-                if (!batchList) {
-                    batchList = [];
-                    batchDraws.set(entry.batchId, batchList);
-                }
-                batchList.push(i);
+                drawCall._globalTransformSlot >= 0 &&
+                drawCall._gpuDrivenDrawId >= 0) {
+                // GPU-driven: per-group compacted loop handles these
             } else {
-                // individual draw (no pool entry, dynamic, or no transform slot)
                 legacyIndices.push(i);
             }
         }
 
-        // -- Render legacy (non-GPU-driven) draw calls FIRST --
-        // Legacy draws run before batched draws so that if a batched draw
-        // triggers a WebGPU validation error (which poisons the encoder),
-        // the legacy draws have already completed successfully.
+        // -- Legacy draws FIRST --
         if (legacyIndices.length > 0) {
             if (device.supportsUniformBuffers) {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
             }
-
             for (let u = 0; u < legacyIndices.length; u++) {
-                const idx = legacyIndices[u];
-                this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+                this._renderSingleDrawCall(device, preparedCalls, legacyIndices[u],
+                    camera, sortedLights, pass, flipFaces, viewBindGroups);
             }
         }
 
-        // -- Render GPU-driven draws grouped by batch --
-        if (batchDraws.size > 0) {
+        // -- Per-group compacted indirect draws --
+        if (pipelineGroups && pipelineGroups.length > 0 && compactor && dib && dib.count > 0) {
 
-            // Set view bind group once
             if (device.supportsUniformBuffers) {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
             }
 
-            for (const [batchId, indices] of batchDraws) {
-                const batch = pool.getBatch(batchId);
+            const groupBaseOffsets = compactor._groupBaseOffsets;
+            const compactedGpuBuffer = compactor.compactedDrawArgsBuffer.impl.buffer;
+
+            for (let g = 0; g < pipelineGroups.length; g++) {
+                const group = pipelineGroups[g];
+                if (group.count === 0) continue;
+
+                const firstDraw = group.draws[0];
+                const material = firstDraw.material;
+                const preparedIdx = drawCalls.indexOf(firstDraw);
+                if (preparedIdx < 0) continue;
+                const shaderInstance = shaderInstances[preparedIdx];
+                if (!shaderInstance || shaderInstance.shader.failed || !shaderInstance.shader.ready) continue;
+
+                const batch = pool.getBatch(group.batchId);
                 if (!batch) continue;
+                const ib = batch.indexBuffer;
 
-                let prevMaterial = null;
-
-                for (let d = 0; d < indices.length; d++) {
-                    const preparedIdx = indices[d];
-                    const drawCall = drawCalls[preparedIdx];
-                    const shaderInstance = shaderInstances[preparedIdx];
-                    const material = drawCall.material;
-                    // Only treat as GPU-driven if the shader with GPU_DRIVEN define is ready.
-                    // On the frame GPU_DRIVEN first activates, the old shader may still be in use
-                    // while the new variant compiles — fall back to per-draw uniforms for safety.
-                    const isGpuDriven = !!(drawCall._gpuRenderDefs & GPU_RENDER_DEF_GPU_DRIVEN) &&
-                        !shaderInstance.shader.failed && shaderInstance.shader.ready;
-
-                    if (shaderInstance.shader.failed) continue;
-
-                    // Material / pipeline state — set only when it changes
-                    if (material !== prevMaterial) {
-                        device.setShader(shaderInstance.shader, false);
-
-                        // GPU_DRIVEN: textures still need CPU binding, scalar/vector params read from SB
-                        if (isGpuDriven) {
-                            material.setParametersTextureOnly(device);
-                        } else if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
-                            material.setParametersTextureOnly(device);
-                        } else {
-                            material.setParameters(device);
-                        }
-
-                        if (lightMaskChanged[preparedIdx]) {
-                            this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
-                        }
-
-                        if (!isGpuDriven) {
-                            this.alphaTestId.setValue(material.alphaTest);
-                        }
-
-                        device.setBlendState(material.blendState);
-                        device.setDepthState(material.depthState);
-                        device.setAlphaToCoverage(material.alphaToCoverage);
-                        prevMaterial = material;
-                    }
-
-                    this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
-
-                    const stencilFront = drawCall.stencilFront ?? material.stencilFront;
-                    const stencilBack = drawCall.stencilBack ?? material.stencilBack;
-                    device.setStencilState(stencilFront, stencilBack);
-
-                    if (!isGpuDriven) {
-                        // Legacy: per-draw uniform upload
-                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
-                            this.materialIndexId.setValue(material._materialSlot);
-                        }
-                        drawCall.setParameters(device, passFlag);
-                        this.setMeshInstanceMatrices(drawCall, true);
-                    }
-
-                    // meshInstanceId is needed for picker
-                    device.scope.resolve('meshInstanceId').setValue(drawCall.id);
-
-                    // Set shared vertex buffer before each draw (draw() clears VB array after each call)
-                    device.setVertexBuffer(batch.vertexBuffer);
-
-                    // Set mesh uniform buffers (per-draw, but cheaper without VB switching)
-                    this.setupMeshUniformBuffers(shaderInstance);
-
-                    // Use the existing indirect draw path — the GPU frustum culler has
-                    // already zeroed instanceCount on culled entries, making them no-ops
-                    const indirectData = drawCall.getDrawCommands(camera);
-                    const indexBuffer = batch.indexBuffer;
-
-                    device.draw(drawCall.mesh.primitive[drawCall.renderStyle], indexBuffer, 1, indirectData);
-                    this._forwardDrawCalls++;
+                // Pipeline state (once per group)
+                device.setShader(shaderInstance.shader, false);
+                material.setParametersTextureOnly(device);
+                device.setBlendState(material.blendState);
+                device.setDepthState(material.depthState);
+                device.setAlphaToCoverage(material.alphaToCoverage);
+                this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, firstDraw);
+                device.setStencilState(
+                    firstDraw.stencilFront ?? material.stencilFront,
+                    firstDraw.stencilBack ?? material.stencilBack
+                );
+                if (lightMaskChanged[preparedIdx]) {
+                    this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], firstDraw.mask, camera);
                 }
+                this.setupMeshUniformBuffers(shaderInstance);
+
+                // Pipeline resolve: device.draw() with numInstances=0 triggers
+                // VB submit + pipeline creation/caching + setPipeline + setIndexBuffer
+                // without actually drawing anything (drawIndexed with count 0 instances is a GPU no-op).
+                device.setVertexBuffer(batch.vertexBuffer);
+                const firstPrim = firstDraw.mesh.primitive[firstDraw.renderStyle];
+                device.draw(firstPrim, ib, 0); // numInstances=0 -> pipeline resolved, no pixels drawn
+
+                // Compacted indirect draws from GPU-compacted buffer
+                const passEncoder = device.passEncoder;
+                const baseOffset = groupBaseOffsets[g];
+
+                for (let d = 0; d < group.count; d++) {
+                    const indirectOffset = (baseOffset + d) * 20; // 5 x u32 = 20 bytes
+                    if (ib) {
+                        passEncoder.drawIndexedIndirect(compactedGpuBuffer, indirectOffset);
+                    } else {
+                        passEncoder.drawIndirect(compactedGpuBuffer, indirectOffset);
+                    }
+                }
+
+                this._forwardDrawCalls += group.count;
             }
         }
     }
