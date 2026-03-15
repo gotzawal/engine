@@ -23,6 +23,10 @@ export default /* wgsl */`
 
 #endif
 
+#ifdef GPU_DRIVEN
+    varying @interpolate(flat) vMaterialSlot: u32;
+#endif
+
 var<private> dPositionW: vec3f;
 var<private> dModelMatrix: mat4x4f;
 
@@ -137,6 +141,10 @@ fn vertexMain(input : VertexInput) -> VertexOutput {
     #ifdef NINESLICED
         output.vMask = dMaskGlobal;
         output.vTiledUv = dTiledUvGlobal;
+    #endif
+
+    #ifdef GPU_DRIVEN
+        output.vMaterialSlot = dMaterialSlotGlobal;
     #endif
 
     #include "litUserMainEndVS"

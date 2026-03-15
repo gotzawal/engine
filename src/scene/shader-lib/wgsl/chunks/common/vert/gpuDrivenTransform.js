@@ -19,8 +19,8 @@ export default /* wgsl */`
 // DrawInstance struct is declared via structPreamble in the bind group format
 // (see renderer.js viewBindGroupFormat setup)
 
-// flat varying: vertex -> fragment로 materialSlot 전달
-varying @interpolate(flat) vMaterialSlot: u32;
+// private bridge: set in getModelMatrix(), copied to output.vMaterialSlot in litMain
+var<private> dMaterialSlotGlobal: u32;
 
 fn getDrawInstance() -> DrawInstance {
     return drawInstances[pcInstanceIndex];
@@ -28,7 +28,7 @@ fn getDrawInstance() -> DrawInstance {
 
 fn getModelMatrix() -> mat4x4f {
     let di = drawInstances[pcInstanceIndex];
-    vMaterialSlot = di.materialSlot;
+    dMaterialSlotGlobal = di.materialSlot;
     return globalTransforms[di.transformSlot];
 }
 `;
