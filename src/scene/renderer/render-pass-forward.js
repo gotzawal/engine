@@ -341,6 +341,12 @@ class RenderPassForward extends RenderPass {
             const pipelineGroups = []; // [{key, startDrawId, count, draws, batchId}]
 
             const texArrayEnabled = forwardRenderer.textureArrayBatchingEnabled;
+            if (!this._debugLoggedGroupKey) {
+                this._debugLoggedGroupKey = true;
+                console.log('[TexArrayDebug] _dispatchGpuDrivenCompaction:',
+                    'texArrayEnabled:', texArrayEnabled,
+                    'eligibleDraws:', eligibleDraws.length);
+            }
             for (let i = 0; i < eligibleDraws.length; i++) {
                 const dc = eligibleDraws[i];
                 const mat = dc.material;

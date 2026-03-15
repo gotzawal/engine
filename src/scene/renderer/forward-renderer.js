@@ -466,6 +466,7 @@ class ForwardRenderer extends Renderer {
                     // diffuseMap registration
                     if (material.diffuseMap && !material._diffuseArrayEntry) {
                         material._diffuseArrayEntry = tam.addTexture(material.diffuseMap);
+                        console.log('[TexArrayDebug] registered diffuseMap:', material.name, 'entry:', material._diffuseArrayEntry);
                     }
                     // array compatibility: no texture or all textures in array
                     const hasDiffuse = !!material.diffuseMap;
@@ -720,6 +721,17 @@ class ForwardRenderer extends Renderer {
         // sync flags to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
         this.scene._textureArrayBatchingEnabled = this.textureArrayBatchingEnabled;
+
+        // DEBUG: log rendering flags once
+        if (!this._debugLoggedFlags) {
+            this._debugLoggedFlags = true;
+            console.log('[TexArrayDebug] renderForward flags:', {
+                gpuDrivenEnabled: this.gpuDrivenEnabled,
+                materialStorageBufferEnabled: this.materialStorageBufferEnabled,
+                textureArrayBatchingEnabled: this.textureArrayBatchingEnabled,
+                hasTextureArrayManager: !!this.textureArrayManager
+            });
+        }
 
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
@@ -979,10 +991,17 @@ class ForwardRenderer extends Renderer {
                 // Pipeline state (once per group)
                 device.setShader(shaderInstance.shader, false);
 
-                // Array-compatible group: array textures are bound via view bind group,
-                // per-material textures are handled via SB layer index.
+                // Array-compatible group: array textures bound via mesh bind group scope,
+                // per-material textures handled via SB layer index.
                 // Only env textures and non-SB uniforms need binding.
                 if (this.textureArrayBatchingEnabled && material._textureArrayCompatible) {
+                    if (!this._debugLoggedEnvOnly) {
+                        this._debugLoggedEnvOnly = true;
+                        console.log('[TexArrayDebug] setParametersEnvOnly for:', material.name,
+                            'compatible:', material._textureArrayCompatible,
+                            'diffuseEntry:', material._diffuseArrayEntry,
+                            'diffuseMap:', !!material.diffuseMap);
+                    }
                     material.setParametersEnvOnly(device);
                 } else {
                     material.setParametersTextureOnly(device);

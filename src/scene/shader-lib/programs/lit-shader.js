@@ -358,6 +358,7 @@ class LitShader {
         }
         if (options.useGpuDriven && options.textureArrayBatchingEnabled) {
             fDefines.set('TEXTURE_ARRAY_BATCHING', true);
+            console.log('[TexArrayDebug] TEXTURE_ARRAY_BATCHING define SET for shader');
         }
 
         // clustered lights defines

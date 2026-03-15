@@ -98,8 +98,10 @@ class ExampleLoader {
 
             // Apply saved texture array batching mode preference
             const textureArrayMode = localStorage.getItem('preferredTextureArrayMode') ?? 'disabled';
+            console.log('[TexArrayDebug] loader: applying textureArrayMode from localStorage:', textureArrayMode);
             if (renderer) {
                 renderer.textureArrayBatchingEnabled = (textureArrayMode === 'enabled');
+                console.log('[TexArrayDebug] loader: renderer.textureArrayBatchingEnabled =', renderer.textureArrayBatchingEnabled);
             }
             fire('updateActiveTextureArrayMode', { textureArrayMode });
         }
