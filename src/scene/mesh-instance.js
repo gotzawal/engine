@@ -12,7 +12,8 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADOW_CASCADE_ALL
+    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADOW_CASCADE_ALL,
+    SHADER_FORWARD
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
 import { getDefaultMaterial } from './materials/default-material.js';
@@ -777,11 +778,10 @@ class MeshInstance {
             }
         }
 
-        // Strip GPU_DRIVEN for passes whose viewBindGroupFormat lacks the drawInstances buffer
-        // (e.g. shadow pass, pick pass). drawInstances is scope-bound so check for it there.
+        // Strip GPU_DRIVEN for non-forward passes (shadow, pick, prepass, depth-pick).
+        // Only the forward pass goes through renderForwardGpuDriven with DIB setup.
         if (shaderDefs & SHADERDEF_GPU_DRIVEN) {
-            const hasDIB = viewBindGroupFormat?.storageBufferFormats?.some(f => f.name === 'drawInstances');
-            if (!hasDIB) {
+            if (shaderPass !== SHADER_FORWARD) {
                 shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
             }
         }

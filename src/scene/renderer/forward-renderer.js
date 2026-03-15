@@ -10,7 +10,8 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN,
+    GPU_DRIVEN_EXCLUDE_DEFS
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
@@ -36,10 +37,6 @@ import { BINDGROUP_VIEW } from '../../platform/graphics/constants.js';
 const _noLights = [[], [], []];
 const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
-
-// Mask for dynamic mesh instances (skinned, morphed, batched, instanced) - excluded from GPU-driven path
-export const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
-    SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
 
 
 const _drawCallList = {
