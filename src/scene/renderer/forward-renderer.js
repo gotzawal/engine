@@ -669,6 +669,11 @@ class ForwardRenderer extends Renderer {
         const forwardStartTime = now();
         // #endif
 
+        // GPU-driven rendering requires the material storage buffer system
+        if (this.gpuDrivenEnabled) {
+            this.materialStorageBufferEnabled = true;
+        }
+
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
@@ -909,7 +914,11 @@ class ForwardRenderer extends Renderer {
                     const drawCall = drawCalls[preparedIdx];
                     const shaderInstance = shaderInstances[preparedIdx];
                     const material = drawCall.material;
-                    const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0;
+                    // Only treat as GPU-driven if the shader with GPU_DRIVEN define is ready.
+                    // On the frame GPU_DRIVEN first activates, the old shader may still be in use
+                    // while the new variant compiles — fall back to per-draw uniforms for safety.
+                    const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0 &&
+                        !shaderInstance.shader.failed && shaderInstance.shader.ready;
 
                     if (shaderInstance.shader.failed) continue;
 

@@ -316,7 +316,8 @@ class RenderPassForward extends RenderPass {
             renderer.updateGlobalTransforms(visible);
 
             // Fill DrawInstanceBuffer for GPU-driven path (after geometry pool + transforms)
-            if (fillDib) {
+            // Skip transparent draws — they always use the legacy CPU-sorted path
+            if (fillDib && !ra.transparent) {
                 for (let j = 0; j < visible.length; j++) {
                     const dc = visible[j];
                     // Reset drawId to prevent stale IDs from previous frames
@@ -343,6 +344,12 @@ class RenderPassForward extends RenderPass {
 
         if (fillDib) {
             dib.upload();
+
+            // Re-bind scope in case DIB resized (creates new StorageBuffer, old one destroyed)
+            const dibScopeId = renderer.drawInstancesId;
+            if (dibScopeId && dibScopeId.value !== dib.storageBuffer) {
+                dibScopeId.setValue(dib.storageBuffer);
+            }
         }
 
         // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
