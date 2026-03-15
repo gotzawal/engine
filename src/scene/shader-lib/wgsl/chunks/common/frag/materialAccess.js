@@ -37,6 +37,8 @@ export default /* wgsl */`
 #if defined(GPU_DRIVEN)
 
 // GPU_DRIVEN: materialSlot is passed from DrawInstance via vertex -> fragment flat varying
+varying @interpolate(flat) vMaterialSlot: u32;
+
 fn getMaterialData() -> MaterialData {
     return globalMaterials[i32(vMaterialSlot)];
 }
