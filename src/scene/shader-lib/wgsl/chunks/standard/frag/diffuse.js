@@ -3,7 +3,7 @@ export default /* wgsl */`
 uniform material_diffuse: vec3f;
 #endif
 
-#if defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING) && defined(STD_DIFFUSE_TEXTURE)
+#if defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING)
     var globalDiffuseArray: texture_2d_array<f32>;
     var globalDiffuseArraySampler: sampler;
 #endif
