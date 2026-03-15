@@ -80,6 +80,19 @@ const _storageBufferPackedParams = new Set([
     'material_attenuation',
     'material_attenuationDistance'
 ]);
+/**
+ * Texture parameter names managed by the texture array system.
+ * These are skipped by setParametersEnvOnly() since they are
+ * sampled from globalDiffuseArray via per-draw layer indices.
+ *
+ * @type {Set<string>}
+ * @ignore
+ */
+const _textureArrayManagedParams = new Set([
+    'texture_diffuseMap'
+    // Future: 'texture_normalMap', 'texture_specularMap', 'texture_emissiveMap'
+]);
+
 blendModes[BLEND_MAX] = { src: BLENDMODE_ONE, dst: BLENDMODE_ONE, op: BLENDEQUATION_MAX };
 
 let id = 0;
@@ -882,6 +895,29 @@ class Material {
                 if (_storageBufferPackedParams.has(paramName)) {
                     continue;
                 }
+                if (!parameter.scopeId) {
+                    parameter.scopeId = device.scope.resolve(paramName);
+                }
+                parameter.scopeId.setValue(parameter.data);
+            }
+        }
+    }
+
+    /**
+     * Set parameters for env-only mode. Skips both storage-buffer-packed scalars
+     * and texture-array-managed textures (e.g. diffuseMap). Only env textures
+     * (envAtlas, cubeMap), samplers, and other non-managed uniforms are set.
+     * Used for array-compatible materials in GPU-driven rendering.
+     *
+     * @param {import('../../platform/graphics/graphics-device.js').GraphicsDevice} device - The device.
+     */
+    setParametersEnvOnly(device) {
+        const parameters = this.parameters;
+        for (const paramName in parameters) {
+            const parameter = parameters[paramName];
+            if (parameter) {
+                if (_storageBufferPackedParams.has(paramName)) continue;
+                if (_textureArrayManagedParams.has(paramName)) continue;
                 if (!parameter.scopeId) {
                     parameter.scopeId = device.scope.resolve(paramName);
                 }

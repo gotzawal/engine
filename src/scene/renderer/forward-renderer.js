@@ -125,6 +125,15 @@ class ForwardRenderer extends Renderer {
         this.gpuDrivenEnabled = false;
 
         /**
+         * Whether texture array batching is enabled for GPU-driven rendering.
+         * When true, compatible textures are merged into texture_2d_array resources
+         * and sampled via per-draw layer indices from the MaterialData storage buffer.
+         *
+         * @type {boolean}
+         */
+        this.textureArrayBatchingEnabled = false;
+
+        /**
          * Pipeline groups for compacted indirect draws, set by _dispatchGpuDrivenCompaction.
          *
          * @type {Array|null}
@@ -450,6 +459,19 @@ class ForwardRenderer extends Renderer {
                         material.packToStorageBuffer(msb, material._materialSlot);
                     }
                 }
+
+                // Texture array batching: register diffuse textures
+                const tam = this.textureArrayManager;
+                if (tam && this.textureArrayBatchingEnabled && material._materialSlot >= 0) {
+                    // diffuseMap registration
+                    if (material.diffuseMap && !material._diffuseArrayEntry) {
+                        material._diffuseArrayEntry = tam.addTexture(material.diffuseMap);
+                    }
+                    // array compatibility: no texture or all textures in array
+                    const hasDiffuse = !!material.diffuseMap;
+                    const diffuseInArray = !!material._diffuseArrayEntry;
+                    material._textureArrayCompatible = !hasDiffuse || diffuseInArray;
+                }
             }
 
             // GPU render feature flags — stored in _gpuRenderDefs (not _shaderDefs)
@@ -695,8 +717,9 @@ class ForwardRenderer extends Renderer {
             this.materialStorageBufferEnabled = true;
         }
 
-        // sync materialStorageBufferEnabled flag to scene for shader options
+        // sync flags to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+        this.scene._textureArrayBatchingEnabled = this.textureArrayBatchingEnabled;
 
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
@@ -929,6 +952,12 @@ class ForwardRenderer extends Renderer {
                 device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
             }
 
+            // Build drawCall -> index map for O(1) lookup (replaces indexOf)
+            const drawToIdx = new Map();
+            for (let i = 0; i < drawCalls.length; i++) {
+                drawToIdx.set(drawCalls[i], i);
+            }
+
             const groupBaseOffsets = compactor._groupBaseOffsets;
             const compactedGpuBuffer = compactor.compactedDrawArgsBuffer.impl.buffer;
 
@@ -938,7 +967,7 @@ class ForwardRenderer extends Renderer {
 
                 const firstDraw = group.draws[0];
                 const material = firstDraw.material;
-                const preparedIdx = drawCalls.indexOf(firstDraw);
+                const preparedIdx = drawToIdx.get(firstDraw) ?? -1;
                 if (preparedIdx < 0) continue;
                 const shaderInstance = shaderInstances[preparedIdx];
                 if (!shaderInstance || shaderInstance.shader.failed || !shaderInstance.shader.ready) continue;
@@ -949,7 +978,15 @@ class ForwardRenderer extends Renderer {
 
                 // Pipeline state (once per group)
                 device.setShader(shaderInstance.shader, false);
-                material.setParametersTextureOnly(device);
+
+                // Array-compatible group: array textures are bound via view bind group,
+                // per-material textures are handled via SB layer index.
+                // Only env textures and non-SB uniforms need binding.
+                if (this.textureArrayBatchingEnabled && material._textureArrayCompatible) {
+                    material.setParametersEnvOnly(device);
+                } else {
+                    material.setParametersTextureOnly(device);
+                }
                 device.setBlendState(material.blendState);
                 device.setDepthState(material.depthState);
                 device.setAlphaToCoverage(material.alphaToCoverage);

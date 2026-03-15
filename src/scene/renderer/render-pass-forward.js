@@ -292,7 +292,9 @@ class RenderPassForward extends RenderPass {
         }
 
         // Pass 1: register geometry pool + upload transforms, collect eligible draws
-        const eligibleDraws = [];
+        if (!this._eligibleDraws) this._eligibleDraws = [];
+        const eligibleDraws = this._eligibleDraws;
+        eligibleDraws.length = 0;
 
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
@@ -331,17 +333,31 @@ class RenderPassForward extends RenderPass {
         // Pass 2: pipeline group sorting + DIB filling
         if (fillDib && eligibleDraws.length > 0) {
 
-            // Pipeline group key = material.id + blendState.key + depthState.key + batchId
+            // Pipeline group key = texKey + blendState.key + depthState.key + batchId
             // Same key => same pipeline + same VB/IB
-            const groupMap = new Map(); // key -> groupId
+            if (!this._pipelineGroupMap) this._pipelineGroupMap = new Map();
+            const groupMap = this._pipelineGroupMap;
+            groupMap.clear();
             const pipelineGroups = []; // [{key, startDrawId, count, draws, batchId}]
 
+            const texArrayEnabled = forwardRenderer.textureArrayBatchingEnabled;
             for (let i = 0; i < eligibleDraws.length; i++) {
                 const dc = eligibleDraws[i];
                 const mat = dc.material;
                 const batchId = dc._geometryPoolEntry.batchId;
-                // batchId included so only draws sharing the same VB/IB are grouped together
-                const key = (mat.id * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
+
+                // Determine texture key:
+                // - array-compatible or no textures: texKey=0 (can merge)
+                // - legacy (incompatible textures): texKey=mat.id (separate group)
+                let texKey;
+                if (texArrayEnabled && mat._textureArrayCompatible) {
+                    texKey = 0;
+                } else if (!mat.diffuseMap && !mat.normalMap && !mat.heightMap) {
+                    texKey = 0;
+                } else {
+                    texKey = mat.id;
+                }
+                const key = (texKey * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
 
                 let groupId = groupMap.get(key);
                 if (groupId === undefined) {

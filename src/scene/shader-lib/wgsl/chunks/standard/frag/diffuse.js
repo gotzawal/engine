@@ -14,7 +14,24 @@ fn getAlbedo() {
         dAlbedo = uniform.material_diffuse.rgb;
     #endif
 
-    #ifdef STD_DIFFUSE_TEXTURE
+    #if defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING) && defined(STD_DIFFUSE_TEXTURE)
+        // Texture array path: layer index from material storage buffer
+        {
+            let matData = getMaterialData();
+            let diffuseLayerIdx = i32(matData.texArrayLayers.x);
+            if (diffuseLayerIdx >= 0) {
+                var albedoTexture: vec3f = textureSampleBias(
+                    globalDiffuseArray,
+                    globalDiffuseArraySampler,
+                    {STD_DIFFUSE_TEXTURE_UV},
+                    diffuseLayerIdx,
+                    uniform.textureBias
+                ).{STD_DIFFUSE_TEXTURE_CHANNEL};
+                dAlbedo = dAlbedo * albedoTexture;
+            }
+            // diffuseLayerIdx < 0: no texture, use flat color from baseColor (already set)
+        }
+    #elif defined(STD_DIFFUSE_TEXTURE)
         var albedoTexture: vec3f = {STD_DIFFUSE_TEXTURE_DECODE}(textureSampleBias({STD_DIFFUSE_TEXTURE_NAME}, {STD_DIFFUSE_TEXTURE_NAME}Sampler, {STD_DIFFUSE_TEXTURE_UV}, uniform.textureBias)).{STD_DIFFUSE_TEXTURE_CHANNEL};
 
         #ifdef STD_DIFFUSEDETAIL_TEXTURE

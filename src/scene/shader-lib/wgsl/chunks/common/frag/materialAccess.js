@@ -22,8 +22,9 @@ struct MaterialData {
     sheen_dispersion: vec4f,
     // vec4 8: attenuationColor (rgb) + attenuationDistance
     attenuation: vec4f,
-    // vec4 9-15: reserved / padding
-    _reserved0: vec4f,
+    // vec4 9: texture array layer indices (x=diffuse, y=normal, z=specular, w=emissive; -1 = not in array)
+    texArrayLayers: vec4f,
+    // vec4 10-15: reserved / padding
     _reserved1: vec4f,
     _reserved2: vec4f,
     _reserved3: vec4f,

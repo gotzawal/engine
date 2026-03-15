@@ -82,6 +82,7 @@ class StandardMaterialOptionsBuilder {
         options.litOptions.useMorphTextureBasedInt = objDefs && (objDefs & SHADERDEF_MORPH_TEXTURE_BASED_INT) !== 0;
         options.litOptions.useGlobalTransformBuffer = objDefs && (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0;
         options.litOptions.useGpuDriven = !!(gpuRenderDefs & 1);  // GPU_RENDER_DEF_GPU_DRIVEN
+        options.litOptions.textureArrayBatchingEnabled = scene._textureArrayBatchingEnabled ?? false;
 
         options.litOptions.nineSlicedMode = stdMat.nineSlicedMode || 0;
 
