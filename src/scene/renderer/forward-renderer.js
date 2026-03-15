@@ -485,7 +485,11 @@ class ForwardRenderer extends Renderer {
                 device.setShader(shaderInstance.shader, asyncCompile);
 
                 // Uniforms I: material
-                material.setParameters(device);
+                if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                    material.setParametersTextureOnly(device);
+                } else {
+                    material.setParameters(device);
+                }
 
                 if (lightMaskChanged) {
                     this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);
@@ -892,7 +896,11 @@ class ForwardRenderer extends Renderer {
                     // Material / pipeline state — set only when it changes
                     if (material !== prevMaterial) {
                         device.setShader(shaderInstance.shader, false);
-                        material.setParameters(device);
+                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                            material.setParametersTextureOnly(device);
+                        } else {
+                            material.setParameters(device);
+                        }
 
                         if (lightMaskChanged[preparedIdx]) {
                             this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
@@ -968,7 +976,11 @@ class ForwardRenderer extends Renderer {
         if (newMaterial) {
             const asyncCompile = false;
             device.setShader(shaderInstance.shader, asyncCompile);
-            material.setParameters(device);
+            if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                material.setParametersTextureOnly(device);
+            } else {
+                material.setParameters(device);
+            }
 
             if (lightMaskChanged) {
                 this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);

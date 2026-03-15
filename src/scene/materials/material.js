@@ -47,6 +47,39 @@ blendModes[BLEND_MULTIPLICATIVE2X] = { src: BLENDMODE_DST_COLOR, dst: BLENDMODE_
 blendModes[BLEND_SCREEN] = { src: BLENDMODE_ONE_MINUS_DST_COLOR, dst: BLENDMODE_ONE, op: BLENDEQUATION_ADD };
 blendModes[BLEND_MULTIPLICATIVE] = { src: BLENDMODE_DST_COLOR, dst: BLENDMODE_ZERO, op: BLENDEQUATION_ADD };
 blendModes[BLEND_MIN] = { src: BLENDMODE_ONE, dst: BLENDMODE_ONE, op: BLENDEQUATION_MIN };
+
+/**
+ * Parameter names that are packed into the material storage buffer
+ * by StandardMaterial.packToStorageBuffer(). These are skipped when
+ * setParametersTextureOnly() is called.
+ *
+ * @type {Set<string>}
+ * @ignore
+ */
+const _storageBufferPackedParams = new Set([
+    'material_diffuse',
+    'material_emissive',
+    'material_specular',
+    'material_gloss',
+    'material_metalness',
+    'material_opacity',
+    'material_bumpiness',
+    'material_reflectivity',
+    'material_refraction',
+    'material_refractionIndex',
+    'material_thickness',
+    'material_clearCoat',
+    'material_clearCoatGloss',
+    'material_aoIntensity',
+    'material_sheenGloss',
+    'material_sheen',
+    'material_iridescence',
+    'material_iridescenceThickness',
+    'material_anisotropyIntensity',
+    'material_dispersion',
+    'material_attenuation',
+    'material_attenuationDistance'
+]);
 blendModes[BLEND_MAX] = { src: BLENDMODE_ONE, dst: BLENDMODE_ONE, op: BLENDEQUATION_MAX };
 
 let id = 0;
@@ -825,6 +858,30 @@ class Material {
         for (const paramName in names) {
             const parameter = parameters[paramName];
             if (parameter) {
+                if (!parameter.scopeId) {
+                    parameter.scopeId = device.scope.resolve(paramName);
+                }
+                parameter.scopeId.setValue(parameter.data);
+            }
+        }
+    }
+
+    /**
+     * Storage Buffer에 패킹된 scalar/vector uniform을 건너뛰고
+     * 텍스처 바인딩과 SB에 없는 uniform만 세팅한다.
+     * materialStorageBufferEnabled일 때 setParameters 대신 호출.
+     *
+     * @param {import('../../platform/graphics/graphics-device.js').GraphicsDevice} device - The device.
+     */
+    setParametersTextureOnly(device) {
+        const parameters = this.parameters;
+        for (const paramName in parameters) {
+            const parameter = parameters[paramName];
+            if (parameter) {
+                // skip scalar/vector params already packed into storage buffer
+                if (_storageBufferPackedParams.has(paramName)) {
+                    continue;
+                }
                 if (!parameter.scopeId) {
                     parameter.scopeId = device.scope.resolve(paramName);
                 }
