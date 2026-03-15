@@ -1093,6 +1093,29 @@ class ForwardRenderer extends Renderer {
 
         if (shaderInstance.shader.failed) return;
 
+        // === SHADER DEBUG LOG (once per 120 frames) ===
+        if (this._gpuDbgCounter % 120 === 1) {
+            const shader = shaderInstance.shader;
+            const def = shader.definition;
+            const fsrc = def?.fshader || '';
+            console.log(`[SHADER DEBUG _renderSingleDrawCall] "${drawCall.node?.name}"`,
+                'newMaterial:', newMaterial,
+                'msbEnabled:', this.materialStorageBufferEnabled,
+                'matSlot:', material._materialSlot,
+                'shaderName:', shader.name);
+            console.log('[SHADER FRAG] hasMATERIAL_STORAGE_BUFFER:', fsrc.includes('getMaterialBaseColor'),
+                'hasGlobalMaterials:', fsrc.includes('globalMaterials'),
+                'hasMaterialIndex:', fsrc.includes('materialIndex'),
+                'hasUniform_material_diffuse:', fsrc.includes('material_diffuse'));
+            // Show fragment source around materialAccess (search for getMaterial or globalMaterials)
+            const idx = fsrc.indexOf('getMaterialBaseColor');
+            if (idx >= 0) {
+                console.log('[SHADER FRAG materialAccess]:', fsrc.substring(Math.max(0, idx - 100), idx + 200));
+            } else {
+                console.log('[SHADER FRAG first 800]:', fsrc.substring(0, 800));
+            }
+        }
+
         if (newMaterial) {
             const asyncCompile = false;
             device.setShader(shaderInstance.shader, asyncCompile);
