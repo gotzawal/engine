@@ -1,7 +1,9 @@
 export default /* wgsl */`
 
 #if defined(STD_AO_TEXTURE) || defined(STD_AO_VERTEX)
-    uniform material_aoIntensity: f32;
+    #ifndef MATERIAL_STORAGE_BUFFER
+        uniform material_aoIntensity: f32;
+    #endif
 #endif
 
 #ifdef STD_AODETAIL_TEXTURE
@@ -27,7 +29,11 @@ fn getAO() {
     #endif
 
     #if defined(STD_AO_TEXTURE) || defined(STD_AO_VERTEX)
-        dAo = mix(1.0, dAo, uniform.material_aoIntensity);
+        #ifdef MATERIAL_STORAGE_BUFFER
+            dAo = mix(1.0, dAo, getMaterialAO());
+        #else
+            dAo = mix(1.0, dAo, uniform.material_aoIntensity);
+        #endif
     #endif
 }
 `;

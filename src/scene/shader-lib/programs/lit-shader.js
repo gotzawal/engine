@@ -348,7 +348,10 @@ class LitShader {
 
         this.fDefines.set('LIGHT_COUNT', options.lights.length);
         if (hasAreaLights) fDefines.set('AREA_LIGHTS', true);
-        if (options.materialStorageBufferEnabled) fDefines.set('MATERIAL_STORAGE_BUFFER', true);
+        if (options.materialStorageBufferEnabled) {
+            fDefines.set('MATERIAL_STORAGE_BUFFER', true);
+            fDefines.set('DEBUG_MSB_OUTPUT', true);  // TEMP diagnostic: outputs raw baseColor bypassing lighting
+        }
         if (options.useGpuDriven) {
             fDefines.set('GPU_DRIVEN', true);
             // GPU_DRIVEN implies MATERIAL_STORAGE_BUFFER — standard frag chunks
