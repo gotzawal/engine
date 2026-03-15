@@ -279,22 +279,20 @@ class RenderPassForward extends RenderPass {
         const { renderer } = this;
         const pool = renderer.geometryPool;
         const culler = renderer.gpuFrustumCuller;
+        const dib = renderer.drawInstanceBuffer;
+        const compactor = renderer.gpuDrawCompactor;
+        const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
 
         if (!pool) return;
 
-        const dib = renderer.drawInstanceBuffer;
         const fillDib = dib && renderer.gpuDrivenEnabled;
 
-        // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
-        // This runs before the render pass so that GPU frustum culling can operate on the
-        // indirect draw buffer entries that reference geometry pool offsets.
-        //
-        // DIB filling is interleaved: after geometry pool registration + transform upload
-        // (so _geometryPoolEntry and _globalTransformSlot are available), but before
-        // setupGlobalTransformIndirectDraws (so _gpuDrivenDrawId is available for firstInstance).
         if (fillDib) {
             dib.beginFrame();
         }
+
+        // Pass 1: register geometry pool + upload transforms, collect eligible draws
+        const eligibleDraws = [];
 
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
@@ -303,9 +301,7 @@ class RenderPassForward extends RenderPass {
             const layer = ra.layer;
             const camera = ra.camera.camera;
             const culledInstances = layer.getCulledInstances(camera);
-            const visible = ra.transparent ?
-                culledInstances.transparent :
-                culledInstances.opaque;
+            const visible = ra.transparent ? culledInstances.transparent : culledInstances.opaque;
 
             // Register meshes in geometry pool
             for (let j = 0; j < visible.length; j++) {
@@ -315,13 +311,11 @@ class RenderPassForward extends RenderPass {
             // Upload transforms + bounding spheres
             renderer.updateGlobalTransforms(visible);
 
-            // Fill DrawInstanceBuffer for GPU-driven path (after geometry pool + transforms)
-            // Skip transparent draws — they always use the legacy CPU-sorted path
+            // Collect eligible draws (opaque only, not excluded)
             if (fillDib && !ra.transparent) {
                 for (let j = 0; j < visible.length; j++) {
                     const dc = visible[j];
-                    // Reset drawId to prevent stale IDs from previous frames
-                    dc._gpuDrivenDrawId = -1;
+                    dc._gpuDrivenDrawId = -1; // reset
 
                     const entry = dc._geometryPoolEntry;
                     if (!entry) continue;
@@ -329,30 +323,99 @@ class RenderPassForward extends RenderPass {
                     if (dc._globalTransformSlot < 0) continue;
                     if (!dc.material || dc.material._materialSlot < 0) continue;
 
+                    eligibleDraws.push(dc);
+                }
+            }
+        }
+
+        // Pass 2: pipeline group sorting + DIB filling
+        if (fillDib && eligibleDraws.length > 0) {
+
+            // Pipeline group key = material.id + blendState.key + depthState.key + batchId
+            // Same key => same pipeline + same VB/IB
+            const groupMap = new Map(); // key -> groupId
+            const pipelineGroups = []; // [{key, startDrawId, count, draws, batchId}]
+
+            for (let i = 0; i < eligibleDraws.length; i++) {
+                const dc = eligibleDraws[i];
+                const mat = dc.material;
+                const batchId = dc._geometryPoolEntry.batchId;
+                // batchId included so only draws sharing the same VB/IB are grouped together
+                const key = (mat.id * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
+
+                let groupId = groupMap.get(key);
+                if (groupId === undefined) {
+                    groupId = pipelineGroups.length;
+                    groupMap.set(key, groupId);
+                    pipelineGroups.push({
+                        key: key,
+                        startDrawId: 0,
+                        count: 0,
+                        draws: [],
+                        batchId: batchId
+                    });
+                }
+                pipelineGroups[groupId].draws.push(dc);
+            }
+
+            // Fill DIB in group order
+            for (let g = 0; g < pipelineGroups.length; g++) {
+                const group = pipelineGroups[g];
+                group.startDrawId = dib.count;
+                const draws = group.draws;
+
+                for (let d = 0; d < draws.length; d++) {
+                    const dc = draws[d];
+                    const entry = dc._geometryPoolEntry;
                     const drawId = dib.addInstance(
-                        dc._globalTransformSlot, dc.material._materialSlot,
-                        entry.firstIndex, entry.indexCount, entry.baseVertex, entry.batchId
+                        dc._globalTransformSlot,
+                        dc.material._materialSlot,
+                        entry.firstIndex, entry.indexCount, entry.baseVertex,
+                        entry.batchId,
+                        g // pipelineGroupId
                     );
                     dc._gpuDrivenDrawId = drawId;
+                    group.count++;
                 }
             }
 
-            // Set up indirect draw args (now uses pool offsets for registered meshes)
-            const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
-            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
-        }
-
-        if (fillDib) {
             dib.upload();
 
-            // Re-bind scope in case DIB resized (creates new StorageBuffer, old one destroyed)
+            // Re-bind scope in case DIB resized
             const dibScopeId = renderer.drawInstancesId;
             if (dibScopeId && dibScopeId.value !== dib.storageBuffer) {
                 dibScopeId.setValue(dib.storageBuffer);
             }
+
+            // Store pipeline groups for renderForwardGpuDriven
+            forwardRenderer._pipelineGroups = pipelineGroups;
+
+            // GpuDrawCompactor dispatch
+            if (compactor && dib.count > 0 && culler) {
+                compactor.uploadGroupBaseOffsets(pipelineGroups);
+                const primaryCamera = renderActions[0]?.camera?.camera;
+                if (primaryCamera) {
+                    compactor.dispatch(primaryCamera, dib, culler.boundingSphereBuffer, pipelineGroups.length);
+                }
+            }
+        } else {
+            forwardRenderer._pipelineGroups = null;
         }
 
-        // Dispatch existing GPU frustum culler (zeros instanceCount for culled draws)
+        // Pass 3: legacy draws still need indirect args setup
+        for (let i = 0; i < renderActions.length; i++) {
+            const ra = renderActions[i];
+            if (!ra.camera) continue;
+
+            const layer = ra.layer;
+            const camera = ra.camera.camera;
+            const culledInstances = layer.getCulledInstances(camera);
+            const visible = ra.transparent ? culledInstances.transparent : culledInstances.opaque;
+
+            forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
+        }
+
+        // Legacy draw frustum culler dispatch (non-GPU_DRIVEN draws only)
         if (culler && culler.indirectDrawCount > 0) {
             const primaryCamera = renderActions[0]?.camera?.camera;
             if (primaryCamera) {

@@ -21,9 +21,10 @@ const BYTES_PER_INDIRECT_ENTRY = 20; // 5 × u32
 /**
  * GPU draw compactor. Takes the DrawInstanceBuffer + bounding spheres as input,
  * performs frustum culling on the GPU, and outputs a compacted DrawIndexedIndirect
- * argument buffer containing only visible draws.
+ * argument buffer containing only visible draws, organized by pipeline group.
  *
- * Uses atomic append for compaction (efficient for 1K-10K objects).
+ * Uses per-group atomic counters + per-group output regions so that draws within
+ * the same pipeline group are contiguous in the output buffer.
  *
  * @ignore
  */
@@ -42,6 +43,18 @@ class GpuDrawCompactor {
 
     /** @type {StorageBuffer|null} - staging buffer for reading back draw count */
     drawCountReadbackBuffer = null;
+
+    /** @type {StorageBuffer|null} - per-group atomic counters */
+    groupCountsBuffer = null;
+
+    /** @type {StorageBuffer|null} - per-group output base offsets */
+    groupBaseOffsetsBuffer = null;
+
+    /** @type {Uint32Array|null} - CPU-side cache of group base offsets */
+    _groupBaseOffsets = null;
+
+    /** @type {number} */
+    maxGroups = 256;
 
     /** @type {number} */
     capacity;
@@ -89,6 +102,20 @@ class GpuDrawCompactor {
             this.device, 16,
             BUFFERUSAGE_COPY_DST, false // no storage usage, just for readback
         );
+
+        // Per-group atomic counters
+        this.groupCountsBuffer?.destroy();
+        this.groupCountsBuffer = new StorageBuffer(
+            this.device, this.maxGroups * 4,
+            BUFFERUSAGE_COPY_SRC | BUFFERUSAGE_COPY_DST
+        );
+
+        // Per-group output base offsets (read-only in compute)
+        this.groupBaseOffsetsBuffer?.destroy();
+        this.groupBaseOffsetsBuffer = new StorageBuffer(
+            this.device, this.maxGroups * 4,
+            BUFFERUSAGE_COPY_SRC | BUFFERUSAGE_COPY_DST
+        );
     }
 
     _createComputeShader() {
@@ -101,7 +128,8 @@ class GpuDrawCompactor {
             computeUniformBufferFormats: {
                 ub: new UniformBufferFormat(device, [
                     new UniformFormat('frustumPlanes[0]', UNIFORMTYPE_VEC4, 6),
-                    new UniformFormat('totalDrawCount', UNIFORMTYPE_UINT)
+                    new UniformFormat('totalDrawCount', UNIFORMTYPE_UINT),
+                    new UniformFormat('groupCount', UNIFORMTYPE_UINT)
                 ])
             },
             computeBindGroupFormat: new BindGroupFormat(device, [
@@ -109,7 +137,8 @@ class GpuDrawCompactor {
                 new BindStorageBufferFormat('drawInstances', SHADERSTAGE_COMPUTE, true),
                 new BindStorageBufferFormat('boundingSpheres', SHADERSTAGE_COMPUTE, true),
                 new BindStorageBufferFormat('compactedDrawArgs', SHADERSTAGE_COMPUTE, false),
-                new BindStorageBufferFormat('drawCount', SHADERSTAGE_COMPUTE, false)
+                new BindStorageBufferFormat('groupCounts', SHADERSTAGE_COMPUTE, false),
+                new BindStorageBufferFormat('groupBaseOffsets', SHADERSTAGE_COMPUTE, true)
             ])
         });
         this.compute = new Compute(device, shader, 'DrawCompact');
@@ -146,39 +175,56 @@ class GpuDrawCompactor {
     }
 
     /**
-     * Dispatch the compute shader to cull and compact draw calls.
+     * Upload per-group base offsets to GPU. Each group's output region starts at the
+     * cumulative sum of all previous groups' counts (max capacity per group).
+     *
+     * @param {Array<{count: number}>} pipelineGroups - Pipeline groups with count fields.
+     */
+    uploadGroupBaseOffsets(pipelineGroups) {
+        const data = new Uint32Array(pipelineGroups.length);
+        let offset = 0;
+        for (let g = 0; g < pipelineGroups.length; g++) {
+            data[g] = offset;
+            offset += pipelineGroups[g].count; // max capacity for this group
+        }
+        this.groupBaseOffsetsBuffer.write(0, data, 0, pipelineGroups.length);
+        this._groupBaseOffsets = data;
+    }
+
+    /**
+     * Dispatch the compute shader to cull and compact draw calls per pipeline group.
      *
      * @param {Camera} camera - The camera for frustum planes.
      * @param {import('./draw-instance-buffer.js').DrawInstanceBuffer} drawInstanceBuffer - Input draw instances.
      * @param {StorageBuffer} boundingSphereBuffer - Bounding sphere data.
+     * @param {number} [groupCount] - Number of pipeline groups.
      */
-    dispatch(camera, drawInstanceBuffer, boundingSphereBuffer) {
+    dispatch(camera, drawInstanceBuffer, boundingSphereBuffer, groupCount = 1) {
         const totalDrawCount = drawInstanceBuffer.count;
         if (totalDrawCount === 0) return;
 
         this.ensureCapacity(totalDrawCount);
 
-        // Clear atomic counter to 0
-        this.drawCountBuffer.clear(0, 4);
+        // Zero-clear compacted draw args: unused slots = {indexCount=0, instanceCount=0} -> draw no-op
+        this.compactedDrawArgsBuffer.clear(0, this.capacity * BYTES_PER_INDIRECT_ENTRY);
+        // Zero-clear per-group atomic counters
+        this.groupCountsBuffer.clear(0, groupCount * 4);
 
         this.extractFrustumPlanes(camera);
 
         const compute = this.compute;
         compute.setParameter('frustumPlanes[0]', this.frustumPlanesData);
         compute.setParameter('totalDrawCount', totalDrawCount);
+        compute.setParameter('groupCount', groupCount);
         compute.setParameter('drawInstances', drawInstanceBuffer.storageBuffer);
         compute.setParameter('boundingSpheres', boundingSphereBuffer);
         compute.setParameter('compactedDrawArgs', this.compactedDrawArgsBuffer);
-        compute.setParameter('drawCount', this.drawCountBuffer);
+        compute.setParameter('groupCounts', this.groupCountsBuffer);
+        compute.setParameter('groupBaseOffsets', this.groupBaseOffsetsBuffer);
 
         const workgroups = Math.ceil(totalDrawCount / 64);
         compute.setupDispatch(workgroups);
         this.device.computeDispatch([compute], 'DrawCompact');
-
-        // Schedule readback of draw count for next frame (2-frame scheme)
-        // For the current frame, use lastFrameDrawCount as upper bound.
-        // The GPU culler guarantees invisible draws are no-ops (instanceCount=0).
-        this._scheduleDrawCountReadback(totalDrawCount);
     }
 
     /**
@@ -196,34 +242,17 @@ class GpuDrawCompactor {
         return totalDrawCount;
     }
 
-    /**
-     * @param {number} totalDrawCount - Fallback count.
-     * @private
-     */
-    _scheduleDrawCountReadback(totalDrawCount) {
-        // Copy draw count from GPU to readback buffer
-        this.drawCountReadbackBuffer.copy(this.drawCountBuffer, 0, 0, 4);
-
-        // Read back asynchronously
-        this.drawCountReadbackBuffer.read(0, 4, null, false).then((data) => {
-            if (data) {
-                const count = new Uint32Array(data.buffer || data)[0];
-                this.lastFrameDrawCount = count;
-                this.hasValidDrawCount = true;
-            }
-        }).catch(() => {
-            // Readback failed, use total count
-            this.lastFrameDrawCount = totalDrawCount;
-        });
-    }
-
     destroy() {
         this.compactedDrawArgsBuffer?.destroy();
         this.drawCountBuffer?.destroy();
         this.drawCountReadbackBuffer?.destroy();
+        this.groupCountsBuffer?.destroy();
+        this.groupBaseOffsetsBuffer?.destroy();
         this.compactedDrawArgsBuffer = null;
         this.drawCountBuffer = null;
         this.drawCountReadbackBuffer = null;
+        this.groupCountsBuffer = null;
+        this.groupBaseOffsetsBuffer = null;
     }
 }
 
