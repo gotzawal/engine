@@ -490,6 +490,11 @@ class ForwardRenderer extends Renderer {
         const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
 
+        // DEBUG: log path info when materialStorageBufferEnabled
+        if (this.materialStorageBufferEnabled && this._gpuDbgCounter % 120 === 1) {
+            console.log('[DEBUG renderForwardInternal] materialStorageBufferEnabled:true, drawCalls:', preparedCalls.drawCalls.length);
+        }
+
         // multiview xr rendering
         const viewList = camera.xr?.session && camera.xr.views.list.length ? camera.xr.views.list : null;
 
@@ -743,7 +748,10 @@ class ForwardRenderer extends Renderer {
 
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
-        if (this.gpuDrivenEnabled && !drawCallback && !hasXR) {
+        // DEBUG: temporarily use renderForwardInternal to isolate black objects issue
+        // If objects render correctly here, the issue is in renderForwardGpuDriven
+        // If objects are still black, the issue is in MATERIAL_STORAGE_BUFFER shader/material setup
+        if (false && this.gpuDrivenEnabled && !drawCallback && !hasXR) {
             // GPU-driven path: merged geometry, compute culling, compacted indirect draws
             this.renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
         } else if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
