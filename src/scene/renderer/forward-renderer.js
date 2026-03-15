@@ -10,7 +10,7 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN,
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN, SHADERDEF_MATERIAL_STORAGE_BUFFER,
     GPU_DRIVEN_EXCLUDE_DEFS
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
@@ -440,35 +440,26 @@ class ForwardRenderer extends Renderer {
                 }
             }
 
+            // MATERIAL_STORAGE_BUFFER define — ensures shader cache distinguishes
+            // MSB shaders from standard uniform-based shaders
+            if (this.materialStorageBufferEnabled) {
+                drawCall._shaderDefs |= SHADERDEF_MATERIAL_STORAGE_BUFFER;
+            } else {
+                drawCall._shaderDefs &= ~SHADERDEF_MATERIAL_STORAGE_BUFFER;
+            }
+
             // GPU_DRIVEN define — eligible draws read transform/material from DrawInstanceBuffer
-            // GPU_DRIVEN: only set when the draw has a valid DrawInstanceBuffer entry
-            // from the current frame's before() phase (_gpuDrivenDrawId >= 0).
-            // This prevents GPU_DRIVEN from being set on frame 0 when DIB hasn't been filled yet.
+            // Only set when the draw has a valid DrawInstanceBuffer entry from the current
+            // frame's before() phase (_gpuDrivenDrawId >= 0).
             drawCall._shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
             if (this.gpuDrivenEnabled) {
                 const entry = drawCall._geometryPoolEntry;
-                const hasEntry = !!entry;
                 const noExclude = !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS);
-                const hasTransformSlot = drawCall._globalTransformSlot >= 0;
-                const hasMaterialSlot = material._materialSlot >= 0;
-                const hasDrawId = drawCall._gpuDrivenDrawId >= 0;
 
-                // === GPU_DRIVEN DEBUG LOG (first 5 draw calls, once per 120 frames) ===
-                if (this._gpuDbgCounter % 120 === 1 && i < 5) {
-                    console.log(`[GPU_DRIVEN eligibility] dc[${i}] "${drawCall.node?.name}"`,
-                        'entry:', hasEntry,
-                        'noExclude:', noExclude,
-                        'transformSlot:', drawCall._globalTransformSlot,
-                        'msbEnabled:', this.materialStorageBufferEnabled,
-                        'matSlot:', material._materialSlot,
-                        'drawId:', drawCall._gpuDrivenDrawId,
-                        'shaderDefs:', drawCall._shaderDefs.toString(16)
-                    );
-                }
-
-                if (hasEntry && noExclude && hasTransformSlot &&
-                    this.materialStorageBufferEnabled && hasMaterialSlot &&
-                    hasDrawId) {
+                if (entry && noExclude &&
+                    drawCall._globalTransformSlot >= 0 &&
+                    this.materialStorageBufferEnabled && material._materialSlot >= 0 &&
+                    drawCall._gpuDrivenDrawId >= 0) {
                     drawCall._shaderDefs |= SHADERDEF_GPU_DRIVEN;
                 }
             }
@@ -489,11 +480,6 @@ class ForwardRenderer extends Renderer {
         const device = this.device;
         const passFlag = 1 << pass;
         const flipFactor = flipFaces ? -1 : 1;
-
-        // DEBUG: log path info when materialStorageBufferEnabled
-        if (this.materialStorageBufferEnabled && this._gpuDbgCounter % 120 === 1) {
-            console.log('[DEBUG renderForwardInternal] materialStorageBufferEnabled:true, drawCalls:', preparedCalls.drawCalls.length);
-        }
 
         // multiview xr rendering
         const viewList = camera.xr?.session && camera.xr.views.list.length ? camera.xr.views.list : null;
@@ -700,20 +686,6 @@ class ForwardRenderer extends Renderer {
         // sync materialStorageBufferEnabled flag to scene for shader options
         this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
 
-        // === GPU_DRIVEN DEBUG LOG (once per 120 frames) ===
-        if (!this._gpuDbgCounter) this._gpuDbgCounter = 0;
-        if (this._gpuDbgCounter++ % 120 === 0) {
-            console.log('[GPU_DRIVEN renderForward]',
-                'gpuDrivenEnabled:', this.gpuDrivenEnabled,
-                'materialStorageBufferEnabled:', this.materialStorageBufferEnabled,
-                'materialStorageBuffer:', !!this.materialStorageBuffer,
-                'drawInstanceBuffer:', !!this.drawInstanceBuffer,
-                'geometryPool:', !!this.geometryPool,
-                'drawCalls:', allDrawCalls.length,
-                'transparent:', transparent
-            );
-        }
-
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
             for (let i = 0; i < allDrawCalls.length; i++) {
@@ -734,24 +706,23 @@ class ForwardRenderer extends Renderer {
         const msb = this.materialStorageBuffer;
         if (msb && msb.dirty) {
             msb.upload();
-            // Re-bind scope in case MSB resized
+            // Re-bind scope in case MSB resized (creates new StorageBuffer)
             if (this.globalMaterialsId) {
                 this.globalMaterialsId.setValue(msb.storageBuffer);
             }
-
-            // === DEBUG LOG ===
-            if (this._gpuDbgCounter % 120 === 1) {
-                console.log('[GPU_DRIVEN] msb.upload() after prepareMaterials, nextSlot:', msb.nextSlot,
-                    'dirty was true, first 16 floats:', Array.from(msb.stagingBuffer.slice(0, 16)).map(v => v.toFixed(3)).join(','));
+            // Re-update view bind groups so they pick up the latest globalMaterials buffer reference.
+            // This is required when MSB resizes (new StorageBuffer object) after setupViewUniformBuffers
+            // already captured the old reference.
+            if (viewBindGroups) {
+                for (let i = 0; i < viewBindGroups.length; i++) {
+                    viewBindGroups[i].update();
+                }
             }
         }
 
         // XR multiview uses setViewport per view which is incompatible with render bundles
         const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
-        // DEBUG: temporarily use renderForwardInternal to isolate black objects issue
-        // If objects render correctly here, the issue is in renderForwardGpuDriven
-        // If objects are still black, the issue is in MATERIAL_STORAGE_BUFFER shader/material setup
-        if (false && this.gpuDrivenEnabled && !drawCallback && !hasXR) {
+        if (this.gpuDrivenEnabled && !drawCallback && !hasXR) {
             // GPU-driven path: merged geometry, compute culling, compacted indirect draws
             this.renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
         } else if (this.renderBundlesEnabled && !drawCallback && !hasXR) {
@@ -911,14 +882,6 @@ class ForwardRenderer extends Renderer {
         // Map: batchId -> array of prepared call indices
         const batchDraws = new Map();
 
-        // === GPU_DRIVEN DEBUG LOG ===
-        if (this._gpuDbgCounter % 120 === 1) {
-            console.log('[GPU_DRIVEN renderForwardGpuDriven]',
-                'drawCalls:', drawCalls.length,
-                'transparent:', transparent
-            );
-        }
-
         for (let i = 0; i < drawCalls.length; i++) {
             const drawCall = drawCalls[i];
 
@@ -942,15 +905,6 @@ class ForwardRenderer extends Renderer {
                 // individual draw (no pool entry, dynamic, or no transform slot)
                 legacyIndices.push(i);
             }
-        }
-
-        // === GPU_DRIVEN DEBUG LOG ===
-        if (this._gpuDbgCounter % 120 === 1) {
-            console.log('[GPU_DRIVEN categorize]',
-                'legacy:', legacyIndices.length,
-                'batchGroups:', batchDraws.size,
-                'batchDrawTotal:', [...batchDraws.values()].reduce((s, v) => s + v.length, 0)
-            );
         }
 
         // -- Render legacy (non-GPU-driven) draw calls FIRST --
@@ -992,21 +946,6 @@ class ForwardRenderer extends Renderer {
                     // while the new variant compiles — fall back to per-draw uniforms for safety.
                     const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0 &&
                         !shaderInstance.shader.failed && shaderInstance.shader.ready;
-
-                    // === GPU_DRIVEN DEBUG LOG (first 3 draws per batch, once per 120 frames) ===
-                    if (this._gpuDbgCounter % 120 === 1 && d < 3) {
-                        console.log(`[GPU_DRIVEN batchDraw] batch=${batchId} d=${d}`,
-                            `"${drawCall.node?.name}"`,
-                            'isGpuDriven:', isGpuDriven,
-                            'shaderDefs:', drawCall._shaderDefs.toString(16),
-                            'hasGPU_DRIVEN:', !!(drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN),
-                            'shaderFailed:', shaderInstance.shader.failed,
-                            'shaderReady:', shaderInstance.shader.ready,
-                            'drawId:', drawCall._gpuDrivenDrawId,
-                            'matSlot:', material._materialSlot,
-                            'transformSlot:', drawCall._globalTransformSlot
-                        );
-                    }
 
                     if (shaderInstance.shader.failed) continue;
 
@@ -1100,29 +1039,6 @@ class ForwardRenderer extends Renderer {
         const lightMask = drawCall.mask;
 
         if (shaderInstance.shader.failed) return;
-
-        // === SHADER DEBUG LOG (once per 120 frames) ===
-        if (this._gpuDbgCounter % 120 === 1) {
-            const shader = shaderInstance.shader;
-            const def = shader.definition;
-            const fsrc = def?.fshader || '';
-            console.log(`[SHADER DEBUG _renderSingleDrawCall] "${drawCall.node?.name}"`,
-                'newMaterial:', newMaterial,
-                'msbEnabled:', this.materialStorageBufferEnabled,
-                'matSlot:', material._materialSlot,
-                'shaderName:', shader.name);
-            console.log('[SHADER FRAG] hasMATERIAL_STORAGE_BUFFER:', fsrc.includes('getMaterialBaseColor'),
-                'hasGlobalMaterials:', fsrc.includes('globalMaterials'),
-                'hasMaterialIndex:', fsrc.includes('materialIndex'),
-                'hasUniform_material_diffuse:', fsrc.includes('material_diffuse'));
-            // Show fragment source around materialAccess (search for getMaterial or globalMaterials)
-            const idx = fsrc.indexOf('getMaterialBaseColor');
-            if (idx >= 0) {
-                console.log('[SHADER FRAG materialAccess]:', fsrc.substring(Math.max(0, idx - 100), idx + 200));
-            } else {
-                console.log('[SHADER FRAG first 800]:', fsrc.substring(0, 800));
-            }
-        }
 
         if (newMaterial) {
             const asyncCompile = false;

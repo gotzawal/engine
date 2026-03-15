@@ -12,7 +12,7 @@ import {
     SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR, SHADERDEF_TANGENTS, SHADERDEF_NOSHADOW, SHADERDEF_SKIN,
     SHADERDEF_SCREENSPACE, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_BATCH,
     SHADERDEF_LM, SHADERDEF_DIRLM, SHADERDEF_LMAMBIENT, SHADERDEF_INSTANCING, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADOW_CASCADE_ALL,
+    SHADERDEF_GLOBAL_TRANSFORM_BUFFER, SHADERDEF_GPU_DRIVEN, SHADERDEF_MATERIAL_STORAGE_BUFFER, SHADOW_CASCADE_ALL,
     SHADER_FORWARD
 } from './constants.js';
 import { GraphNode } from './graph-node.js';
@@ -778,12 +778,10 @@ class MeshInstance {
             }
         }
 
-        // Strip GPU_DRIVEN for non-forward passes (shadow, pick, prepass, depth-pick).
-        // Only the forward pass goes through renderForwardGpuDriven with DIB setup.
-        if (shaderDefs & SHADERDEF_GPU_DRIVEN) {
-            if (shaderPass !== SHADER_FORWARD) {
-                shaderDefs &= ~SHADERDEF_GPU_DRIVEN;
-            }
+        // Strip GPU_DRIVEN and MATERIAL_STORAGE_BUFFER for non-forward passes
+        // (shadow, pick, prepass, depth-pick). These features only apply to forward rendering.
+        if (shaderPass !== SHADER_FORWARD) {
+            shaderDefs &= ~(SHADERDEF_GPU_DRIVEN | SHADERDEF_MATERIAL_STORAGE_BUFFER);
         }
 
         // unique hash for the required shader
@@ -1097,40 +1095,26 @@ class MeshInstance {
     ensureGeometryPoolEntry(pool) {
         if (this._geometryPoolEntry) return this._geometryPoolEntry;
 
-        // === DEBUG: log every call (no one-time guard) ===
-        if (!this._gpuPoolDbgCount) this._gpuPoolDbgCount = 0;
-        const doLog = (this._gpuPoolDbgCount++ % 120 === 0);
-
         // skip objects with dynamic vertex data
         if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) {
-            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: dynamic defs=0x${this._shaderDefs.toString(16)}`);
             return null;
         }
         if (this.morphInstance) {
-            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: morphInstance`);
             return null;
         }
 
         const mesh = this.mesh;
         if (!mesh) {
-            if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: no mesh`);
             return null;
         }
 
         // skip non-interleaved vertex formats (incompatible with geometry pool's interleaved copy logic)
         const vb = mesh.vertexBuffer;
         if (!vb || !vb.getFormat().interleaved) {
-            if (doLog) {
-                const fmt = vb?.getFormat();
-                console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" SKIP: non-interleaved`,
-                    'hasVB:', !!vb, 'interleaved:', fmt?.interleaved,
-                    'elements:', fmt?.elements?.map(e => e.name).join(','), 'stride:', fmt?.size);
-            }
             return null;
         }
 
         this._geometryPoolEntry = pool.addMesh(mesh);
-        if (doLog) console.log(`[ensureGeometryPoolEntry] "${this.node?.name}" OK entry:`, this._geometryPoolEntry);
         return this._geometryPoolEntry;
     }
 

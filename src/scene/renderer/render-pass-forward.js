@@ -318,49 +318,22 @@ class RenderPassForward extends RenderPass {
             // Fill DrawInstanceBuffer for GPU-driven path (after geometry pool + transforms)
             // Skip transparent draws — they always use the legacy CPU-sorted path
             if (fillDib && !ra.transparent) {
-                let _dibAdded = 0, _dibSkipEntry = 0, _dibSkipExclude = 0, _dibSkipTransform = 0, _dibSkipMat = 0;
                 for (let j = 0; j < visible.length; j++) {
                     const dc = visible[j];
                     // Reset drawId to prevent stale IDs from previous frames
                     dc._gpuDrivenDrawId = -1;
 
                     const entry = dc._geometryPoolEntry;
-                    if (!entry) { _dibSkipEntry++; continue; }
-                    if (dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) { _dibSkipExclude++; continue; }
-                    if (dc._globalTransformSlot < 0) { _dibSkipTransform++; continue; }
-                    if (!dc.material || dc.material._materialSlot < 0) { _dibSkipMat++; continue; }
+                    if (!entry) continue;
+                    if (dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) continue;
+                    if (dc._globalTransformSlot < 0) continue;
+                    if (!dc.material || dc.material._materialSlot < 0) continue;
 
                     const drawId = dib.addInstance(
                         dc._globalTransformSlot, dc.material._materialSlot,
                         entry.firstIndex, entry.indexCount, entry.baseVertex, entry.batchId
                     );
                     dc._gpuDrivenDrawId = drawId;
-                    _dibAdded++;
-                }
-
-                // === GPU_DRIVEN DEBUG LOG (once per 120 frames) ===
-                if (!renderer._gpuDbgCounter2) renderer._gpuDbgCounter2 = 0;
-                if (renderer._gpuDbgCounter2++ % 120 === 0) {
-                    console.log(`[GPU_DRIVEN DIB fill] ra[${i}] layer="${ra.layer?.name}" transparent:${ra.transparent}`,
-                        `visible:${visible.length}`,
-                        `added:${_dibAdded}`,
-                        `skipEntry:${_dibSkipEntry}`,
-                        `skipExclude:${_dibSkipExclude}`,
-                        `skipTransform:${_dibSkipTransform}`,
-                        `skipMat:${_dibSkipMat}`,
-                        `dibTotal:${dib.count}`
-                    );
-                    // Log first 3 draws for detail
-                    for (let j = 0; j < Math.min(3, visible.length); j++) {
-                        const dc = visible[j];
-                        console.log(`  dc[${j}] "${dc.node?.name}"`,
-                            'entry:', !!dc._geometryPoolEntry,
-                            'transformSlot:', dc._globalTransformSlot,
-                            'matSlot:', dc.material?._materialSlot,
-                            'drawId:', dc._gpuDrivenDrawId,
-                            'shaderDefs:', dc._shaderDefs?.toString(16)
-                        );
-                    }
                 }
             }
 
