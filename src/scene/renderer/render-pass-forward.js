@@ -316,6 +316,22 @@ class RenderPassForward extends RenderPass {
             const forwardRenderer = /** @type {import('./forward-renderer.js').ForwardRenderer} */ (renderer);
             forwardRenderer.setupGlobalTransformIndirectDraws(camera, visible, ra.transparent);
 
+            // Allocate material storage buffer slots BEFORE populating DrawInstanceBuffer,
+            // so that materialSlot values written to the buffer are valid indices.
+            const msb = renderer.materialStorageBuffer;
+            if (msb) {
+                for (let j = 0; j < visible.length; j++) {
+                    const material = visible[j].material;
+                    if (material && material._materialSlot < 0) {
+                        material._materialSlot = msb.allocateSlot();
+                        material._materialStorageBuffer = msb;
+                    }
+                    if (material && material.packToStorageBuffer) {
+                        material.packToStorageBuffer(msb, material._materialSlot);
+                    }
+                }
+            }
+
             // Populate DrawInstanceBuffer for GPU-driven rendering
             if (drawInstanceBuffer) {
                 for (let j = 0; j < visible.length; j++) {
@@ -343,6 +359,15 @@ class RenderPassForward extends RenderPass {
                         dc.setGpuDriven(false);
                     }
                 }
+            }
+        }
+
+        // Upload material storage buffer (packed during the allocation loop above)
+        const msbRef = renderer.materialStorageBuffer;
+        if (msbRef && msbRef.dirty) {
+            msbRef.upload();
+            if (renderer.globalMaterialsId) {
+                renderer.globalMaterialsId.setValue(msbRef.storageBuffer);
             }
         }
 
