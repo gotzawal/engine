@@ -717,21 +717,6 @@ class ForwardRenderer extends Renderer {
             this.materialStorageBufferEnabled = true;
         }
 
-        // sync flags to scene for shader options
-        this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
-        this.scene._textureArrayBatchingEnabled = this.textureArrayBatchingEnabled;
-
-        // DEBUG: log rendering flags once
-        if (!this._debugLoggedFlags) {
-            this._debugLoggedFlags = true;
-            console.log('[TexArrayDebug] renderForward flags:', {
-                gpuDrivenEnabled: this.gpuDrivenEnabled,
-                materialStorageBufferEnabled: this.materialStorageBufferEnabled,
-                textureArrayBatchingEnabled: this.textureArrayBatchingEnabled,
-                hasTextureArrayManager: !!this.textureArrayManager
-            });
-        }
-
         // For GPU-driven mode: register eligible meshes in the geometry pool
         if (this.gpuDrivenEnabled && this.geometryPool) {
             for (let i = 0; i < allDrawCalls.length; i++) {
@@ -1187,6 +1172,12 @@ class ForwardRenderer extends Renderer {
     renderForwardLayer(camera, renderTarget, layer, transparent, shaderPass, viewBindGroups, options = {}) {
 
         const { scene, device } = this;
+
+        // sync flags to scene for shader options — must happen before material
+        // compilation in renderForward so that _updateSharedOptions sees the
+        // correct values on the very first frame.
+        scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+        scene._textureArrayBatchingEnabled = this.textureArrayBatchingEnabled;
 
         this.setupViewport(camera, renderTarget);
 

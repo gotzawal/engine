@@ -255,6 +255,17 @@ class RenderPassForward extends RenderPass {
             this._dispatchGpuClusterLighting(renderActions);
         }
 
+        // Ensure the texture-array placeholder (if needed) is created and uploaded
+        // outside the render pass. Texture uploads cannot happen inside an active
+        // render pass on WebGPU.
+        if (forwardRenderer.textureArrayBatchingEnabled && forwardRenderer.textureArrayManager) {
+            const tam = forwardRenderer.textureArrayManager;
+            const firstGroup = tam.groupsByIndex.get(0);
+            if (!firstGroup?.textureArray && !forwardRenderer._placeholderTexArray) {
+                forwardRenderer._placeholderTexArray = tam.createPlaceholder();
+            }
+        }
+
         // onPreRender events
         for (let i = 0; i < renderActions.length; i++) {
             const ra = renderActions[i];
@@ -341,12 +352,6 @@ class RenderPassForward extends RenderPass {
             const pipelineGroups = []; // [{key, startDrawId, count, draws, batchId}]
 
             const texArrayEnabled = forwardRenderer.textureArrayBatchingEnabled;
-            if (!this._debugLoggedGroupKey) {
-                this._debugLoggedGroupKey = true;
-                console.log('[TexArrayDebug] _dispatchGpuDrivenCompaction:',
-                    'texArrayEnabled:', texArrayEnabled,
-                    'eligibleDraws:', eligibleDraws.length);
-            }
             for (let i = 0; i < eligibleDraws.length; i++) {
                 const dc = eligibleDraws[i];
                 const mat = dc.material;

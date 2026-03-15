@@ -83,13 +83,6 @@ class StandardMaterialOptionsBuilder {
         options.litOptions.useGlobalTransformBuffer = objDefs && (objDefs & SHADERDEF_GLOBAL_TRANSFORM_BUFFER) !== 0;
         options.litOptions.useGpuDriven = !!(gpuRenderDefs & 1);  // GPU_RENDER_DEF_GPU_DRIVEN
         options.litOptions.textureArrayBatchingEnabled = scene._textureArrayBatchingEnabled ?? false;
-        if (!StandardMaterialOptionsBuilder._debugLoggedTexArray) {
-            StandardMaterialOptionsBuilder._debugLoggedTexArray = true;
-            console.log('[TexArrayDebug] _updateSharedOptions:',
-                'useGpuDriven:', options.litOptions.useGpuDriven,
-                'textureArrayBatchingEnabled:', options.litOptions.textureArrayBatchingEnabled,
-                'scene._textureArrayBatchingEnabled:', scene._textureArrayBatchingEnabled);
-        }
 
         options.litOptions.nineSlicedMode = stdMat.nineSlicedMode || 0;
 
