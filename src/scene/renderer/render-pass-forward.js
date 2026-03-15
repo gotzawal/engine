@@ -353,15 +353,18 @@ class RenderPassForward extends RenderPass {
                 const batchId = dc._geometryPoolEntry.batchId;
 
                 // Determine texture key:
-                // - array-compatible or no textures: texKey=0 (can merge)
-                // - legacy (incompatible textures): texKey=mat.id (separate group)
+                // - array-compatible: texKey = arrayIndex (same array can merge)
+                // - no textures: texKey=0 (can merge)
+                // - legacy (incompatible textures): texKey = mat.id + large offset (separate group)
                 let texKey;
                 if (texArrayEnabled && mat._textureArrayCompatible) {
-                    texKey = 0;
+                    // Group by array index so each pipeline group binds one texture array
+                    const entry = mat._diffuseArrayEntry;
+                    texKey = entry ? entry.arrayIndex : 0;
                 } else if (!mat.diffuseMap && !mat.normalMap && !mat.heightMap) {
                     texKey = 0;
                 } else {
-                    texKey = mat.id;
+                    texKey = mat.id + 1000000; // offset to avoid collision with arrayIndex
                 }
                 const key = (texKey * 100003 + mat.blendState.key * 1009 + mat.depthState.key * 31 + batchId * 7) | 0;
 

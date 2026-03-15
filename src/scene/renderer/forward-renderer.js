@@ -455,23 +455,22 @@ class ForwardRenderer extends Renderer {
                         material._materialSlot = msb.allocateSlot();
                         material._materialStorageBuffer = msb;
                     }
+
+                    // Texture array batching: register diffuse textures BEFORE packing
+                    // so texArrayLayers contains correct layer indices on the first pack
+                    const tam = this.textureArrayManager;
+                    if (tam && this.textureArrayBatchingEnabled) {
+                        if (material.diffuseMap && !material._diffuseArrayEntry) {
+                            material._diffuseArrayEntry = tam.addTexture(material.diffuseMap);
+                        }
+                        const hasDiffuse = !!material.diffuseMap;
+                        const diffuseInArray = !!material._diffuseArrayEntry;
+                        material._textureArrayCompatible = !hasDiffuse || diffuseInArray;
+                    }
+
                     if (material.packToStorageBuffer) {
                         material.packToStorageBuffer(msb, material._materialSlot);
                     }
-                }
-
-                // Texture array batching: register diffuse textures
-                const tam = this.textureArrayManager;
-                if (tam && this.textureArrayBatchingEnabled && material._materialSlot >= 0) {
-                    // diffuseMap registration
-                    if (material.diffuseMap && !material._diffuseArrayEntry) {
-                        material._diffuseArrayEntry = tam.addTexture(material.diffuseMap);
-                        console.log('[TexArrayDebug] registered diffuseMap:', material.name, 'entry:', material._diffuseArrayEntry);
-                    }
-                    // array compatibility: no texture or all textures in array
-                    const hasDiffuse = !!material.diffuseMap;
-                    const diffuseInArray = !!material._diffuseArrayEntry;
-                    material._textureArrayCompatible = !hasDiffuse || diffuseInArray;
                 }
             }
 
@@ -995,14 +994,18 @@ class ForwardRenderer extends Renderer {
                 // per-material textures handled via SB layer index.
                 // Only env textures and non-SB uniforms need binding.
                 if (this.textureArrayBatchingEnabled && material._textureArrayCompatible) {
-                    if (!this._debugLoggedEnvOnly) {
-                        this._debugLoggedEnvOnly = true;
-                        console.log('[TexArrayDebug] setParametersEnvOnly for:', material.name,
-                            'compatible:', material._textureArrayCompatible,
-                            'diffuseEntry:', material._diffuseArrayEntry,
-                            'diffuseMap:', !!material.diffuseMap);
-                    }
                     material.setParametersEnvOnly(device);
+
+                    // Bind the correct texture array for this group's arrayIndex
+                    const tam = this.textureArrayManager;
+                    if (tam && this.globalDiffuseArrayId) {
+                        const entry = material._diffuseArrayEntry;
+                        const arrayIdx = entry ? entry.arrayIndex : 0;
+                        const texArray = tam.getTextureArray(arrayIdx);
+                        if (texArray) {
+                            this.globalDiffuseArrayId.setValue(texArray);
+                        }
+                    }
                 } else {
                     material.setParametersTextureOnly(device);
                 }

@@ -872,14 +872,14 @@ class Renderer {
             viewBindGroups.push(bg);
         }
 
-        // Bind texture array for GPU-driven texture array batching
+        // Set a default texture array for GPU-driven texture array batching.
+        // The correct per-group array is bound in renderForwardGpuDriven per pipeline group.
         if (this.textureArrayManager && this.globalDiffuseArrayId) {
             const tam = this.textureArrayManager;
             const firstGroup = tam.groupsByIndex.get(0);
             if (firstGroup?.textureArray) {
                 this.globalDiffuseArrayId.setValue(firstGroup.textureArray);
             } else {
-                // placeholder: 1x1x1 white texture array
                 if (!this._placeholderTexArray) {
                     this._placeholderTexArray = tam.createPlaceholder();
                 }

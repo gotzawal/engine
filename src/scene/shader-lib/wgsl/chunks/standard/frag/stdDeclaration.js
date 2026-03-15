@@ -49,8 +49,8 @@ export default /* wgsl */`
             #endif
         #endif
 
-        // diffuse
-        #ifdef STD_DIFFUSE_TEXTURE_ALLOCATE
+        // diffuse - skip individual texture when using texture array batching
+        #if defined(STD_DIFFUSE_TEXTURE_ALLOCATE) && !(defined(GPU_DRIVEN) && defined(TEXTURE_ARRAY_BATCHING))
             var texture_diffuseMap : texture_2d<f32>;
             var texture_diffuseMapSampler : sampler;
         #endif
