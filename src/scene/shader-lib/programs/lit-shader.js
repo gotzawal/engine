@@ -315,6 +315,7 @@ class LitShader {
 
         if (options.useInstancing) vDefines.set('INSTANCING', true);
         if (options.useGlobalTransformBuffer) vDefines.set('GLOBAL_TRANSFORM_BUFFER', true);
+        if (options.useGpuDriven) vDefines.set('GPU_DRIVEN', true);
         if (options.screenSpace) vDefines.set('SCREENSPACE', true);
         if (options.pixelSnap) vDefines.set('PIXELSNAP', true);
 
@@ -348,6 +349,7 @@ class LitShader {
         this.fDefines.set('LIGHT_COUNT', options.lights.length);
         if (hasAreaLights) fDefines.set('AREA_LIGHTS', true);
         if (options.materialStorageBufferEnabled) fDefines.set('MATERIAL_STORAGE_BUFFER', true);
+        if (options.useGpuDriven) fDefines.set('GPU_DRIVEN', true);
 
         // clustered lights defines
         if (clusteredLightingEnabled && this.lighting) {

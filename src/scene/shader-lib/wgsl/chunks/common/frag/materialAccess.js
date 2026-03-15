@@ -34,7 +34,114 @@ struct MaterialData {
 
 export default /* wgsl */`
 
-#ifdef MATERIAL_STORAGE_BUFFER
+#if defined(GPU_DRIVEN)
+
+// GPU_DRIVEN: materialSlot is passed from DrawInstance via vertex -> fragment flat varying
+fn getMaterialData() -> MaterialData {
+    return globalMaterials[i32(vMaterialSlot)];
+}
+
+fn getMaterialBaseColor() -> vec4f {
+    return globalMaterials[i32(vMaterialSlot)].baseColor;
+}
+
+fn getMaterialEmissive() -> vec3f {
+    return globalMaterials[i32(vMaterialSlot)].emissive_opacity.xyz;
+}
+
+fn getMaterialOpacity() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].emissive_opacity.w;
+}
+
+fn getMaterialSpecular() -> vec3f {
+    return globalMaterials[i32(vMaterialSlot)].specular_glossiness.xyz;
+}
+
+fn getMaterialGlossiness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].specular_glossiness.w;
+}
+
+fn getMaterialMetalness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params1.x;
+}
+
+fn getMaterialRoughness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params1.y;
+}
+
+fn getMaterialAlphaTest() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params1.z;
+}
+
+fn getMaterialBumpiness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params1.w;
+}
+
+fn getMaterialReflectivity() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params2.x;
+}
+
+fn getMaterialRefraction() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params2.y;
+}
+
+fn getMaterialRefractionIndex() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params2.z;
+}
+
+fn getMaterialThickness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params2.w;
+}
+
+fn getMaterialClearcoat() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params3.x;
+}
+
+fn getMaterialClearcoatGloss() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params3.y;
+}
+
+fn getMaterialAO() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params3.z;
+}
+
+fn getMaterialLightMapIntensity() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params3.w;
+}
+
+fn getMaterialSheenGloss() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params4.x;
+}
+
+fn getMaterialIridescence() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params4.y;
+}
+
+fn getMaterialIridescenceThickness() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params4.z;
+}
+
+fn getMaterialAnisotropy() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].params4.w;
+}
+
+fn getMaterialSheenColor() -> vec3f {
+    return globalMaterials[i32(vMaterialSlot)].sheen_dispersion.xyz;
+}
+
+fn getMaterialDispersion() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].sheen_dispersion.w;
+}
+
+fn getMaterialAttenuationColor() -> vec3f {
+    return globalMaterials[i32(vMaterialSlot)].attenuation.xyz;
+}
+
+fn getMaterialAttenuationDistance() -> f32 {
+    return globalMaterials[i32(vMaterialSlot)].attenuation.w;
+}
+
+#elif defined(MATERIAL_STORAGE_BUFFER)
 
 uniform materialIndex: f32;
 

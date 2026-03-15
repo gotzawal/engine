@@ -7,6 +7,7 @@ import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { RenderPass } from '../../platform/graphics/render-pass.js';
 import { RenderAction } from '../composition/render-action.js';
 import { EVENT_POSTRENDER, EVENT_POSTRENDER_LAYER, EVENT_PRERENDER, EVENT_PRERENDER_LAYER, SHADER_FORWARD } from '../constants.js';
+import { GPU_DRIVEN_EXCLUDE_DEFS } from './forward-renderer.js';
 
 /**
  * @import { CameraComponent } from '../../framework/components/camera/component.js'
@@ -281,6 +282,40 @@ class RenderPassForward extends RenderPass {
         const culler = renderer.gpuFrustumCuller;
 
         if (!pool) return;
+
+        // Fill DrawInstanceBuffer first (assigns _gpuDrivenDrawId to each eligible MeshInstance)
+        // so that setupGlobalTransformIndirectDraws can use drawId for firstInstance.
+        const dib = renderer.drawInstanceBuffer;
+        if (dib && renderer.gpuDrivenEnabled) {
+            dib.beginFrame();
+
+            for (let i = 0; i < renderActions.length; i++) {
+                const ra = renderActions[i];
+                if (!ra.camera) continue;
+
+                const culledInstances = ra.layer.getCulledInstances(ra.camera.camera);
+                const visible = ra.transparent ?
+                    culledInstances.transparent :
+                    culledInstances.opaque;
+
+                for (let j = 0; j < visible.length; j++) {
+                    const dc = visible[j];
+                    const entry = dc._geometryPoolEntry;
+                    if (!entry) continue;
+                    if (dc._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) continue;
+                    if (dc._globalTransformSlot < 0) continue;
+                    if (!dc.material || dc.material._materialSlot < 0) continue;
+
+                    const drawId = dib.addInstance(
+                        dc._globalTransformSlot, dc.material._materialSlot,
+                        entry.firstIndex, entry.indexCount, entry.baseVertex, entry.batchId
+                    );
+                    dc._gpuDrivenDrawId = drawId;
+                }
+            }
+
+            dib.upload();
+        }
 
         // Register eligible meshes in the geometry pool and prepare transforms/indirect draws.
         // This runs before the render pass so that GPU frustum culling can operate on the

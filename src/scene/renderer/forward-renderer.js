@@ -10,7 +10,7 @@ import {
     LAYERID_DEPTH,
     PROJECTION_ORTHOGRAPHIC,
     SHADERDEF_SKIN, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_MORPH_TEXTURE_BASED_INT,
-    SHADERDEF_BATCH, SHADERDEF_INSTANCING
+    SHADERDEF_BATCH, SHADERDEF_INSTANCING, SHADERDEF_GPU_DRIVEN
 } from '../constants.js';
 import { WorldClustersDebug } from '../lighting/world-clusters-debug.js';
 import { Renderer } from './renderer.js';
@@ -38,7 +38,7 @@ const _indirectArgs = new Uint32Array(5);
 const tmpColor = new Color();
 
 // Mask for dynamic mesh instances (skinned, morphed, batched, instanced) - excluded from GPU-driven path
-const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
+export const GPU_DRIVEN_EXCLUDE_DEFS = SHADERDEF_SKIN | SHADERDEF_MORPH_POSITION | SHADERDEF_MORPH_NORMAL |
     SHADERDEF_MORPH_TEXTURE_BASED_INT | SHADERDEF_BATCH | SHADERDEF_INSTANCING;
 
 
@@ -443,6 +443,16 @@ class ForwardRenderer extends Renderer {
                 }
             }
 
+            // GPU_DRIVEN define — eligible draws read transform/material from DrawInstanceBuffer
+            if (this.gpuDrivenEnabled) {
+                const entry = drawCall._geometryPoolEntry;
+                if (entry && !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS) &&
+                    drawCall._globalTransformSlot >= 0 &&
+                    this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                    drawCall._shaderDefs |= SHADERDEF_GPU_DRIVEN;
+                }
+            }
+
             const shaderInstance = drawCall.getShaderInstance(pass, lightHash, scene, shaderParams, this.viewUniformFormat, this.viewBindGroupFormat, sortedLights);
 
             addCall(drawCall, shaderInstance, material !== prevMaterial, !prevMaterial || lightMask !== prevLightMask);
@@ -619,7 +629,14 @@ class ForwardRenderer extends Renderer {
                 tempArgs[1] = 1;
                 tempArgs[2] = poolEntry.firstIndex;
                 tempArgs[3] = poolEntry.baseVertex;
-                tempArgs[4] = slot; // firstInstance encodes the transform slot
+                // GPU_DRIVEN eligible: firstInstance = drawId (DIB index) for DrawInstance lookup
+                // Legacy: firstInstance = transform slot for direct globalTransforms lookup
+                if (drawCall._gpuDrivenDrawId >= 0 &&
+                    !(drawCall._shaderDefs & GPU_DRIVEN_EXCLUDE_DEFS)) {
+                    tempArgs[4] = drawCall._gpuDrivenDrawId;
+                } else {
+                    tempArgs[4] = slot;
+                }
             } else {
                 // write draw args using original mesh primitive offsets
                 const prim = drawCall.mesh.primitive[drawCall.renderStyle];
@@ -890,13 +907,18 @@ class ForwardRenderer extends Renderer {
                     const drawCall = drawCalls[preparedIdx];
                     const shaderInstance = shaderInstances[preparedIdx];
                     const material = drawCall.material;
+                    const isGpuDriven = (drawCall._shaderDefs & SHADERDEF_GPU_DRIVEN) !== 0;
 
                     if (shaderInstance.shader.failed) continue;
 
                     // Material / pipeline state — set only when it changes
                     if (material !== prevMaterial) {
                         device.setShader(shaderInstance.shader, false);
-                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+
+                        // GPU_DRIVEN: textures still need CPU binding, scalar/vector params read from SB
+                        if (isGpuDriven) {
+                            material.setParametersTextureOnly(device);
+                        } else if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
                             material.setParametersTextureOnly(device);
                         } else {
                             material.setParameters(device);
@@ -906,7 +928,10 @@ class ForwardRenderer extends Renderer {
                             this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], drawCall.mask, camera);
                         }
 
-                        this.alphaTestId.setValue(material.alphaTest);
+                        if (!isGpuDriven) {
+                            this.alphaTestId.setValue(material.alphaTest);
+                        }
+
                         device.setBlendState(material.blendState);
                         device.setDepthState(material.depthState);
                         device.setAlphaToCoverage(material.alphaToCoverage);
@@ -919,13 +944,17 @@ class ForwardRenderer extends Renderer {
                     const stencilBack = drawCall.stencilBack ?? material.stencilBack;
                     device.setStencilState(stencilFront, stencilBack);
 
-                    if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
-                        this.materialIndexId.setValue(material._materialSlot);
+                    if (!isGpuDriven) {
+                        // Legacy: per-draw uniform upload
+                        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                            this.materialIndexId.setValue(material._materialSlot);
+                        }
+                        drawCall.setParameters(device, passFlag);
+                        this.setMeshInstanceMatrices(drawCall, true);
                     }
 
-                    drawCall.setParameters(device, passFlag);
+                    // meshInstanceId is needed for picker
                     device.scope.resolve('meshInstanceId').setValue(drawCall.id);
-                    this.setMeshInstanceMatrices(drawCall, true);
 
                     // Set shared vertex buffer before each draw (draw() clears VB array after each call)
                     device.setVertexBuffer(batch.vertexBuffer);
