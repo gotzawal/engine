@@ -16,15 +16,13 @@ import {
     CULLFACE_NONE,
     BINDGROUP_MESH_UB,
     FRONTFACE_CCW,
-    FRONTFACE_CW,
-    TEXTUREDIMENSION_2D_ARRAY,
-    SAMPLETYPE_FLOAT
+    FRONTFACE_CW
 } from '../../platform/graphics/constants.js';
 import { DebugGraphics } from '../../platform/graphics/debug-graphics.js';
 import { UniformBuffer } from '../../platform/graphics/uniform-buffer.js';
 import { BindGroup, DynamicBindGroup } from '../../platform/graphics/bind-group.js';
 import { UniformFormat, UniformBufferFormat } from '../../platform/graphics/uniform-buffer-format.js';
-import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat, BindTextureFormat } from '../../platform/graphics/bind-group-format.js';
+import { BindGroupFormat, BindUniformBufferFormat, BindStorageBufferFormat } from '../../platform/graphics/bind-group-format.js';
 import { GlobalTransformBuffer } from './global-transform-buffer.js';
 import { GpuFrustumCuller } from './gpu-frustum-culler.js';
 import { GeometryPool } from './geometry-pool.js';
@@ -827,16 +825,10 @@ class Renderer {
                 formats.push(dibFormat);
             }
 
-            // Diffuse texture array for GPU-driven texture array batching (read-only in fragment)
-            if (this.textureArrayManager) {
-                const texArrayFormat = new BindTextureFormat(
-                    'globalDiffuseArray',
-                    SHADERSTAGE_FRAGMENT,
-                    TEXTUREDIMENSION_2D_ARRAY,
-                    SAMPLETYPE_FLOAT
-                );
-                formats.push(texArrayFormat);
-            }
+            // Note: globalDiffuseArray texture is NOT added to view bind group.
+            // View-level textures cause pipeline layout mismatches for shaders that
+            // don't reference them. Instead, it's declared via var in shader code
+            // and automatically added to mesh bind group by the shader processor.
 
             // disable view level textures, as they consume texture slots. They get automatically added to mesh bind group
             // for the meshes that uses them

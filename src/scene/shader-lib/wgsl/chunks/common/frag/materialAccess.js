@@ -40,6 +40,13 @@ export default /* wgsl */`
 // GPU_DRIVEN: materialSlot is passed from DrawInstance via vertex -> fragment flat varying
 varying @interpolate(flat) vMaterialSlot: u32;
 
+#if defined(TEXTURE_ARRAY_BATCHING)
+// Shared texture array for GPU-driven texture array batching.
+// Declared here so the shader processor adds it to the mesh bind group.
+var globalDiffuseArray: texture_2d_array<f32>;
+var globalDiffuseArray_sampler: sampler;
+#endif
+
 fn getMaterialData() -> MaterialData {
     return globalMaterials[i32(vMaterialSlot)];
 }
