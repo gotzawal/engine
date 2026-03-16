@@ -354,6 +354,8 @@ class RenderPassForward extends RenderPass {
                 let texKey;
                 if (texArrayBatching && mat._textureArrayCompatible) {
                     texKey = 0;
+                } else if (!mat.diffuseMap && !mat.normalMap && !mat.heightMap) {
+                    texKey = 0;  // no textures to bind — safe to merge
                 } else {
                     texKey = mat.id;
                 }
