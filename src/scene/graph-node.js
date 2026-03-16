@@ -212,6 +212,14 @@ class GraphNode extends EventHandler {
     worldTransform = new Mat4();
 
     /**
+     * Slot index in the GlobalTransformBuffer, or -1 if not bound.
+     *
+     * @type {number}
+     * @private
+     */
+    _globalTransformSlot = -1;
+
+    /**
      * @type {boolean}
      * @private
      */
@@ -1160,6 +1168,40 @@ class GraphNode extends EventHandler {
             p._frozen = false;
             p = p._parent;
         }
+    }
+
+    /**
+     * Bind this node's worldTransform.data to a view into the GlobalTransformBuffer's staging
+     * buffer. After binding, _sync() writes directly into the staging buffer (zero-copy).
+     *
+     * @param {import('../scene/renderer/global-transform-buffer.js').GlobalTransformBuffer} gtb - The global transform buffer.
+     * @param {number} slot - The allocated slot index.
+     * @ignore
+     */
+    _bindWorldTransformToBuffer(gtb, slot) {
+        this._globalTransformSlot = slot;
+        this.worldTransform.data = gtb.getSlotView(slot);
+        // Initialize to identity
+        const d = this.worldTransform.data;
+        d.fill(0);
+        d[0] = d[5] = d[10] = d[15] = 1;
+        gtb.registerNode(this);
+        // Force world transform recalculation so the buffer gets the correct value
+        this._dirtifyWorld();
+    }
+
+    /**
+     * Unbind this node's worldTransform.data from the GlobalTransformBuffer, restoring an
+     * independent Float32Array.
+     *
+     * @param {import('../scene/renderer/global-transform-buffer.js').GlobalTransformBuffer} gtb - The global transform buffer.
+     * @ignore
+     */
+    _unbindWorldTransformFromBuffer(gtb) {
+        gtb.unregisterNode(this);
+        this.worldTransform.data = new Float32Array(16);
+        this._globalTransformSlot = -1;
+        this._dirtifyWorld();
     }
 
     /** @private */

@@ -1,3 +1,4 @@
+import { data } from 'examples/observer';
 import { deviceType } from 'examples/utils';
 import * as pc from 'playcanvas';
 
@@ -31,6 +32,19 @@ app.on('destroy', () => {
 });
 
 app.start();
+
+// Initialize observer data for control panel
+data.set('settings', {
+    doPipelineEnabled: false
+});
+
+// Listen for control panel changes
+data.on('*:set', (/** @type {string} */ path, value) => {
+    const pathArray = path.split('.');
+    if (pathArray[1] === 'doPipelineEnabled') {
+        app.renderer.doPipelineEnabled = value;
+    }
+});
 
 app.scene.ambientLight = new pc.Color(0.2, 0.2, 0.2);
 

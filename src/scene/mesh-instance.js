@@ -1092,10 +1092,38 @@ class MeshInstance {
      */
     freeGlobalTransformSlot(device) {
         if (this._globalTransformSlot >= 0 && device.globalTransformBuffer) {
+            // Unbind the zero-copy worldTransform view if bound
+            if (this.node._globalTransformSlot >= 0) {
+                this.node._unbindWorldTransformFromBuffer(device.globalTransformBuffer);
+            }
             device.globalTransformBuffer.freeSlot(this._globalTransformSlot);
             this._globalTransformSlot = -1;
             this._shaderDefs &= ~SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
         }
+    }
+
+    /**
+     * Ensure this mesh instance is registered for the DO (Data-Oriented) pipeline.
+     * Allocates a GlobalTransformBuffer slot and binds the node's worldTransform.data
+     * directly to the staging buffer (zero-copy).
+     *
+     * @param {import('../platform/graphics/graphics-device.js').GraphicsDevice} device - The graphics device.
+     * @ignore
+     */
+    ensureDOBinding(device) {
+        if (this._globalTransformSlot >= 0) return;
+        // Exclude skinned, batched, instanced
+        if (this._shaderDefs & (SHADERDEF_SKIN | SHADERDEF_BATCH | SHADERDEF_INSTANCING)) return;
+
+        const gtb = device.globalTransformBuffer;
+        if (!gtb) return;
+
+        const slot = gtb.allocateSlot();
+        this._globalTransformSlot = slot;
+        this._shaderDefs |= SHADERDEF_GLOBAL_TRANSFORM_BUFFER;
+
+        // Zero-copy binding: worldTransform.data points directly into staging buffer
+        this.node._bindWorldTransformToBuffer(gtb, slot);
     }
 
     /**

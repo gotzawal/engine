@@ -757,7 +757,7 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         _uniqueLocations.clear();
     }
 
-    draw(primitive, indexBuffer, numInstances = 1, drawCommands, first = true, last = true) {
+    draw(primitive, indexBuffer, numInstances = 1, drawCommands, first = true, last = true, firstInstance = 0) {
 
         if (this.shader.ready && !this.shader.failed) {
 
@@ -819,9 +819,9 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
             } else { // single draw path
 
                 if (indexBuffer) {
-                    passEncoder.drawIndexed(primitive.count, numInstances, primitive.base, primitive.baseVertex ?? 0, 0);
+                    passEncoder.drawIndexed(primitive.count, numInstances, primitive.base, primitive.baseVertex ?? 0, firstInstance);
                 } else {
-                    passEncoder.draw(primitive.count, numInstances, primitive.base, 0);
+                    passEncoder.draw(primitive.count, numInstances, primitive.base, firstInstance);
                 }
             }
 

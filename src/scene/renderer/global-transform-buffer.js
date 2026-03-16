@@ -38,6 +38,14 @@ class GlobalTransformBuffer {
     dirty = false;
 
     /**
+     * Set of GraphNodes whose worldTransform.data is a view into this staging buffer.
+     * Used to re-bind views after resize.
+     *
+     * @type {Set<import('../../scene/graph-node.js').GraphNode>}
+     */
+    registeredNodes = new Set();
+
+    /**
      * @param {GraphicsDevice} device - The graphics device.
      * @param {number} [initialCapacity] - Initial number of transform slots.
      */
@@ -77,6 +85,36 @@ class GlobalTransformBuffer {
         if (index >= 0) {
             this.freeSlots.push(index);
         }
+    }
+
+    /**
+     * Return a Float32Array view into the staging buffer for the given slot.
+     * The view shares the same underlying ArrayBuffer, so writes to it are
+     * automatically reflected in the staging buffer (zero-copy).
+     *
+     * @param {number} slot - The slot index.
+     * @returns {Float32Array} A 16-element view into the staging buffer.
+     */
+    getSlotView(slot) {
+        return new Float32Array(this.stagingBuffer.buffer, slot * BYTES_PER_MATRIX, FLOATS_PER_MATRIX);
+    }
+
+    /**
+     * Register a GraphNode whose worldTransform.data points into this staging buffer.
+     *
+     * @param {import('../../scene/graph-node.js').GraphNode} node - The node to register.
+     */
+    registerNode(node) {
+        this.registeredNodes.add(node);
+    }
+
+    /**
+     * Unregister a previously registered GraphNode.
+     *
+     * @param {import('../../scene/graph-node.js').GraphNode} node - The node to unregister.
+     */
+    unregisterNode(node) {
+        this.registeredNodes.delete(node);
     }
 
     /**
@@ -126,6 +164,14 @@ class GlobalTransformBuffer {
             this.storageBuffer.copy(oldBuffer, 0, 0, oldStaging.byteLength);
             oldBuffer.destroy();
         }
+
+        // Re-bind all registered nodes' worldTransform.data to the new staging buffer
+        for (const node of this.registeredNodes) {
+            const slot = node._globalTransformSlot;
+            if (slot >= 0) {
+                node.worldTransform.data = this.getSlotView(slot);
+            }
+        }
     }
 
     destroy() {
@@ -134,6 +180,7 @@ class GlobalTransformBuffer {
             this.storageBuffer = null;
         }
         this.stagingBuffer = null;
+        this.registeredNodes.clear();
     }
 }
 

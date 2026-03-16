@@ -134,6 +134,16 @@ class ForwardRenderer extends Renderer {
         this.textureArrayBatchingEnabled = false;
 
         /**
+         * Whether the Data-Oriented (DO) pipeline is enabled. When true, world transforms are
+         * written directly into the GlobalTransformBuffer staging area (zero-copy) and draw calls
+         * use firstInstance to pass the transform slot index instead of indirect draws.
+         * Opaque objects use RenderBundles; transparent objects use per-draw calls.
+         *
+         * @type {boolean}
+         */
+        this.doPipelineEnabled = false;
+
+        /**
          * Pipeline groups for compacted indirect draws, set by _dispatchGpuDrivenCompaction.
          *
          * @type {Array|null}
@@ -710,6 +720,17 @@ class ForwardRenderer extends Renderer {
         const forwardStartTime = now();
         // #endif
 
+        // DO pipeline takes a completely separate path — no updateGlobalTransforms or indirect draws
+        const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
+        if (this.doPipelineEnabled && !drawCallback && !hasXR) {
+            this.renderForwardDO(camera, renderTarget, allDrawCalls, sortedLights, pass, layer, flipFaces, viewBindGroups, transparent);
+
+            // #if _PROFILER
+            this._forwardTime += now() - forwardStartTime;
+            // #endif
+            return;
+        }
+
         // GPU-driven rendering requires the material storage buffer system
         if (this.gpuDrivenEnabled) {
             this.materialStorageBufferEnabled = true;
@@ -753,8 +774,6 @@ class ForwardRenderer extends Renderer {
             }
         }
 
-        // XR multiview uses setViewport per view which is incompatible with render bundles
-        const hasXR = camera.xr?.session && camera.xr.views.list.length > 0;
         if (this.gpuDrivenEnabled && !drawCallback && !hasXR) {
             // GPU-driven path: merged geometry, compute culling, compacted indirect draws
             this.renderForwardGpuDriven(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups, transparent);
@@ -879,6 +898,245 @@ class ForwardRenderer extends Renderer {
                 this._renderSingleDrawCall(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
             }
         }
+    }
+
+    /**
+     * Data-Oriented (DO) pipeline entry point. Zero-copy transforms are already in the staging
+     * buffer (written by _sync), so we only need to upload and render.
+     *
+     * @param {Camera} camera - The camera.
+     * @param {RenderTarget|undefined} renderTarget - The render target.
+     * @param {MeshInstance[]} allDrawCalls - All draw calls.
+     * @param {Array} sortedLights - Sorted lights.
+     * @param {number} pass - The shader pass.
+     * @param {Layer} layer - The layer.
+     * @param {boolean} flipFaces - Whether to flip faces.
+     * @param {BindGroup[]} viewBindGroups - View bind groups.
+     * @param {boolean} transparent - Whether rendering transparent sublayer.
+     * @ignore
+     */
+    renderForwardDO(camera, renderTarget, allDrawCalls, sortedLights, pass, layer, flipFaces, viewBindGroups, transparent) {
+        const device = this.device;
+
+        // sync materialStorageBufferEnabled flag to scene for shader options
+        this.scene._materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+
+        // 1. Ensure all draw calls have DO bindings (zero-copy worldTransform -> staging buffer)
+        for (let i = 0; i < allDrawCalls.length; i++) {
+            allDrawCalls[i].ensureDOBinding(device);
+        }
+
+        // 2. Upload staging buffer to GPU (single writeBuffer — _sync already wrote the data)
+        const gtb = this.globalTransformBuffer;
+        if (gtb) {
+            gtb.dirty = true;
+            gtb.upload();
+            this.globalTransformsId.setValue(gtb.storageBuffer);
+        }
+
+        // 3. Material/shader preparation (reuse existing)
+        const preparedCalls = this.renderForwardPrepareMaterials(
+            camera, renderTarget, allDrawCalls, sortedLights, layer, pass);
+
+        // 4. MSB upload
+        const msb = this.materialStorageBuffer;
+        if (msb && msb.dirty) {
+            msb.upload();
+            if (this.globalMaterialsId) {
+                this.globalMaterialsId.setValue(msb.storageBuffer);
+            }
+            if (viewBindGroups) {
+                for (let i = 0; i < viewBindGroups.length; i++) {
+                    viewBindGroups[i].update();
+                }
+            }
+        }
+
+        // 5. Render
+        if (transparent) {
+            this.renderForwardDOTransparent(camera, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups);
+        } else {
+            this.renderForwardDOOpaque(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups);
+        }
+
+        _drawCallList.clear();
+    }
+
+    /**
+     * DO pipeline: opaque rendering using RenderBundles.
+     * Same as renderForwardBundled but uses _renderSingleDrawCallDO (firstInstance-based).
+     *
+     * @ignore
+     */
+    renderForwardDOOpaque(camera, renderTarget, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups) {
+        const device = this.device;
+        const bundleCache = this._bundleCache;
+        const grouper = this._drawCallGrouper;
+
+        grouper.materialStorageBufferEnabled = this.materialStorageBufferEnabled;
+
+        const groups = grouper.groupDrawCalls(preparedCalls);
+
+        const rt = renderTarget || device.backBuffer;
+        const wrt = rt.impl;
+        const bundleDesc = wrt.getRenderBundleDescriptor();
+
+        const bundlesToExecute = [];
+        const unbundledIndices = [];
+
+        for (const [key, group] of groups) {
+            if (group.indices.length === 0) continue;
+
+            let bundle = null;
+            if (!group.needsRebundle) {
+                bundle = bundleCache.get(key, pass);
+            }
+
+            if (!bundle) {
+                device.startBundleEncoder(bundleDesc);
+
+                if (device.supportsUniformBuffers) {
+                    device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+                }
+
+                for (let g = 0; g < group.indices.length; g++) {
+                    const idx = group.indices[g];
+                    this._renderSingleDrawCallDO(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+                }
+
+                bundle = device.finishBundleEncoder();
+                bundleCache.set(key, bundle, pass);
+                group.needsRebundle = false;
+            }
+
+            bundlesToExecute.push(bundle);
+        }
+
+        if (bundlesToExecute.length > 0) {
+            device.executeBundles(bundlesToExecute);
+        }
+
+        // Non-bundleable draws (skinned, morphed) via legacy per-draw path
+        const { drawCalls } = preparedCalls;
+        for (let i = 0; i < drawCalls.length; i++) {
+            if (!DrawCallGrouper.isBundleable(drawCalls[i])) {
+                unbundledIndices.push(i);
+            }
+        }
+
+        if (unbundledIndices.length > 0) {
+            if (device.supportsUniformBuffers) {
+                device.setBindGroup(BINDGROUP_VIEW, viewBindGroups[0]);
+            }
+
+            for (let u = 0; u < unbundledIndices.length; u++) {
+                const idx = unbundledIndices[u];
+                this._renderSingleDrawCallDO(device, preparedCalls, idx, camera, sortedLights, pass, flipFaces, viewBindGroups);
+            }
+        }
+    }
+
+    /**
+     * DO pipeline: transparent rendering via per-draw calls.
+     * Sort order is already applied by layer. Uses firstInstance for transform slot.
+     *
+     * @ignore
+     */
+    renderForwardDOTransparent(camera, preparedCalls, sortedLights, pass, flipFaces, viewBindGroups) {
+        const device = this.device;
+        const preparedCallsCount = preparedCalls.drawCalls.length;
+
+        for (let i = 0; i < preparedCallsCount; i++) {
+            this._renderSingleDrawCallDO(device, preparedCalls, i, camera, sortedLights, pass, flipFaces, viewBindGroups);
+        }
+    }
+
+    /**
+     * Render a single draw call for the DO pipeline. Similar to _renderSingleDrawCall but
+     * uses firstInstance = _globalTransformSlot instead of indirect draw commands.
+     *
+     * @ignore
+     */
+    _renderSingleDrawCallDO(device, preparedCalls, i, camera, sortedLights, pass, flipFaces, viewBindGroups) {
+        const passFlag = 1 << pass;
+        const flipFactor = flipFaces ? -1 : 1;
+
+        /** @type {MeshInstance} */
+        const drawCall = preparedCalls.drawCalls[i];
+        const newMaterial = preparedCalls.isNewMaterial[i];
+        const lightMaskChanged = preparedCalls.lightMaskChanged[i];
+        const shaderInstance = preparedCalls.shaderInstances[i];
+        const material = drawCall.material;
+        const lightMask = drawCall.mask;
+
+        if (shaderInstance.shader.failed) return;
+
+        if (newMaterial) {
+            const asyncCompile = false;
+            device.setShader(shaderInstance.shader, asyncCompile);
+            if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+                material.setParametersTextureOnly(device);
+            } else {
+                material.setParameters(device);
+            }
+
+            if (lightMaskChanged) {
+                this.dispatchDirectLights(sortedLights[LIGHTTYPE_DIRECTIONAL], lightMask, camera);
+            }
+
+            this.alphaTestId.setValue(material.alphaTest);
+            device.setBlendState(material.blendState);
+            device.setDepthState(material.depthState);
+            device.setAlphaToCoverage(material.alphaToCoverage);
+        }
+
+        DebugGraphics.pushGpuMarker(device, `Node: ${drawCall.node.name}, Material: ${material.name}`);
+
+        this.setupCullModeAndFrontFace(camera._cullFaces, flipFactor, drawCall);
+
+        const stencilFront = drawCall.stencilFront ?? material.stencilFront;
+        const stencilBack = drawCall.stencilBack ?? material.stencilBack;
+        device.setStencilState(stencilFront, stencilBack);
+
+        drawCall.setParameters(device, passFlag);
+        device.scope.resolve('meshInstanceId').setValue(drawCall.id);
+
+        if (this.materialStorageBufferEnabled && material._materialSlot >= 0) {
+            this.materialIndexId.setValue(material._materialSlot);
+        }
+
+        const mesh = drawCall.mesh;
+        this.setVertexBuffers(device, mesh);
+        this.setMorphing(device, drawCall.morphInstance);
+        this.setSkinning(device, drawCall);
+
+        const instancingData = drawCall.instancingData;
+        if (instancingData) {
+            device.setVertexBuffer(instancingData.vertexBuffer);
+        }
+
+        // Set model matrix uniform (still needed for normal matrix and non-GTB shaders)
+        this.setMeshInstanceMatrices(drawCall, true);
+
+        this.setupMeshUniformBuffers(shaderInstance);
+
+        const style = drawCall.renderStyle;
+        const indexBuffer = mesh.indexBuffer[style];
+
+        // Use firstInstance = transform slot instead of indirect draw
+        const transformSlot = drawCall._globalTransformSlot;
+        const firstInstance = transformSlot >= 0 ? transformSlot : 0;
+
+        device.draw(mesh.primitive[style], indexBuffer, instancingData?.count ?? 1, null, true, true, firstInstance);
+        this._forwardDrawCalls++;
+
+        // Unset meshInstance overrides back to material values if next draw call will use the same material
+        const preparedCallsCount = preparedCalls.drawCalls.length;
+        if (i < preparedCallsCount - 1 && !preparedCalls.isNewMaterial[i + 1]) {
+            material.setParameters(device, drawCall.parameters);
+        }
+
+        DebugGraphics.popGpuMarker(device);
     }
 
     /**
